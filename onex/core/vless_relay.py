@@ -3,6 +3,7 @@
 # used by the XHTTP backend.
 
 import asyncio
+import hashlib
 import secrets
 import socket
 import time
@@ -76,6 +77,66 @@ async def parse_vless_header(chunk: bytes):
     else:
         raise ValueError(f"unknown addr type: {addr_type}")
     return command, address, port, chunk[pos:]
+
+
+class TrojanHeaderIncomplete(ValueError):
+    """Raised when a Trojan request is valid so far but needs more bytes."""
+
+
+async def parse_trojan_header(chunk: bytes):
+    """Parse a Trojan request from a possibly fragmented transport buffer."""
+    if len(chunk) < 58:
+        raise TrojanHeaderIncomplete("trojan header incomplete")
+    pw_hash = chunk[:56].decode("ascii", errors="ignore").lower()
+    if len(pw_hash) != 56 or any(c not in "0123456789abcdef" for c in pw_hash):
+        raise ValueError("invalid password hash")
+    pos = 56
+    if chunk[pos:pos + 2] != b"\r\n":
+        raise ValueError("missing header CRLF")
+    pos += 2
+    if len(chunk) <= pos:
+        raise TrojanHeaderIncomplete("trojan command incomplete")
+    command = chunk[pos]
+    pos += 1
+    if command not in (1, 3):
+        raise ValueError(f"unsupported trojan command: {command}")
+    if len(chunk) <= pos:
+        raise TrojanHeaderIncomplete("trojan address type incomplete")
+    addr_type = chunk[pos]
+    pos += 1
+    if addr_type == 1:
+        need = 4
+        if len(chunk) < pos + need + 2 + 2:
+            raise TrojanHeaderIncomplete("trojan IPv4 request incomplete")
+        address = ".".join(str(b) for b in chunk[pos:pos + 4])
+        pos += 4
+    elif addr_type == 3:
+        if len(chunk) <= pos:
+            raise TrojanHeaderIncomplete("trojan domain length incomplete")
+        dlen = chunk[pos]
+        pos += 1
+        if dlen == 0 or dlen > 255:
+            raise ValueError("invalid trojan domain length")
+        if len(chunk) < pos + dlen + 2 + 2:
+            raise TrojanHeaderIncomplete("trojan domain request incomplete")
+        address = chunk[pos:pos + dlen].decode("utf-8", errors="strict")
+        pos += dlen
+    elif addr_type == 4:
+        if len(chunk) < pos + 16 + 2 + 2:
+            raise TrojanHeaderIncomplete("trojan IPv6 request incomplete")
+        ab = chunk[pos:pos + 16]
+        pos += 16
+        address = ":".join(f"{ab[i]:02x}{ab[i + 1]:02x}" for i in range(0, 16, 2))
+    else:
+        raise ValueError(f"unknown addr type: {addr_type}")
+    if len(chunk) < pos + 2 + 2:
+        raise TrojanHeaderIncomplete("trojan port incomplete")
+    port = int.from_bytes(chunk[pos:pos + 2], "big")
+    pos += 2
+    if chunk[pos:pos + 2] != b"\r\n":
+        raise ValueError("missing trailing CRLF")
+    pos += 2
+    return pw_hash, command, address, port, chunk[pos:]
 
 
 async def check_and_use(uid: str, n: int) -> bool:
@@ -194,7 +255,7 @@ async def relay_ws_to_tcp(ws: WebSocket, writer: asyncio.StreamWriter, conn_id: 
             pass
 
 
-async def relay_tcp_to_ws(ws: WebSocket, reader: asyncio.StreamReader, conn_id: str, uid: str, gate: _QuotaGate):
+async def relay_tcp_to_ws(ws: WebSocket, reader: asyncio.StreamReader, conn_id: str, uid: str, gate: _QuotaGate, first_reply_prefix: bytes = b"\x00\x00"):
     first = True
     try:
         while True:
@@ -206,7 +267,7 @@ async def relay_tcp_to_ws(ws: WebSocket, reader: asyncio.StreamReader, conn_id: 
                 break
             await throttle(uid, len(data))
             connections[conn_id]["bytes"] += len(data)
-            payload = (b"\x00\x00" + data) if first else data
+            payload = (first_reply_prefix + data) if first else data
             first = False
             await ws.send_bytes(payload)
     except asyncio.CancelledError:
@@ -233,15 +294,16 @@ async def websocket_tunnel(ws: WebSocket, uuid: str):
         await ws.close(code=1008, reason="ip limit reached")
         return
 
+    protocol = str((link or {}).get("protocol") or "vless-ws")
     conn_id = secrets.token_urlsafe(6)
     connections[conn_id] = {
         "uuid": uuid,
         "ip": ip,
-        "transport": "vless-ws",
+        "transport": protocol,
         "connected_at": datetime.now().isoformat(),
         "bytes": 0,
     }
-    logger.info(f"✅ WS [{conn_id}] uuid={uuid[:8]}… ip={ip} total={len(connections)}")
+    logger.info(f"✅ WS [{conn_id}] uuid={uuid[:8]}… ip={ip} proto={protocol} total={len(connections)}")
     log_activity("connection", f"اتصال جدید از {ip} (کانفیگ {link.get('label','?')})", "info")
 
     writer = None
@@ -254,7 +316,36 @@ async def websocket_tunnel(ws: WebSocket, uuid: str):
         if not first_chunk:
             return
 
-        command, address, port, payload = await parse_vless_header(first_chunk)
+        reply_prefix = b"\x00\x00"
+        if protocol == "trojan-ws":
+            header_buf = bytearray(first_chunk)
+            while True:
+                try:
+                    pw_hash, command, address, port, payload = await parse_trojan_header(bytes(header_buf))
+                    break
+                except TrojanHeaderIncomplete:
+                    msg = await asyncio.wait_for(ws.receive(), timeout=15.0)
+                    if msg["type"] == "websocket.disconnect":
+                        return
+                    more = msg.get("bytes") or (msg.get("text") or "").encode()
+                    if not more:
+                        continue
+                    header_buf.extend(more)
+                    if len(header_buf) > 64 * 1024:
+                        raise ValueError("trojan header too large")
+                except Exception:
+                    logger.warning(f"🚫 trojan-ws bad header uuid={uuid[:8]}…")
+                    await ws.close(code=1008, reason="bad request")
+                    return
+            expected = hashlib.sha224(uuid.encode()).hexdigest()
+            if not secrets.compare_digest(pw_hash, expected):
+                logger.warning(f"🚫 trojan-ws auth failed uuid={uuid[:8]}…")
+                await ws.close(code=1008, reason="auth failed")
+                return
+            reply_prefix = b""
+            first_chunk = bytes(header_buf)
+        else:
+            command, address, port, payload = await parse_vless_header(first_chunk)
         if not await gate.add(len(first_chunk)):
             await ws.close(code=1008, reason="quota/disabled")
             return
@@ -272,7 +363,7 @@ async def websocket_tunnel(ws: WebSocket, uuid: str):
         done, pending = await asyncio.wait(
             {
                 asyncio.create_task(relay_ws_to_tcp(ws, writer, conn_id, uuid, gate)),
-                asyncio.create_task(relay_tcp_to_ws(ws, reader, conn_id, uuid, gate)),
+                asyncio.create_task(relay_tcp_to_ws(ws, reader, conn_id, uuid, gate, first_reply_prefix=reply_prefix)),
             },
             return_when=asyncio.FIRST_COMPLETED,
         )
