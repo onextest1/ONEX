@@ -167,6 +167,24 @@ async def onex_panel_logo():
     return FileResponse(path, media_type="image/png", headers={"Cache-Control": "no-cache, max-age=0, must-revalidate"})
 
 
+@app.get("/api/onex-dashboard-logo.svg", include_in_schema=False)
+async def onex_dashboard_logo():
+    """Serve the current ONEX dashboard wordmark."""
+    path = BASE_DIR / "assets" / "branding" / "onex-dashboard-logo.svg"
+    if not path.is_file():
+        raise HTTPException(status_code=404, detail="ONEX dashboard logo not found")
+    return FileResponse(path, media_type="image/svg+xml", headers={"Cache-Control": "no-cache, max-age=0, must-revalidate"})
+
+
+@app.get("/api/onex-menu-icon.svg", include_in_schema=False)
+async def onex_menu_icon():
+    """Serve the custom ONEX mobile menu icon."""
+    path = BASE_DIR / "assets" / "branding" / "onex-menu-icon.svg"
+    if not path.is_file():
+        raise HTTPException(status_code=404, detail="ONEX menu icon not found")
+    return FileResponse(path, media_type="image/svg+xml", headers={"Cache-Control": "no-cache, max-age=0, must-revalidate"})
+
+
 @app.get("/api/protocol-icon/{protocol_id}.png", include_in_schema=False)
 async def protocol_icon(protocol_id: str):
     """Serve a bundled protocol icon for the create-config picker."""
@@ -9269,14 +9287,39 @@ html.light .protocol-picker-bg{background:rgba(15,23,42,.28)}html.light .protoco
 .all-proto-toggle{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:10px 0 14px;padding:12px 14px;border:1px solid rgba(34,197,94,.22);border-radius:14px;background:rgba(34,197,94,.035);cursor:pointer;user-select:none}
 .all-proto-toggle span{display:block;min-width:0}.all-proto-toggle b{display:block;font-size:12px}.all-proto-toggle small{display:block;color:var(--t3);font-size:10px;margin-top:4px;line-height:1.6}.all-proto-toggle input{position:absolute;opacity:0;pointer-events:none}.all-proto-toggle i{position:relative;flex:0 0 48px;width:48px;height:28px;border-radius:999px;background:#4b5563;transition:.2s;box-shadow:inset 0 0 0 1px rgba(255,255,255,.12)}.all-proto-toggle i:before{content:"";position:absolute;top:4px;right:24px;width:20px;height:20px;border-radius:50%;background:#fff;box-shadow:0 2px 6px rgba(0,0,0,.35);transition:.2s}.all-proto-toggle:has(input:checked) i{background:#22c55e;box-shadow:0 0 12px rgba(34,197,94,.28)}.all-proto-toggle:has(input:checked) i:before{right:4px}.all-proto-toggle:focus-within{outline:2px solid rgba(34,197,94,.35);outline-offset:2px}
 </style>
+<style>
+/* ONEX 1.3.9 — dashboard brand + custom mobile menu mark */
+.mob-bar{position:relative!important;}
+.mob-brand{position:absolute!important;left:50%!important;top:50%!important;transform:translate(-50%,-50%)!important;width:min(154px,34vw)!important;height:48px!important;display:flex!important;align-items:center!important;justify-content:center!important;pointer-events:none!important;}
+.mob-brand-logo{display:block!important;width:154px!important;height:48px!important;object-fit:contain!important;filter:drop-shadow(0 0 8px rgba(59,130,246,.28)) drop-shadow(0 5px 12px rgba(0,0,0,.35))!important;}
+.mob-brand-text{display:none!important;}
+.mob-menu-btn{display:grid!important;place-items:center!important;padding:0!important;}
+.mob-menu-btn img{width:31px!important;height:31px!important;display:block!important;object-fit:contain!important;}
+.mob-menu-btn{transition:transform .18s ease,filter .18s ease!important;}
+.mob-menu-btn:hover{filter:brightness(1.08)!important;}
+.mob-menu-btn:active{transform:scale(.94)!important;}
+.mob-menu-btn[aria-expanded="true"]{transform:rotate(90deg)!important;}
+@media(max-width:420px){
+  .mob-brand{width:136px!important;height:43px!important;}
+  .mob-brand-logo{width:136px!important;height:43px!important;}
+  .mob-menu-btn img{width:29px!important;height:29px!important;}
+}
+@media(max-width:360px){
+  .mob-brand{width:124px!important;height:40px!important;}
+  .mob-brand-logo{width:124px!important;height:40px!important;}
+  .mob-menu-btn img{width:27px!important;height:27px!important;}
+}
+</style>
 </head>
 <body>
 
 <div class="mob-bar" id="mobBar">
-  <button class="mob-menu-btn" id="mobMenuBtn" aria-label="منو">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
+  <button class="mob-menu-btn" id="mobMenuBtn" aria-label="منو" aria-expanded="false">
+    <img src="/api/onex-menu-icon.svg" alt="" aria-hidden="true">
   </button>
-  <div class="mob-brand"><div class="mob-brand-text"><span>پنل مدیریت</span></div></div>
+  <div class="mob-brand" aria-label="ONEX Control Panel">
+    <img class="mob-brand-logo" src="/api/onex-dashboard-logo.svg" alt="ONEX Control Panel">
+  </div>
   <div class="mob-status"><i></i><span>آنلاین</span></div>
 </div>
 <div class="overlay" id="overlay"></div>
@@ -11898,9 +11941,10 @@ function toggleTheme(){
 
 const sb=document.getElementById('sidebar'),main=document.getElementById('main');
 const mobMenuBtn=document.getElementById('mobMenuBtn'),overlay=document.getElementById('overlay');
-function closeMobileNav(){ if(sb) sb.classList.remove('mobile-open'); if(overlay) overlay.classList.remove('show'); }
-function openMobileNav(){ if(sb) sb.classList.add('mobile-open'); if(overlay) overlay.classList.add('show'); }
+function closeMobileNav(){ if(sb) sb.classList.remove('mobile-open'); if(overlay) overlay.classList.remove('show'); syncMobileMenuState(); }
+function openMobileNav(){ if(sb) sb.classList.add('mobile-open'); if(overlay) overlay.classList.add('show'); syncMobileMenuState(); }
 if(mobMenuBtn) mobMenuBtn.onclick=()=>{ if(sb.classList.contains('mobile-open')) closeMobileNav(); else openMobileNav(); };
+function syncMobileMenuState(){ if(mobMenuBtn) mobMenuBtn.setAttribute('aria-expanded', sb.classList.contains('mobile-open') ? 'true' : 'false'); }
 if(overlay) overlay.onclick=closeMobileNav;
 
 document.getElementById('sbToggle').onclick=()=>{
