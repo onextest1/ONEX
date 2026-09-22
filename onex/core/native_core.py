@@ -120,6 +120,14 @@ def _protocol_safe_advanced(advanced: dict[str, Any], protocol: str, *, all_prot
             tls["enabled"] = True
         elif protocol == "trojan" and str(tls.get("mode") or "tls").lower() == "reality":
             tls["mode"] = "tls"
+
+    # gRPC is one of the native protocols included by an all-protocol account.
+    # Its service name is independent from the selected UI protocol, so a
+    # generic all-protocol configuration must still have a valid value.
+    host = a.setdefault("host", {})
+    if str(n.get("type") or "").lower() == "grpc" and not str(host.get("service_name") or n.get("service_name") or "").strip():
+        host["service_name"] = str(n.get("service_name") or "ONEX").strip() or "ONEX"
+        n["service_name"] = host["service_name"]
     return a
 
 

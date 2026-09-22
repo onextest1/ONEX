@@ -63,8 +63,14 @@ FINGERPRINTS = {
 DEFAULT_FINGERPRINT = "chrome"
 
 
-def _resp_headers(fp: str) -> dict:
-    return dict(FINGERPRINTS.get(fp, FINGERPRINTS[DEFAULT_FINGERPRINT]))
+def _resp_headers(fp: str, *, stream_one: bool = False) -> dict:
+    headers = dict(FINGERPRINTS.get(fp, FINGERPRINTS[DEFAULT_FINGERPRINT]))
+    # Xray stream-one keeps the HTTP response open as the downstream tunnel.
+    # Its native XHTTP server uses an SSE-compatible response content type so
+    # HTTP/1.1 intermediaries flush the body instead of buffering it.
+    if stream_one:
+        headers["content-type"] = "text/event-stream"
+    return headers
 
 
 def _tune_socket(writer: asyncio.StreamWriter):
@@ -144,6 +150,28 @@ def _req_client_ip(request: Request) -> str:
     if real_ip:
         return real_ip.strip()
     return request.client.host if request.client else "نامشخص"
+
+
+def _vless_header_complete(buf: bytes) -> bool:
+    """Return True only when the complete VLESS request header is buffered."""
+    if len(buf) < 19:  # version + UUID + addons length + command
+        return False
+    addon_len = buf[17]
+    pos = 18 + addon_len
+    if len(buf) < pos + 4:  # command + port + address type
+        return False
+    addr_type = buf[pos + 3]
+    if addr_type == 1:
+        need = pos + 3 + 1 + 4
+    elif addr_type == 2:
+        if len(buf) < pos + 5:
+            return False
+        need = pos + 3 + 1 + 1 + buf[pos + 4]
+    elif addr_type == 3:
+        need = pos + 3 + 1 + 16
+    else:
+        raise ValueError(f"unknown addr type: {addr_type}")
+    return len(buf) >= need
 
 
 async def _open_tcp_from_header(first_chunk: bytes):
@@ -434,11 +462,11 @@ async def stream_up_upload(uuid: str, session_id: str, request: Request):
     await gate.flush()
     return {"ok": True}
 
-# ══════════════════════════════ STREAM-ONE (یک درخواست دوطرفه) ══════════════════════════════
-# در stream-one، همان HTTP POST همزمان کانال uplink و downlink است. بدنه‌ی
-# request به‌صورت streaming خوانده می‌شود و پاسخ HTTP نیز به‌صورت streaming
-# از صف down_q برگردانده می‌شود. این همان چیزی است که این mode را از
-# stream-up (POST برای uplink + GET جدا برای downlink) متمایز می‌کند.
+# ══════════════════════════════ STREAM-ONE ══════════════════════════════
+# Xray's stream-one wire format is a single long-lived POST whose URL contains
+# only the configured path.  Unlike packet-up/stream-up, the session id is NOT
+# appended to the URL; Xray keeps the request/response pair as one connection.
+# The response body is the downstream half of the same tunnel.
 async def _stream_one_uplink(session_id: str, uuid: str, sess: dict, request: Request):
     gate = sess.get("gate")
     if gate is None:
@@ -452,6 +480,8 @@ async def _stream_one_uplink(session_id: str, uuid: str, sess: dict, request: Re
 
     conn = connections.get(sess["conn_id"])
     writer = sess.get("writer")
+    header_buf = bytearray()
+    max_header = 64 * 1024
 
     try:
         async for chunk in request.stream():
@@ -462,16 +492,22 @@ async def _stream_one_uplink(session_id: str, uuid: str, sess: dict, request: Re
             if not await gate.add(len(chunk)):
                 raise HTTPException(status_code=403, detail="quota/disabled/unknown")
             await throttle(uuid, len(chunk))
-
             stats["total_requests"] += 1
             if conn:
                 conn["bytes"] += len(chunk)
 
             if writer is None:
-                # اولین chunk شامل VLESS header است و _open_tcp_from_header
-                # همان chunk را بعد از باز کردن مقصد به مقصد remote تحویل می‌دهد.
-                await _open_tcp_for_session(session_id, uuid, sess, chunk)
+                # HTTP chunk boundaries are not VLESS frame boundaries. The
+                # first VLESS header may be split across multiple ASGI chunks,
+                # so buffer only until the complete address/header is present.
+                header_buf.extend(chunk)
+                if len(header_buf) > max_header:
+                    raise ValueError("VLESS header is too large")
+                if not _vless_header_complete(header_buf):
+                    continue
+                await _open_tcp_for_session(session_id, uuid, sess, bytes(header_buf))
                 writer = sess["writer"]
+                header_buf.clear()
                 continue
 
             writer.write(chunk)
@@ -487,34 +523,53 @@ async def _stream_one_uplink(session_id: str, uuid: str, sess: dict, request: Re
     except Exception as exc:
         error_logs.append({"error": str(exc), "time": datetime.now().isoformat()})
     finally:
-        # پایان request یعنی پایان stream-one؛ TCP مقصد و response generator
-        # نیز باید بسته شوند تا session معلق باقی نماند.
+        # The request/response pair is the stream-one session. When either side
+        # finishes, close the tunnel and release the server-side session.
         await _teardown(session_id)
 
 
-@router.post("/xhttp-siz10/stream-one/{uuid}/{session_id}")
-async def stream_one(session_id: str, uuid: str, request: Request):
-    ensure_reaper()
+async def _stream_one_response(session_id: str, uuid: str, request: Request):
     await _check_link(uuid)
-
     sess = await _get_or_create_session(
         uuid, "stream-one", session_id, _req_client_ip(request)
     )
     if sess.get("closed"):
         raise HTTPException(status_code=404, detail="session closed")
 
-    # مصرف request.stream باید همزمان با تولید response انجام شود؛ اگر آن را
-    # در خود generator بخوانیم، پاسخ تا پایان upload ارسال نمی‌شود و stream-one
-    # عملاً full-duplex نخواهد بود.
+    # Consume the request body concurrently with the response generator. This
+    # is required for true full-duplex stream-one operation.
     sess["uplink_task"] = asyncio.create_task(
         _stream_one_uplink(session_id, uuid, sess, request)
     )
 
     fp = request.query_params.get("fp", DEFAULT_FINGERPRINT)
-    headers = _resp_headers(fp)
+    headers = _resp_headers(fp, stream_one=True)
+    headers["cache-control"] = "no-store"
+    headers["x-accel-buffering"] = "no"
     return StreamingResponse(
         _downstream_gen(sess),
         headers=headers,
         media_type=headers["content-type"],
     )
+
+
+# Canonical Xray stream-one endpoint: path + UUID, no session id in the URL.
+@router.post("/xhttp-siz10/stream-one/{uuid}")
+@router.post("/xhttp-siz10/stream-one/{uuid}/")
+async def stream_one(uuid: str, request: Request):
+    ensure_reaper()
+    # Server-side correlation id; Xray keeps its stream-one session inside the
+    # HTTP request/response rather than putting it in the URL.
+    session_id = "one-" + secrets.token_urlsafe(18)
+    return await _stream_one_response(session_id, uuid, request)
+
+
+# Keep compatibility with the earlier ONEX experimental URL form. This is not
+# used by generated Xray stream-one links, but allows older clients/configs to
+# continue working while they are migrated.
+@router.post("/xhttp-siz10/stream-one/{uuid}/{session_id}")
+@router.post("/xhttp-siz10/stream-one/{uuid}/{session_id}/")
+async def stream_one_legacy(uuid: str, session_id: str, request: Request):
+    ensure_reaper()
+    return await _stream_one_response(session_id, uuid, request)
 
