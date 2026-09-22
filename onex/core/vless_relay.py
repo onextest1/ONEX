@@ -79,58 +79,33 @@ async def parse_vless_header(chunk: bytes):
     return command, address, port, chunk[pos:]
 
 
-class TrojanHeaderIncomplete(ValueError):
-    """Raised when a Trojan request is valid so far but needs more bytes."""
-
-
 async def parse_trojan_header(chunk: bytes):
-    """Parse a Trojan request from a possibly fragmented transport buffer."""
-    if len(chunk) < 58:
-        raise TrojanHeaderIncomplete("trojan header incomplete")
+    """Parse a Trojan request carried inside a WebSocket frame."""
+    if len(chunk) < 56 + 2 + 1 + 1 + 2 + 2:
+        raise ValueError("chunk too small")
     pw_hash = chunk[:56].decode("ascii", errors="ignore").lower()
-    if len(pw_hash) != 56 or any(c not in "0123456789abcdef" for c in pw_hash):
-        raise ValueError("invalid password hash")
     pos = 56
     if chunk[pos:pos + 2] != b"\r\n":
         raise ValueError("missing header CRLF")
     pos += 2
-    if len(chunk) <= pos:
-        raise TrojanHeaderIncomplete("trojan command incomplete")
     command = chunk[pos]
     pos += 1
-    if command not in (1, 3):
-        raise ValueError(f"unsupported trojan command: {command}")
-    if len(chunk) <= pos:
-        raise TrojanHeaderIncomplete("trojan address type incomplete")
     addr_type = chunk[pos]
     pos += 1
     if addr_type == 1:
-        need = 4
-        if len(chunk) < pos + need + 2 + 2:
-            raise TrojanHeaderIncomplete("trojan IPv4 request incomplete")
         address = ".".join(str(b) for b in chunk[pos:pos + 4])
         pos += 4
     elif addr_type == 3:
-        if len(chunk) <= pos:
-            raise TrojanHeaderIncomplete("trojan domain length incomplete")
         dlen = chunk[pos]
         pos += 1
-        if dlen == 0 or dlen > 255:
-            raise ValueError("invalid trojan domain length")
-        if len(chunk) < pos + dlen + 2 + 2:
-            raise TrojanHeaderIncomplete("trojan domain request incomplete")
-        address = chunk[pos:pos + dlen].decode("utf-8", errors="strict")
+        address = chunk[pos:pos + dlen].decode("utf-8", errors="ignore")
         pos += dlen
     elif addr_type == 4:
-        if len(chunk) < pos + 16 + 2 + 2:
-            raise TrojanHeaderIncomplete("trojan IPv6 request incomplete")
         ab = chunk[pos:pos + 16]
         pos += 16
         address = ":".join(f"{ab[i]:02x}{ab[i + 1]:02x}" for i in range(0, 16, 2))
     else:
         raise ValueError(f"unknown addr type: {addr_type}")
-    if len(chunk) < pos + 2 + 2:
-        raise TrojanHeaderIncomplete("trojan port incomplete")
     port = int.from_bytes(chunk[pos:pos + 2], "big")
     pos += 2
     if chunk[pos:pos + 2] != b"\r\n":
@@ -276,115 +251,6 @@ async def relay_tcp_to_ws(ws: WebSocket, reader: asyncio.StreamReader, conn_id: 
         pass
 
 
-async def trojan_ws_tunnel(ws: WebSocket):
-    """Dedicated Trojan-over-WebSocket endpoint (Lunel-compatible).
-
-    Unlike VLESS, Trojan WS has no UUID in the URL. The SHA-224 password hash
-    in the first frame identifies the link, so the endpoint stays stable at
-    /trojan-ws and works with standard Trojan WS clients.
-    """
-    await ws.accept()
-    try:
-        first_msg = await asyncio.wait_for(ws.receive(), timeout=15.0)
-    except (WebSocketDisconnect, asyncio.TimeoutError):
-        return
-    if first_msg.get("type") == "websocket.disconnect":
-        return
-    first_chunk = first_msg.get("bytes") or (first_msg.get("text") or "").encode()
-    if not first_chunk:
-        return
-
-    # Resolve the account from the Trojan password hash, as standard clients
-    # do not put the ONEX UUID in the WebSocket path.
-    pw_hash = first_chunk[:56].decode("ascii", errors="ignore").lower() if len(first_chunk) >= 56 else ""
-    link = None
-    uuid = None
-    async with LINKS_LOCK:
-        for candidate_uuid, candidate in LINKS.items():
-            if str((candidate or {}).get("protocol") or "") != "trojan-ws":
-                continue
-            if not is_link_allowed(candidate):
-                continue
-            expected = hashlib.sha224(str(candidate_uuid).encode()).hexdigest()
-            if pw_hash and secrets.compare_digest(pw_hash, expected):
-                link = candidate
-                uuid = candidate_uuid
-                break
-    if link is None or uuid is None:
-        await ws.close(code=1008, reason="not authorized")
-        return
-
-    try:
-        parsed_hash, command, address, port, payload = await parse_trojan_header(first_chunk)
-        expected = hashlib.sha224(str(uuid).encode()).hexdigest()
-        if not secrets.compare_digest(parsed_hash, expected):
-            await ws.close(code=1008, reason="auth failed")
-            return
-        if command != 1:
-            await ws.close(code=1008, reason="unsupported command")
-            return
-    except TrojanHeaderIncomplete:
-        # Standard Trojan clients normally send the whole request in one WS
-        # frame. Keep this endpoint strict and predictable rather than guessing
-        # across frames after the password has already identified the link.
-        await ws.close(code=1008, reason="incomplete request")
-        return
-    except Exception:
-        await ws.close(code=1008, reason="bad request")
-        return
-
-    ip = _ws_client_ip(ws)
-    if not is_ip_allowed(link, uuid, ip):
-        await ws.close(code=1008, reason="ip limit reached")
-        return
-
-    conn_id = secrets.token_urlsafe(6)
-    connections[conn_id] = {
-        "uuid": uuid, "ip": ip, "transport": "trojan-ws",
-        "connected_at": datetime.now().isoformat(), "bytes": 0,
-    }
-    gate = _QuotaGate(uuid)
-    writer = None
-    try:
-        if not await gate.add(len(first_chunk)):
-            await ws.close(code=1008, reason="quota/disabled")
-            return
-        stats["total_requests"] += 1
-        connections[conn_id]["bytes"] += len(first_chunk)
-        reader, writer = await asyncio.wait_for(asyncio.open_connection(address, port), timeout=10.0)
-        _tune_socket(writer)
-        if payload:
-            writer.write(payload)
-            await writer.drain()
-
-        done, pending = await asyncio.wait(
-            {
-                asyncio.create_task(relay_ws_to_tcp(ws, writer, conn_id, uuid, gate)),
-                asyncio.create_task(relay_tcp_to_ws(ws, reader, conn_id, uuid, gate, first_reply_prefix=b"")),
-            },
-            return_when=asyncio.FIRST_COMPLETED,
-        )
-        for task in pending:
-            task.cancel()
-            try:
-                await task
-            except asyncio.CancelledError:
-                pass
-        await gate.flush()
-    except (WebSocketDisconnect, asyncio.TimeoutError, OSError):
-        pass
-    except Exception as exc:
-        logger.warning(f"trojan-ws error [{conn_id}]: {exc}")
-    finally:
-        if writer is not None:
-            try:
-                writer.close()
-                await writer.wait_closed()
-            except Exception:
-                pass
-        connections.pop(conn_id, None)
-
-
 async def websocket_tunnel(ws: WebSocket, uuid: str):
     await ws.accept()
 
@@ -427,32 +293,18 @@ async def websocket_tunnel(ws: WebSocket, uuid: str):
 
         reply_prefix = b"\x00\x00"
         if protocol == "trojan-ws":
-            header_buf = bytearray(first_chunk)
-            while True:
-                try:
-                    pw_hash, command, address, port, payload = await parse_trojan_header(bytes(header_buf))
-                    break
-                except TrojanHeaderIncomplete:
-                    msg = await asyncio.wait_for(ws.receive(), timeout=15.0)
-                    if msg["type"] == "websocket.disconnect":
-                        return
-                    more = msg.get("bytes") or (msg.get("text") or "").encode()
-                    if not more:
-                        continue
-                    header_buf.extend(more)
-                    if len(header_buf) > 64 * 1024:
-                        raise ValueError("trojan header too large")
-                except Exception:
-                    logger.warning(f"🚫 trojan-ws bad header uuid={uuid[:8]}…")
-                    await ws.close(code=1008, reason="bad request")
-                    return
+            try:
+                pw_hash, command, address, port, payload = await parse_trojan_header(first_chunk)
+            except Exception:
+                logger.warning(f"🚫 trojan-ws bad header uuid={uuid[:8]}…")
+                await ws.close(code=1008, reason="bad request")
+                return
             expected = hashlib.sha224(uuid.encode()).hexdigest()
             if not secrets.compare_digest(pw_hash, expected):
                 logger.warning(f"🚫 trojan-ws auth failed uuid={uuid[:8]}…")
                 await ws.close(code=1008, reason="auth failed")
                 return
             reply_prefix = b""
-            first_chunk = bytes(header_buf)
         else:
             command, address, port, payload = await parse_vless_header(first_chunk)
         if not await gate.add(len(first_chunk)):

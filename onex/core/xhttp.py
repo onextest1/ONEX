@@ -4,7 +4,6 @@ import asyncio
 import secrets
 import socket
 import time
-import hashlib
 from datetime import datetime
 
 from fastapi import APIRouter, Request, HTTPException
@@ -22,7 +21,7 @@ from main import (
     is_ip_allowed,
     save_state,
 )
-from onex.core.vless_relay import parse_vless_header, parse_trojan_header, check_and_use
+from onex.core.vless_relay import parse_vless_header, check_and_use
 from onex.core.traffic_limiter import throttle
 
 router = APIRouter()
@@ -166,10 +165,9 @@ async def _check_link(uuid: str):
         raise HTTPException(status_code=403, detail="not authorized")
 
 
-async def _get_or_create_session(uuid: str, mode: str, session_id: str, ip: str = "نامشخص", protocol: str = "vless-xhttp") -> dict:
+async def _get_or_create_session(uuid: str, mode: str, session_id: str, ip: str = "نامشخص") -> dict:
     async with XHTTP_LOCK:
-        key = (uuid, session_id)
-        sess = xhttp_sessions.get(key)
+        sess = xhttp_sessions.get(session_id)
         if sess is not None:
             sess["last_seen"] = time.time()
             return sess
@@ -189,7 +187,7 @@ async def _get_or_create_session(uuid: str, mode: str, session_id: str, ip: str 
             "transport": f"xhttp-{mode}",
         }
         sess = {
-            "uuid": uuid, "mode": mode, "protocol": protocol, "writer": None,
+            "uuid": uuid, "mode": mode, "writer": None,
             "downlink_task": None, "uplink_task": None,
             "down_q": asyncio.Queue(maxsize=DOWNLINK_QUEUE_MAX),
             "last_seen": time.time(),
@@ -198,14 +196,14 @@ async def _get_or_create_session(uuid: str, mode: str, session_id: str, ip: str 
             "gate": None,  # لازی ساخته می‌شه: _QuotaGate تطبیقی مخصوص stream-up
             "flow": None,  # لازی ساخته می‌شه: _AdaptiveFlow مخصوص stream-up
         }
-        xhttp_sessions[key] = sess
+        xhttp_sessions[session_id] = sess
         logger.info(f"new XHTTP[{mode}] session [{session_id[:8]}] uuid={uuid[:8]} ip={ip}")
         return sess
 
 
-async def _teardown(uuid: str, session_id: str):
+async def _teardown(session_id: str):
     async with XHTTP_LOCK:
-        sess = xhttp_sessions.pop((uuid, session_id), None)
+        sess = xhttp_sessions.pop(session_id, None)
     if not sess:
         return
     sess["closed"] = True
@@ -239,10 +237,10 @@ async def _reaper():
         await asyncio.sleep(REAPER_INTERVAL)
         now = time.time()
         async with XHTTP_LOCK:
-            stale = [key for key, s in xhttp_sessions.items()
+            stale = [sid for sid, s in xhttp_sessions.items()
                      if now - s["last_seen"] > SESSION_IDLE_TIMEOUT and not s.get("tcp_open")]
-        for key in stale:
-            await _teardown(*key)
+        for sid in stale:
+            await _teardown(sid)
 
 
 _reaper_started = False
@@ -267,41 +265,23 @@ async def _pump_tcp_to_queue(session_id: str, uuid: str, reader: asyncio.StreamR
                 break
             await throttle(uuid, len(data))
             async with XHTTP_LOCK:
-                sess = xhttp_sessions.get((uuid, session_id))
+                sess = xhttp_sessions.get(session_id)
             if sess:
                 c = connections.get(sess["conn_id"])
                 if c:
                     c["bytes"] += len(data)
-            # VLESS XHTTP uses a small response framing prefix. Trojan XHTTP
-            # carries a native Trojan byte stream, so adding that prefix would
-            # corrupt the first downstream bytes and make the tunnel fail.
-            prefix = b"" if sess and sess.get("protocol") == "trojan-xhttp" else b"\x00\x00"
-            payload = (prefix + data) if first else data
+            payload = (b"\x00\x00" + data) if first else data
             first = False
             await down_q.put(payload)
     except (asyncio.CancelledError, Exception):
         pass
     finally:
         await gate.flush()
-        await _teardown(uuid, session_id)
+        await _teardown(session_id)
 
 
 async def _open_tcp_for_session(session_id: str, uuid: str, sess: dict, first_chunk: bytes):
-    if sess.get("protocol") == "trojan-xhttp":
-        pw_hash, command, address, port, payload = await parse_trojan_header(first_chunk)
-        expected = hashlib.sha224(uuid.encode()).hexdigest()
-        if not secrets.compare_digest(pw_hash.lower(), expected.lower()):
-            raise HTTPException(status_code=403, detail="trojan authentication failed")
-        if command != 1:
-            raise HTTPException(status_code=400, detail="unsupported trojan command")
-        reader, writer = await asyncio.wait_for(asyncio.open_connection(address, port), timeout=TCP_CONNECT_TIMEOUT)
-        _tune_socket(writer)
-        if payload:
-            writer.write(payload)
-            await writer.drain()
-        logger.info(f"connect Trojan-XHTTP[stream-up] [{session_id[:8]}] -> {address}:{port}")
-    else:
-        reader, writer, address, port = await _open_tcp_from_header(first_chunk)
+    reader, writer, address, port = await _open_tcp_from_header(first_chunk)
     logger.info(f"connect XHTTP[{sess['mode']}] [{session_id[:8]}] -> {address}:{port}")
     sess["writer"] = writer
     sess["tcp_open"] = True
@@ -340,79 +320,6 @@ async def xhttp_downlink(mode: str, uuid: str, session_id: str, request: Request
     return StreamingResponse(_downstream_gen(sess), headers=headers, media_type=headers["content-type"])
 
 
-@router.get("/txhttp-siz10/stream-up/{uuid}/{session_id}")
-async def trojan_xhttp_downlink_compat(uuid: str, session_id: str, request: Request):
-    return await trojan_xhttp_downlink(uuid, session_id, request)
-
-
-@router.get("/trojan-xhttp/stream-up/{uuid}/{session_id}")
-async def trojan_xhttp_downlink(uuid: str, session_id: str, request: Request):
-    ensure_reaper()
-    await _check_link(uuid)
-    sess = await _get_or_create_session(uuid, "stream-up", session_id, _req_client_ip(request), "trojan-xhttp")
-    if sess.get("closed"):
-        raise HTTPException(status_code=404, detail="session closed")
-    fp = request.query_params.get("fp", DEFAULT_FINGERPRINT)
-    return StreamingResponse(_downstream_gen(sess), headers=_resp_headers(fp), media_type=_resp_headers(fp)["content-type"])
-
-
-@router.post("/txhttp-siz10/stream-up/{uuid}/{session_id}")
-async def trojan_xhttp_upload_compat(uuid: str, session_id: str, request: Request):
-    return await trojan_xhttp_upload(uuid, session_id, request)
-
-
-@router.post("/trojan-xhttp/stream-up/{uuid}/{session_id}")
-async def trojan_xhttp_upload(uuid: str, session_id: str, request: Request):
-    ensure_reaper()
-    await _check_link(uuid)
-    sess = await _get_or_create_session(uuid, "stream-up", session_id, _req_client_ip(request), "trojan-xhttp")
-    if sess.get("closed"):
-        raise HTTPException(status_code=404, detail="session closed")
-    gate = sess.get("gate") or _QuotaGate(uuid)
-    sess["gate"] = gate
-    flow = sess.get("flow") or _AdaptiveFlow()
-    sess["flow"] = flow
-    try:
-        async for chunk in request.stream():
-            if not chunk:
-                continue
-            sess["last_seen"] = time.time()
-            if not await gate.add(len(chunk)):
-                raise HTTPException(status_code=403, detail="quota/disabled/unknown")
-            if sess["writer"] is None:
-                # HTTP/XHTTP body chunks are not guaranteed to align with the
-                # Trojan header. Buffer until the complete request is present.
-                buf = sess.setdefault("trojan_header_buf", bytearray())
-                buf.extend(chunk)
-                if len(buf) > 64 * 1024:
-                    raise HTTPException(status_code=400, detail="trojan header too large")
-                try:
-                    await parse_trojan_header(bytes(buf))
-                except Exception as exc:
-                    from onex.core.vless_relay import TrojanHeaderIncomplete
-                    if isinstance(exc, TrojanHeaderIncomplete):
-                        continue
-                    raise
-                await _open_tcp_for_session(session_id, uuid, sess, bytes(buf))
-                sess["trojan_header_buf"] = bytearray()
-                continue
-            sess["writer"].write(chunk)
-            if flow.should_drain(sess["writer"].transport.get_write_buffer_size()):
-                await flow.drain(sess["writer"])
-            connections[sess["conn_id"]]["bytes"] += len(chunk)
-        await gate.flush()
-        if sess.get("writer"):
-            await sess["writer"].drain()
-    except HTTPException:
-        await _teardown(uuid, session_id)
-        raise
-    except Exception as exc:
-        error_logs.append({"error": str(exc), "time": datetime.now().isoformat()})
-        await _teardown(uuid, session_id)
-        raise HTTPException(status_code=502, detail="trojan xhttp relay failed")
-    return {"ok": True}
-
-
 @router.post("/xhttp-siz10/packet-up/{uuid}/{session_id}/{seq}")
 async def packet_up_upload(uuid: str, session_id: str, seq: int, request: Request):
     ensure_reaper()
@@ -426,7 +333,7 @@ async def packet_up_upload(uuid: str, session_id: str, seq: int, request: Reques
         return {"ok": True}
 
     if not await check_and_use(uuid, len(body)):
-        await _teardown(uuid, session_id)
+        await _teardown(session_id)
         raise HTTPException(status_code=403, detail="quota/disabled/unknown")
     await throttle(uuid, len(body))
 
@@ -462,7 +369,7 @@ async def packet_up_upload(uuid: str, session_id: str, seq: int, request: Reques
             await sess["writer"].drain()
     except Exception as exc:
         error_logs.append({"error": str(exc), "time": datetime.now().isoformat()})
-        await _teardown(uuid, session_id)
+        await _teardown(session_id)
         raise HTTPException(status_code=502, detail="write failed")
 
     return {"ok": True}
@@ -515,12 +422,12 @@ async def stream_up_upload(uuid: str, session_id: str, request: Request):
                 await flow.drain(writer)
     except HTTPException:
         await gate.flush()
-        await _teardown(uuid, session_id)
+        await _teardown(session_id)
         raise
     except Exception as exc:
         error_logs.append({"error": str(exc), "time": datetime.now().isoformat()})
         await gate.flush()
-        await _teardown(uuid, session_id)
+        await _teardown(session_id)
         raise HTTPException(status_code=502, detail="stream error")
 
     await gate.flush()
