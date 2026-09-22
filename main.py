@@ -3742,7 +3742,11 @@ def _advanced_validation_errors(advanced: dict, protocol: str) -> list[str]:
     try:
         if float(tls["min_version"]) > float(tls["max_version"]): errors.append("حداقل TLS نمی‌تواند از حداکثر TLS بیشتر باشد")
     except Exception: errors.append("نسخه TLS نامعتبر است")
-    if net["type"] == "grpc" and not (a["host"].get("service_name") or net.get("service_name")): errors.append("برای gRPC مقدار Service Name را وارد کنید")
+    # gRPC is mandatory only for the explicitly selected gRPC protocol.
+    # All-protocol links get the native-core default service name (ONEX).
+    if net["type"] == "grpc" and not (a["host"].get("service_name") or net.get("service_name")):
+        if str(protocol) == "vless-grpc-reality":
+            errors.append("برای gRPC مقدار Service Name را وارد کنید")
     if net["type"] in {"ws", "http", "h2", "xhttp"} and a["host"].get("path") and not str(a["host"]["path"]).startswith('/'): errors.append("Path باید با / شروع شود")
     if protocol == 'vless-grpc-reality' and tls["mode"] != 'reality': errors.append("VLESS gRPC Reality به TLS Mode = Reality نیاز دارد")
     if protocol in {"shadowsocks", "socks5", "http", "hysteria2"} and net["type"] != "tcp": errors.append(f"Network {net['type']} برای {protocol} پشتیبانی نمی‌شود")
@@ -4583,9 +4587,19 @@ async def subscription_single(
         time_text = "∞"
     label = str(link.get("label") or "Config")
     stats_remark = f"{label} | {volume_text} | {time_text}"
-    stats_line = generate_vless_link(uuid, "0.0.0.0", remark=stats_remark, protocol=link.get("protocol", DEFAULT_PROTOCOL), fingerprint=link.get("fingerprint", DEFAULT_FINGERPRINT), alpn=link.get("alpn"), port=protocol_public_port(link, link.get("protocol", DEFAULT_PROTOCOL), link.get("port", DEFAULT_PORT)), link=link)
-    lines = [stats_line]
     used_names = set()
+    if not link.get("all_protocols"):
+        stats_line = generate_vless_link(
+            uuid, "0.0.0.0", remark=stats_remark,
+            protocol=link.get("protocol", DEFAULT_PROTOCOL),
+            fingerprint=link.get("fingerprint", DEFAULT_FINGERPRINT),
+            alpn=link.get("alpn"),
+            port=protocol_public_port(link, link.get("protocol", DEFAULT_PROTOCOL), link.get("port", DEFAULT_PORT)),
+            link=link,
+        )
+        lines = [stats_line]
+    else:
+        lines = []
     cfg_count = 1 if link.get("all_protocols") else max(1, min(40, int(link.get("config_count") or 1)))
     protocols = list(PROTOCOLS) if link.get("all_protocols") else [link.get("protocol", DEFAULT_PROTOCOL)]
     if clean_ips:
