@@ -207,9 +207,10 @@ async def _teardown(session_id: str):
     if not sess:
         return
     sess["closed"] = True
+    current_task = asyncio.current_task()
     for t in ("uplink_task", "downlink_task"):
         task = sess.get(t)
-        if task:
+        if task and task is not current_task:
             task.cancel()
             try:
                 await task
@@ -308,7 +309,7 @@ def _downstream_gen(sess: dict):
 @router.get("/xhttp-siz10/{mode}/{uuid}/{session_id}")
 async def xhttp_downlink(mode: str, uuid: str, session_id: str, request: Request):
     ensure_reaper()
-    if mode not in ("packet-up", "stream-up"):
+    if mode not in ("packet-up", "stream-up", "stream-one"):
         raise HTTPException(status_code=404, detail="unknown mode")
     await _check_link(uuid)
     fp = request.query_params.get("fp", DEFAULT_FINGERPRINT)
@@ -432,3 +433,88 @@ async def stream_up_upload(uuid: str, session_id: str, request: Request):
 
     await gate.flush()
     return {"ok": True}
+
+# ══════════════════════════════ STREAM-ONE (یک درخواست دوطرفه) ══════════════════════════════
+# در stream-one، همان HTTP POST همزمان کانال uplink و downlink است. بدنه‌ی
+# request به‌صورت streaming خوانده می‌شود و پاسخ HTTP نیز به‌صورت streaming
+# از صف down_q برگردانده می‌شود. این همان چیزی است که این mode را از
+# stream-up (POST برای uplink + GET جدا برای downlink) متمایز می‌کند.
+async def _stream_one_uplink(session_id: str, uuid: str, sess: dict, request: Request):
+    gate = sess.get("gate")
+    if gate is None:
+        gate = _QuotaGate(uuid)
+        sess["gate"] = gate
+
+    flow = sess.get("flow")
+    if flow is None:
+        flow = _AdaptiveFlow()
+        sess["flow"] = flow
+
+    conn = connections.get(sess["conn_id"])
+    writer = sess.get("writer")
+
+    try:
+        async for chunk in request.stream():
+            if not chunk:
+                continue
+
+            sess["last_seen"] = time.time()
+            if not await gate.add(len(chunk)):
+                raise HTTPException(status_code=403, detail="quota/disabled/unknown")
+            await throttle(uuid, len(chunk))
+
+            stats["total_requests"] += 1
+            if conn:
+                conn["bytes"] += len(chunk)
+
+            if writer is None:
+                # اولین chunk شامل VLESS header است و _open_tcp_from_header
+                # همان chunk را بعد از باز کردن مقصد به مقصد remote تحویل می‌دهد.
+                await _open_tcp_for_session(session_id, uuid, sess, chunk)
+                writer = sess["writer"]
+                continue
+
+            writer.write(chunk)
+            if flow.should_drain(writer.transport.get_write_buffer_size()):
+                await flow.drain(writer)
+
+        await gate.flush()
+    except HTTPException:
+        await gate.flush()
+        raise
+    except asyncio.CancelledError:
+        raise
+    except Exception as exc:
+        error_logs.append({"error": str(exc), "time": datetime.now().isoformat()})
+    finally:
+        # پایان request یعنی پایان stream-one؛ TCP مقصد و response generator
+        # نیز باید بسته شوند تا session معلق باقی نماند.
+        await _teardown(session_id)
+
+
+@router.post("/xhttp-siz10/stream-one/{uuid}/{session_id}")
+async def stream_one(session_id: str, uuid: str, request: Request):
+    ensure_reaper()
+    await _check_link(uuid)
+
+    sess = await _get_or_create_session(
+        uuid, "stream-one", session_id, _req_client_ip(request)
+    )
+    if sess.get("closed"):
+        raise HTTPException(status_code=404, detail="session closed")
+
+    # مصرف request.stream باید همزمان با تولید response انجام شود؛ اگر آن را
+    # در خود generator بخوانیم، پاسخ تا پایان upload ارسال نمی‌شود و stream-one
+    # عملاً full-duplex نخواهد بود.
+    sess["uplink_task"] = asyncio.create_task(
+        _stream_one_uplink(session_id, uuid, sess, request)
+    )
+
+    fp = request.query_params.get("fp", DEFAULT_FINGERPRINT)
+    headers = _resp_headers(fp)
+    return StreamingResponse(
+        _downstream_gen(sess),
+        headers=headers,
+        media_type=headers["content-type"],
+    )
+
