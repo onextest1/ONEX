@@ -304,6 +304,7 @@ DEFAULT_FINGERPRINT = "chrome"
 
 DEFAULT_ALPN_BY_PROTOCOL = {
     "vless-ws": "http/1.1",
+    "trojan-ws": "http/1.1",
     "xhttp-packet-up": "h2,http/1.1",
     "xhttp-stream-up": "h2,http/1.1",
     "xhttp-stream-one": "h2,http/1.1",
@@ -1117,7 +1118,22 @@ def generate_vless_link(
         raw = {"v":"2","ps":remark,"add":host,"port":port_value,"id":uuid,"aid":0,"scy":"auto","net":"ws","type":"none","host":host,"path":f"/ws/{uuid}","tls":"tls","sni":host,"fp":fp}
         return "vmess://" + base64.b64encode(json.dumps(raw,separators=(",",":"),ensure_ascii=False).encode()).decode()
     if protocol == "trojan-ws":
-        return f"trojan://{uuid}@{host}:{port_value}?security=tls&type=ws&host={quote(host)}&path={quote('/ws/'+uuid)}&sni={quote(host)}#{label}"
+        # Keep Trojan+WS client transport settings aligned with VLESS+WS.
+        # The password remains the UUID; the WS/TLS transport follows the
+        # same advanced host/path/SNI/fingerprint/ALPN settings.
+        path = adv_path or f"/ws/{uuid}"
+        q = {
+            "security": security,
+            "type": "ws",
+            "host": adv_host,
+            "path": path,
+            "sni": adv_sni,
+            "fp": adv_fp,
+            "alpn": adv_alpn,
+        }
+        if adv["tls"].get("allow_insecure"):
+            q["allowInsecure"] = "1"
+        return "trojan://" + uuid + "@" + host + ":" + str(port_value) + "?" + "&".join(f"{k}={quote(str(v), safe=',/') }" for k,v in q.items()) + "#" + label
     if protocol == "trojan":
         mode = security if security in {"tls", "none"} else "tls"
         q = {"security": mode, "sni": adv_sni}
@@ -9043,6 +9059,7 @@ html.light .protocol-picker-bg{background:rgba(15,23,42,.28)}html.light .protoco
   </button>
   <div class="sb-logo">
     <div class="sb-logo-icon" aria-label="ONEX 3D logo"><div class="onex-mark"><i class="onex-ring ring-a"></i><i class="onex-ring ring-b"></i><i class="onex-core"></i><b class="onex-n">N</b><i class="onex-glint"></i></div></div>
+    <div class="sb-logo-caption" aria-label="ONEX PANEL"><span>ONEX</span><b>PANEL</b></div>
   </div>
   <nav class="nav">
     <div class="nav-sec" data-i18n="sec_panel">پنــــل</div>
@@ -9082,6 +9099,10 @@ html.light .protocol-picker-bg{background:rgba(15,23,42,.28)}html.light .protoco
     <button class="nav-item" data-page="admins" data-perm="admins">
       <svg class="nav-ico nav-ico-admins" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 20 6v5c0 5-3.2 8.2-8 10-4.8-1.8-8-5-8-10V6l8-3Z"/><circle cx="12" cy="10" r="2.2"/><path d="M8.5 16c.8-2 2-2.8 3.5-2.8s2.7.8 3.5 2.8"/></svg>
       <span class="nav-label" data-i18n="nav_admins">ادمین‌هـا</span>
+    </button>
+    <button class="nav-item" data-page="theme" data-perm="settings">
+      <svg class="nav-ico nav-ico-theme" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a9 9 0 0 0 0 18h1.5a2.5 2.5 0 0 0 0-5H12a2 2 0 0 1 0-4h1.5a2.5 2.5 0 0 0 0-4H12Z"/><circle cx="7.5" cy="9" r="1"/><circle cx="9" cy="5.8" r="1"/><circle cx="14.5" cy="6" r="1"/><circle cx="17" cy="9" r="1"/></svg>
+      <span class="nav-label" data-i18n="nav_theme">تم</span><span class="nav-new-badge" data-i18n="nav_theme_new">جدید</span>
     </button>
     <button class="nav-item" data-page="settings" data-perm="settings">
       <svg class="nav-ico nav-ico-settings" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 7h14M5 12h14M5 17h14"/><circle cx="9" cy="7" r="2.2" fill="var(--bg2)"/><circle cx="15" cy="12" r="2.2" fill="var(--bg2)"/><circle cx="11" cy="17" r="2.2" fill="var(--bg2)"/></svg>
@@ -9539,6 +9560,53 @@ Cache-Control: no-cache"></textarea></div>
       <div class="logs-detail-head"><div><span id="logsDetailIcon" class="logs-detail-icon">•</span><div><b id="logsDetailTitle">جزئیات رویداد</b><small id="logsDetailMeta">—</small></div></div><button type="button" onclick="closeLogDetail()">×</button></div>
       <div class="logs-detail-body" id="logsDetailBody"></div>
       <div class="logs-detail-actions"><button type="button" class="btn btn-sm" onclick="closeLogDetail()">بستن</button></div>
+    </div>
+  </div>
+</section>
+
+<section class="page" id="page-theme">
+  <div class="page-head">
+    <div>
+      <div class="page-title"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a9 9 0 0 0 0 18h1.5a2.5 2.5 0 0 0 0-5H12a2 2 0 0 1 0-4h1.5a2.5 2.5 0 0 0 0-4H12Z"/><circle cx="7.5" cy="9" r="1"/><circle cx="9" cy="5.8" r="1"/><circle cx="14.5" cy="6" r="1"/><circle cx="17" cy="9" r="1"/></svg><span data-i18n="theme_page_title">تم پنل ONEX</span></div>
+      <div class="page-sub" data-i18n="theme_page_sub">رنگ‌بندی پنل را انتخاب کنید؛ تغییرات به‌صورت زنده اعمال و در مرورگر ذخیره می‌شوند.</div>
+    </div>
+  </div>
+  <div class="onex-theme-layout">
+    <div class="onex-theme-preview card">
+      <div class="theme-preview-head"><div><span class="theme-kicker">ONEX PANEL</span><b data-i18n="theme_live_preview">پیش‌نمایش زنده</b></div><span class="theme-live-dot"><i></i> LIVE</span></div>
+      <div class="theme-preview-window">
+        <div class="theme-mini-sidebar"><div class="theme-mini-logo">N</div><span class="active"></span><span></span><span></span><span></span><span></span></div>
+        <div class="theme-mini-main">
+          <div class="theme-mini-top"><i></i><i></i><b>ONEX PANEL</b></div>
+          <div class="theme-mini-cards"><div></div><div></div><div></div></div>
+          <div class="theme-mini-content"><div class="theme-mini-chart"></div><div class="theme-mini-list"><span></span><span></span><span></span><span></span></div></div>
+        </div>
+      </div>
+      <div class="theme-current-row"><span data-i18n="theme_current">تم فعلی</span><strong id="themeCurrentName">ONEX Blue</strong><span id="themeCurrentSwatch" class="theme-current-swatch"></span></div>
+    </div>
+
+    <div class="onex-theme-panel card">
+      <div class="theme-panel-head"><div><span class="theme-kicker">COLOR PRESETS</span><h2 data-i18n="theme_presets">تم‌های آماده</h2></div><button class="theme-reset-btn" type="button" onclick="resetOnexTheme()" data-i18n="theme_reset">بازنشانی</button></div>
+      <div class="theme-preset-grid" id="themePresetGrid"></div>
+      <div class="theme-custom-box">
+        <div class="theme-custom-head"><div><span class="theme-kicker">CUSTOM THEME</span><h3 data-i18n="theme_custom">رنگ‌بندی سفارشی</h3></div><span class="theme-custom-icon">✦</span></div>
+        <div class="theme-color-grid">
+          <label><span data-i18n="theme_primary">رنگ اصلی</span><input id="themePrimary" type="color" value="#3b82f6"></label>
+          <label><span data-i18n="theme_secondary">رنگ ثانویه</span><input id="themeSecondary" type="color" value="#8b5cf6"></label>
+          <label><span data-i18n="theme_background">پس‌زمینه</span><input id="themeBackground" type="color" value="#06060b"></label>
+          <label><span data-i18n="theme_card">کارت‌ها</span><input id="themeCard" type="color" value="#12121c"></label>
+        </div>
+        <button class="theme-apply-custom" type="button" onclick="applyCustomOnexTheme()"><span data-i18n="theme_apply">اعمال رنگ سفارشی</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m5 12 4 4L19 6"/></svg></button>
+      </div>
+      <div class="theme-mode-box">
+        <div><b data-i18n="theme_mode">حالت نمایش</b><small data-i18n="theme_mode_sub">تاریک، روشن یا هماهنگ با سیستم</small></div>
+        <div class="theme-mode-buttons">
+          <button type="button" data-mode="dark" onclick="setOnexThemeMode('dark')">☾ <span data-i18n="theme_dark_mode">تاریک</span></button>
+          <button type="button" data-mode="light" onclick="setOnexThemeMode('light')">☀ <span data-i18n="theme_light_mode">روشن</span></button>
+          <button type="button" data-mode="system" onclick="setOnexThemeMode('system')">◐ <span data-i18n="theme_system_mode">خودکار</span></button>
+        </div>
+      </div>
+      <div class="theme-save-note"><span>✓</span><span data-i18n="theme_saved_note">انتخاب شما روی همین مرورگر ذخیره می‌شود و بعد از Refresh باقی می‌ماند.</span></div>
     </div>
   </div>
 </section>
@@ -10223,6 +10291,47 @@ html:not(.light) .range-tab.on,html.light .range-tab.on{
 html:not(.light) *{animation:none!important}html:not(.light) [style*="backdrop-filter"],html:not(.light) [style*="filter:blur"]{backdrop-filter:none!important;-webkit-backdrop-filter:none!important;filter:none!important}
 /* Dark-mode performance: keep the visual language, remove costly compositor effects. */
 html:not(.light) body{transition:none!important}html:not(.light) .sidebar{backdrop-filter:none!important;-webkit-backdrop-filter:none!important}html:not(.light) .modal-bg{backdrop-filter:none!important;-webkit-backdrop-filter:none!important}html:not(.light) .onex-card,html:not(.light) .onex-metric,html:not(.light) .card,html:not(.light) .metric,html:not(.light) .support-tile,html:not(.light) .quick-item,html:not(.light) .table-wrap,html:not(.light) .sub-box,html:not(.light) .link-box,html:not(.light) .tg-hero,html:not(.light) .tg-glass,html:not(.light) .tg-stat{backdrop-filter:none!important;-webkit-backdrop-filter:none!important;transform:none!important}html:not(.light) .hero:before,html:not(.light) .grid-floor,html:not(.light) .telegram-card:before,html:not(.light) .telegram-icon,html:not(.light) .tg-orbit,html:not(.light) .tg-logo,html:not(.light) .tg-btn:before{animation:none!important}html:not(.light) .hero:before,html:not(.light) .sub-hero-glow,html:not(.light) .telegram-sub-card:after{filter:none!important}html:not(.light) .card,html:not(.light) .onex-card,html:not(.light) .onex-metric,html:not(.light) .metric,html:not(.light) .support-tile,html:not(.light) .quick-item{box-shadow:0 10px 28px rgba(0,0,0,.24),inset 0 1px rgba(255,255,255,.035)!important}html:not(.light) .onex-topbar,html:not(.light) .onex-control-dock{backdrop-filter:none!important;-webkit-backdrop-filter:none!important}
+
+/* ============================================================
+   ONEX THEME SYSTEM — user-selectable panel palettes
+   ============================================================ */
+.nav-item{position:relative}
+.nav-new-badge{margin-right:auto;padding:3px 6px;border-radius:999px;background:linear-gradient(135deg,var(--accent),var(--purple));color:#fff;font-size:7px;font-weight:900;line-height:1;box-shadow:0 0 12px color-mix(in srgb,var(--accent) 35%,transparent)}
+.sidebar.collapsed .nav-new-badge{display:none!important}
+.sb-logo{flex-direction:column!important;gap:2px!important}
+.sb-logo-caption{display:flex;align-items:baseline;justify-content:center;gap:3px;line-height:1;direction:ltr;white-space:nowrap;perspective:500px}
+.sb-logo-caption span,.sb-logo-caption b{font-family:Inter,system-ui,sans-serif;font-style:italic;letter-spacing:-.055em;transform:skewX(-7deg) translateZ(12px);text-shadow:0 2px 0 rgba(0,22,90,.9),0 4px 0 rgba(0,12,55,.55),0 0 13px color-mix(in srgb,var(--accent) 55%,transparent)}
+.sb-logo-caption span{font-size:17px;font-weight:950;color:#e9fbff;background:linear-gradient(180deg,#fff 0%,#9feaff 45%,var(--accent2) 100%);-webkit-background-clip:text;background-clip:text;color:transparent}
+.sb-logo-caption b{font-size:11px;font-weight:950;color:#fff;background:linear-gradient(180deg,#fff 0%,#e9b8ff 48%,var(--purple) 100%);-webkit-background-clip:text;background-clip:text;color:transparent}
+.sidebar.collapsed .sb-logo-caption{display:none!important}
+
+.onex-theme-layout{display:grid;grid-template-columns:minmax(0,1.12fr) minmax(330px,.88fr);gap:16px;align-items:start}
+.onex-theme-preview,.onex-theme-panel{padding:18px!important;border-radius:22px!important;background:linear-gradient(145deg,rgba(10,22,43,.92),rgba(4,10,21,.94));border:1px solid color-mix(in srgb,var(--accent) 25%,var(--card-b))!important;box-shadow:0 16px 44px rgba(0,0,0,.25),inset 0 1px rgba(255,255,255,.045)!important}
+.theme-preview-head,.theme-panel-head,.theme-custom-head{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.theme-preview-head b,.theme-panel-head h2,.theme-custom-head h3{display:block;margin-top:4px;font-size:16px;font-weight:900;color:var(--t1)}
+.theme-kicker{display:block;color:var(--accent2);font-size:8px;font-weight:900;letter-spacing:.14em;direction:ltr}
+.theme-live-dot{display:inline-flex;align-items:center;gap:5px;color:#45e8a9;font-size:8px;font-weight:900;direction:ltr}.theme-live-dot i{width:6px;height:6px;border-radius:50%;background:#22c55e;box-shadow:0 0 10px #22c55e}
+.theme-preview-window{display:grid;grid-template-columns:74px 1fr;min-height:300px;margin-top:15px;border-radius:18px;overflow:hidden;border:1px solid color-mix(in srgb,var(--accent) 20%,transparent);background:var(--bg);box-shadow:inset 0 0 50px color-mix(in srgb,var(--accent) 6%,transparent)}
+.theme-mini-sidebar{padding:13px 10px;display:flex;flex-direction:column;align-items:center;gap:13px;background:var(--bg2);border-left:1px solid var(--card-b)}.theme-mini-sidebar span{width:34px;height:7px;border-radius:99px;background:var(--card-b)}.theme-mini-sidebar span.active{background:linear-gradient(90deg,var(--accent),var(--purple));box-shadow:0 0 12px color-mix(in srgb,var(--accent) 35%,transparent)}.theme-mini-logo{width:38px;height:38px;border-radius:12px;display:grid;place-items:center;font:900 22px Inter,sans-serif;color:#fff;background:linear-gradient(145deg,var(--accent),var(--purple));box-shadow:0 0 22px color-mix(in srgb,var(--accent) 28%,transparent)}
+.theme-mini-main{padding:14px;min-width:0}.theme-mini-top{display:flex;align-items:center;gap:5px;height:25px;margin-bottom:14px}.theme-mini-top i{width:7px;height:7px;border-radius:50%;background:var(--accent)}.theme-mini-top i:nth-child(2){background:var(--purple)}.theme-mini-top b{margin-right:auto;font-size:8px;color:var(--t2);direction:ltr}.theme-mini-cards{display:grid;grid-template-columns:repeat(3,1fr);gap:7px}.theme-mini-cards div{height:72px;border-radius:11px;border:1px solid color-mix(in srgb,var(--accent) 20%,var(--card-b));background:linear-gradient(145deg,color-mix(in srgb,var(--accent) 12%,var(--card)),var(--card));position:relative;overflow:hidden}.theme-mini-cards div:after{content:'';position:absolute;right:-18px;bottom:-20px;width:55px;height:55px;border-radius:50%;background:color-mix(in srgb,var(--accent) 20%,transparent);filter:blur(12px)}.theme-mini-content{display:grid;grid-template-columns:1.35fr 1fr;gap:8px;margin-top:8px}.theme-mini-chart,.theme-mini-list{min-height:105px;border:1px solid var(--card-b);border-radius:11px;background:var(--card)}.theme-mini-chart{position:relative;overflow:hidden}.theme-mini-chart:after{content:'';position:absolute;left:10%;right:8%;bottom:18px;height:45px;border-bottom:2px solid var(--accent);border-radius:50%;transform:skewY(-7deg);box-shadow:0 0 12px color-mix(in srgb,var(--accent) 55%,transparent)}.theme-mini-list{padding:10px;display:grid;gap:8px;align-content:start}.theme-mini-list span{height:8px;border-radius:99px;background:var(--card-b)}.theme-mini-list span:first-child{width:80%;background:color-mix(in srgb,var(--accent) 25%,var(--card-b))}.theme-mini-list span:nth-child(2){width:62%}.theme-mini-list span:nth-child(3){width:72%;background:color-mix(in srgb,var(--purple) 20%,var(--card-b))}.theme-current-row{display:flex;align-items:center;gap:8px;margin-top:12px;padding:10px 12px;border:1px solid var(--card-b);border-radius:13px;background:rgba(255,255,255,.025);font-size:9px;color:var(--t3)}.theme-current-row strong{margin-right:auto;color:var(--t1);font-size:10px}.theme-current-swatch{width:27px;height:27px;border-radius:9px;background:var(--accent);border:1px solid rgba(255,255,255,.25);box-shadow:0 0 16px color-mix(in srgb,var(--accent) 35%,transparent)}
+.theme-reset-btn{height:31px;padding:0 10px;border:1px solid var(--card-b);border-radius:9px;background:transparent;color:var(--t2);font:700 9px Vazirmatn,sans-serif;cursor:pointer}.theme-reset-btn:hover{border-color:var(--accent);color:var(--accent2)}
+.theme-preset-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:13px}.theme-preset{position:relative;min-height:75px;padding:9px;border:1px solid var(--card-b);border-radius:14px;background:rgba(255,255,255,.02);color:var(--t2);cursor:pointer;text-align:right;font-family:inherit;transition:.18s;overflow:hidden}.theme-preset:hover{transform:translateY(-2px);border-color:color-mix(in srgb,var(--theme-preview) 60%,var(--card-b));}.theme-preset.on{border-color:var(--theme-preview);box-shadow:0 0 18px color-mix(in srgb,var(--theme-preview) 18%,transparent),inset 0 0 18px color-mix(in srgb,var(--theme-preview) 5%,transparent)}.theme-preset .theme-preset-dot{width:22px;height:22px;border-radius:50%;display:block;background:linear-gradient(145deg,var(--theme-preview),var(--theme-preview2));box-shadow:0 0 14px color-mix(in srgb,var(--theme-preview) 45%,transparent);margin-bottom:7px}.theme-preset b{display:block;font-size:9px;color:var(--t1)}.theme-preset small{display:block;font-size:7px;color:var(--t3);margin-top:2px}.theme-preset-check{position:absolute;top:8px;left:8px;width:17px;height:17px;border-radius:50%;display:grid;place-items:center;background:var(--theme-preview);color:#fff;font-size:9px;opacity:0;transform:scale(.7);transition:.15s}.theme-preset.on .theme-preset-check{opacity:1;transform:scale(1)}
+.theme-custom-box,.theme-mode-box{margin-top:13px;padding:13px;border:1px solid var(--card-b);border-radius:15px;background:rgba(255,255,255,.018)}.theme-custom-icon{width:31px;height:31px;border-radius:10px;display:grid;place-items:center;background:linear-gradient(135deg,var(--accent),var(--purple));color:#fff;box-shadow:0 0 18px color-mix(in srgb,var(--accent) 24%,transparent)}.theme-color-grid{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-top:11px}.theme-color-grid label{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px 9px;border:1px solid var(--card-b);border-radius:10px;background:rgba(255,255,255,.02);font-size:8px;color:var(--t3)}.theme-color-grid input{width:32px;height:25px;padding:0;border:0;background:transparent;border-radius:7px;cursor:pointer}.theme-apply-custom{width:100%;height:39px;margin-top:9px;border:1px solid color-mix(in srgb,var(--accent) 60%,transparent);border-radius:11px;background:linear-gradient(135deg,var(--accent),var(--purple));color:#fff;font:900 9px Vazirmatn,sans-serif;cursor:pointer;box-shadow:0 9px 22px color-mix(in srgb,var(--accent) 20%,transparent)}.theme-apply-custom svg{width:14px;height:14px;vertical-align:middle;margin-right:5px}.theme-mode-box{display:flex;align-items:center;justify-content:space-between;gap:10px}.theme-mode-box b{display:block;font-size:10px;color:var(--t1)}.theme-mode-box small{display:block;margin-top:3px;color:var(--t3);font-size:7px}.theme-mode-buttons{display:flex;gap:5px}.theme-mode-buttons button{height:34px;padding:0 9px;border-radius:9px;border:1px solid var(--card-b);background:transparent;color:var(--t3);font:700 8px Vazirmatn,sans-serif;cursor:pointer}.theme-mode-buttons button.on{background:color-mix(in srgb,var(--accent) 13%,transparent);border-color:color-mix(in srgb,var(--accent) 55%,var(--card-b));color:var(--accent2)}.theme-save-note{display:flex;gap:7px;align-items:center;margin-top:11px;color:var(--t3);font-size:8px;line-height:1.8}.theme-save-note>span:first-child{width:20px;height:20px;display:grid;place-items:center;border-radius:7px;color:#fff;background:linear-gradient(135deg,var(--accent),var(--purple));font-size:10px;flex:0 0 auto}
+
+/* Theme variables also recolor the existing dashboard surfaces without rewriting them. */
+html.onex-themed{--action-red:var(--accent);--action-red-2:var(--purple);--action-red-soft:color-mix(in srgb,var(--accent) 12%,transparent)}
+html.onex-themed body::before{background:radial-gradient(ellipse 80% 50% at 100% 0%,color-mix(in srgb,var(--accent) 17%,transparent),transparent 50%),radial-gradient(ellipse 60% 40% at 0% 100%,color-mix(in srgb,var(--purple) 12%,transparent),transparent 45%)}
+html.onex-themed .nav-item.on{background:linear-gradient(135deg,color-mix(in srgb,var(--accent) 18%,transparent),color-mix(in srgb,var(--purple) 16%,transparent))!important;color:var(--accent2)!important;box-shadow:inset -3px 0 0 var(--accent),0 0 18px color-mix(in srgb,var(--accent) 8%,transparent)!important}
+html.onex-themed .nav-item:hover{color:var(--accent2)!important;background:color-mix(in srgb,var(--accent) 8%,transparent)!important}
+html.onex-themed .btn-p,.onex-themed .btn-p,.onex-themed .range-mini button.on{background:linear-gradient(135deg,var(--accent),var(--purple))!important;box-shadow:0 8px 22px color-mix(in srgb,var(--accent) 18%,transparent)!important}
+html.onex-themed .page-title svg,html.onex-themed .top-server .top-dot,html.onex-themed .hero-title span{color:var(--accent2)!important}
+html.onex-themed .card,html.onex-themed .metric,html.onex-themed .onex-card,html.onex-themed .onex-metric{border-color:color-mix(in srgb,var(--accent) 16%,var(--card-b))}
+html.onex-themed .metric-icon,html.onex-themed .quick-icon{color:var(--accent2)!important;background:color-mix(in srgb,var(--accent) 12%,transparent)!important;border-color:color-mix(in srgb,var(--accent) 24%,var(--card-b))!important}
+html.onex-themed .sb-logo-caption span{filter:drop-shadow(0 0 6px color-mix(in srgb,var(--accent) 40%,transparent))}.onex-themed .theme-preset.on{background:color-mix(in srgb,var(--theme-preview) 4%,transparent)}
+html.onex-themed .input:focus,html.onex-themed input:focus,html.onex-themed select:focus,html.onex-themed textarea:focus{border-color:color-mix(in srgb,var(--accent) 65%,transparent)!important;box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 10%,transparent)!important}
+html.light.onex-themed .onex-theme-preview,html.light.onex-themed .onex-theme-panel{background:linear-gradient(145deg,rgba(255,255,255,.96),rgba(241,246,255,.92))}
+@media(max-width:900px){.onex-theme-layout{grid-template-columns:1fr}.onex-theme-preview{order:1}.onex-theme-panel{order:2}}
+@media(max-width:560px){.onex-theme-layout{gap:10px}.onex-theme-preview,.onex-theme-panel{padding:13px!important;border-radius:18px!important}.theme-preset-grid{grid-template-columns:repeat(2,1fr)}.theme-preview-window{grid-template-columns:58px 1fr;min-height:235px}.theme-mini-sidebar{padding:10px 7px}.theme-mini-main{padding:10px}.theme-mini-cards div{height:52px}.theme-mini-content{grid-template-columns:1fr}.theme-mini-list{display:none}.theme-mode-box{align-items:stretch;flex-direction:column}.theme-mode-buttons{width:100%}.theme-mode-buttons button{flex:1}.sb-logo-caption span{font-size:14px}.sb-logo-caption b{font-size:9px}}
 </style>
 <section class="page" id="page-news">
   <div class="page-head">
@@ -10397,8 +10506,8 @@ html:not(.light) body{transition:none!important}html:not(.light) .sidebar{backdr
 <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js"></script>
 <script>
 const I18N={
-fa:{sec_panel:'پنل',sec_sys:'سیستم',nav_dash:'داشبورد',nav_configs:'کانفیگ‌ها',nav_groups:'گروه‌ها',nav_create:'ساخت کانفیگ',nav_stats:'آمار',nav_logs:'لاگ فعالیت',nav_settings:'تنظیمات',nav_support:'پشتیبانی',nav_donate:'حمایت مالی',nav_news:'تلگرام',nav_admins:'ادمین‌ها',refresh_news:'بروزرسانی اطلاعیه',admins_sub:'مدیریت کاربران مدیریتی و سطح دسترسی آن‌ها',admin_create:'ساخت اکانت ادمین',admin_user:'نام کاربری',admin_pw:'رمز عبور',admin_pw2:'تکرار رمز',admin_perms:'دسترسی‌ها',admin_btn:'ساخت اکانت',admin_list:'لیست ادمین‌ها',refresh:'بروزرسانی',refresh_stats:'بروزرسانی آمار',refresh_panel:'بروزرسانی پنل',panel_version:'نسخه پنل',current_version:'ورژن فعلی',nav_telegram:'ربات تلگرام',tg_sub:'توکن ربات و آیدی عددی ادمین · فعال‌سازی خودکار و وب‌هوک',tg_config:'پیکربندی ربات',tg_token:'توکن ربات (BotFather)',tg_admin:'آیدی عددی ادمین',tg_webhook:'فعال‌سازی Webhook (پیشنهادی روی Railway)',tg_activate:'ذخیره و فعال‌سازی ربات',tg_help:'راهنما',tg_h1:'از @BotFather یک ربات بساز و توکن را کپی کن',tg_h2:'آیدی عددی خودت را از @userinfobot بگیر',tg_h3:'ذخیره کن — وب‌هوک خودکار روی دامنه Railway ست می‌شود',logout:'خروج',loading:'در حال بارگذاری...',m_conns:'اتصالات فعال',m_traffic:'ترافیک کل',m_links:'کانفیگ‌ها',m_uptime:'آپتایم سرور',quick_create:'ساخت کانفیگ',quick_create_desc:'ساخت دستی با محدودیت ترافیک، سرعت و انقضا',configs_sub:'مدیریت لینک‌ها · VLESS و ساب',th_name:'نام',th_proto:'پروتکل',th_status:'وضعیت',th_usage:'مصرف',th_ops:'عملیات',manual_create:'ساخت دستی',label_name:'نام',label_proto:'پروتکل',label_limit:'محدودیت حجم',label_unit:'واحد',label_days:'انقضا (روز)',label_ip:'محدودیت IP',label_speed:'سرعت (Mbps)',btn_create:'ساخت',stats_sub:'ترافیک و اتصالات · فیلتر زمانی',r_day:'روز',r_week:'هفته',r_month:'ماه',r_all:'کل',panel_info:'اطلاعات کل پنل',lang_label:'زبان',change_pw:'تغییر رمز عبور',pw_cur:'رمز فعلی',pw_new:'رمز جدید',pw_cf:'تکرار رمز',btn_save:'ذخیره',github:'گیت‌هاب',telegram:'تلگرام',channel:'کانال پشتیبان',theme:'تم',theme_dark:'تم تیره',theme_light:'تم روشن',created_title:'کانفیگ ساخته شد',copy_vless:'کپی VLESS',copy_sub:'کپی ساب',sub_label:'سابسکریپشن'},
-en:{sec_panel:'PANEL',sec_sys:'SYSTEM',nav_dash:'Dashboard',nav_configs:'Configs',nav_groups:'Groups',nav_create:'Create Config',nav_stats:'Statistics',nav_logs:'Activity Log',nav_settings:'Settings',nav_support:'Support',nav_donate:'Donate',nav_news:'Telegram',nav_admins:'Admins',refresh_news:'Refresh news',admins_sub:'Manage admin users and their access levels',admin_create:'Create admin account',admin_user:'Username',admin_pw:'Password',admin_pw2:'Confirm password',admin_perms:'Permissions',admin_btn:'Create account',admin_list:'Admin list',refresh:'Refresh',refresh_stats:'Refresh stats',refresh_panel:'Update panel',panel_version:'Panel version',current_version:'Current version',nav_telegram:'Telegram bot',tg_sub:'Bot token and numeric admin ID · auto activate and webhook',tg_config:'Bot configuration',tg_token:'Bot token (BotFather)',tg_admin:'Admin numeric ID',tg_webhook:'Enable Webhook (recommended on Railway)',tg_activate:'Save and activate bot',tg_help:'Guide',tg_h1:'Create a bot with @BotFather and copy the token',tg_h2:'Get your numeric ID from @userinfobot',tg_h3:'Save — webhook is set automatically on Railway domain',logout:'Logout',loading:'Loading...',m_conns:'Active connections',m_traffic:'Total traffic',m_links:'Configs',m_uptime:'Server uptime',quick_create:'Create Config',quick_create_desc:'Manual create with traffic, speed and expiry',configs_sub:'Manage links · VLESS and Sub',th_name:'Name',th_proto:'Protocol',th_status:'Status',th_usage:'Usage',th_ops:'Actions',manual_create:'Manual create',label_name:'Name',label_proto:'Protocol',label_limit:'Traffic limit',label_unit:'Unit',label_days:'Expiry (days)',label_ip:'IP limit',label_speed:'Speed (Mbps)',btn_create:'Create',stats_sub:'Traffic and connections · time filter',r_day:'Day',r_week:'Week',r_month:'Month',r_all:'All',panel_info:'Panel overview',lang_label:'Language',change_pw:'Change password',pw_cur:'Current password',pw_new:'New password',pw_cf:'Confirm password',btn_save:'Save',github:'GitHub',telegram:'Telegram',channel:'Support channel',theme:'Theme',theme_dark:'Dark theme',theme_light:'Light theme',created_title:'Config created',copy_vless:'Copy VLESS',copy_sub:'Copy Sub',sub_label:'Subscription'}
+fa:{sec_panel:'پنل',sec_sys:'سیستم',nav_dash:'داشبورد',nav_configs:'کانفیگ‌ها',nav_groups:'گروه‌ها',nav_create:'ساخت کانفیگ',nav_stats:'آمار',nav_logs:'لاگ فعالیت',nav_settings:'تنظیمات',nav_support:'پشتیبانی',nav_donate:'حمایت مالی',nav_news:'تلگرام',nav_admins:'ادمین‌ها',refresh_news:'بروزرسانی اطلاعیه',admins_sub:'مدیریت کاربران مدیریتی و سطح دسترسی آن‌ها',admin_create:'ساخت اکانت ادمین',admin_user:'نام کاربری',admin_pw:'رمز عبور',admin_pw2:'تکرار رمز',admin_perms:'دسترسی‌ها',admin_btn:'ساخت اکانت',admin_list:'لیست ادمین‌ها',refresh:'بروزرسانی',refresh_stats:'بروزرسانی آمار',refresh_panel:'بروزرسانی پنل',panel_version:'نسخه پنل',current_version:'ورژن فعلی',nav_telegram:'ربات تلگرام',tg_sub:'توکن ربات و آیدی عددی ادمین · فعال‌سازی خودکار و وب‌هوک',tg_config:'پیکربندی ربات',tg_token:'توکن ربات (BotFather)',tg_admin:'آیدی عددی ادمین',tg_webhook:'فعال‌سازی Webhook (پیشنهادی روی Railway)',tg_activate:'ذخیره و فعال‌سازی ربات',tg_help:'راهنما',tg_h1:'از @BotFather یک ربات بساز و توکن را کپی کن',tg_h2:'آیدی عددی خودت را از @userinfobot بگیر',tg_h3:'ذخیره کن — وب‌هوک خودکار روی دامنه Railway ست می‌شود',logout:'خروج',loading:'در حال بارگذاری...',m_conns:'اتصالات فعال',m_traffic:'ترافیک کل',m_links:'کانفیگ‌ها',m_uptime:'آپتایم سرور',quick_create:'ساخت کانفیگ',quick_create_desc:'ساخت دستی با محدودیت ترافیک، سرعت و انقضا',configs_sub:'مدیریت لینک‌ها · VLESS و ساب',th_name:'نام',th_proto:'پروتکل',th_status:'وضعیت',th_usage:'مصرف',th_ops:'عملیات',manual_create:'ساخت دستی',label_name:'نام',label_proto:'پروتکل',label_limit:'محدودیت حجم',label_unit:'واحد',label_days:'انقضا (روز)',label_ip:'محدودیت IP',label_speed:'سرعت (Mbps)',btn_create:'ساخت',stats_sub:'ترافیک و اتصالات · فیلتر زمانی',r_day:'روز',r_week:'هفته',r_month:'ماه',r_all:'کل',panel_info:'اطلاعات کل پنل',lang_label:'زبان',change_pw:'تغییر رمز عبور',pw_cur:'رمز فعلی',pw_new:'رمز جدید',pw_cf:'تکرار رمز',btn_save:'ذخیره',github:'گیت‌هاب',telegram:'تلگرام',channel:'کانال پشتیبان',theme:'تم',theme_dark:'تم تیره',theme_light:'تم روشن',created_title:'کانفیگ ساخته شد',copy_vless:'کپی VLESS',copy_sub:'کپی ساب',sub_label:'سابسکریپشن',theme_page_title:'تم پنل ONEX',theme_page_sub:'رنگ‌بندی پنل را انتخاب کنید؛ تغییرات به‌صورت زنده اعمال و در مرورگر ذخیره می‌شوند.',theme_live_preview:'پیش‌نمایش زنده',theme_current:'تم فعلی',theme_presets:'تم‌های آماده',theme_reset:'بازنشانی',theme_custom:'رنگ‌بندی سفارشی',theme_primary:'رنگ اصلی',theme_secondary:'رنگ ثانویه',theme_background:'پس‌زمینه',theme_card:'کارت‌ها',theme_apply:'اعمال رنگ سفارشی',theme_mode:'حالت نمایش',theme_mode_sub:'تاریک، روشن یا هماهنگ با سیستم',theme_dark_mode:'تاریک',theme_light_mode:'روشن',theme_system_mode:'خودکار',theme_saved_note:'انتخاب شما روی همین مرورگر ذخیره می‌شود و بعد از Refresh باقی می‌ماند.',created_title:'کانفیگ ساخته شد'
+en:{sec_panel:'PANEL',sec_sys:'SYSTEM',nav_dash:'Dashboard',nav_configs:'Configs',nav_groups:'Groups',nav_create:'Create Config',nav_stats:'Statistics',nav_logs:'Activity Log',nav_settings:'Settings',nav_theme:'Theme',nav_theme_new:'New',nav_support:'Support',nav_donate:'Donate',nav_news:'Telegram',nav_admins:'Admins',refresh_news:'Refresh news',admins_sub:'Manage admin users and their access levels',admin_create:'Create admin account',admin_user:'Username',admin_pw:'Password',admin_pw2:'Confirm password',admin_perms:'Permissions',admin_btn:'Create account',admin_list:'Admin list',refresh:'Refresh',refresh_stats:'Refresh stats',refresh_panel:'Update panel',panel_version:'Panel version',current_version:'Current version',nav_telegram:'Telegram bot',tg_sub:'Bot token and numeric admin ID · auto activate and webhook',tg_config:'Bot configuration',tg_token:'Bot token (BotFather)',tg_admin:'Admin numeric ID',tg_webhook:'Enable Webhook (recommended on Railway)',tg_activate:'Save and activate bot',tg_help:'Guide',tg_h1:'Create a bot with @BotFather and copy the token',tg_h2:'Get your numeric ID from @userinfobot',tg_h3:'Save — webhook is set automatically on Railway domain',logout:'Logout',loading:'Loading...',m_conns:'Active connections',m_traffic:'Total traffic',m_links:'Configs',m_uptime:'Server uptime',quick_create:'Create Config',quick_create_desc:'Manual create with traffic, speed and expiry',configs_sub:'Manage links · VLESS and Sub',th_name:'Name',th_proto:'Protocol',th_status:'Status',th_usage:'Usage',th_ops:'Actions',manual_create:'Manual create',label_name:'Name',label_proto:'Protocol',label_limit:'Traffic limit',label_unit:'Unit',label_days:'Expiry (days)',label_ip:'IP limit',label_speed:'Speed (Mbps)',btn_create:'Create',stats_sub:'Traffic and connections · time filter',r_day:'Day',r_week:'Week',r_month:'Month',r_all:'All',panel_info:'Panel overview',lang_label:'Language',change_pw:'Change password',pw_cur:'Current password',pw_new:'New password',pw_cf:'Confirm password',btn_save:'Save',github:'GitHub',telegram:'Telegram',channel:'Support channel',theme:'Theme',theme_dark:'Dark theme',theme_light:'Light theme',created_title:'Config created',copy_vless:'Copy VLESS',copy_sub:'Copy Sub',sub_label:'Subscription'}
 };
 let lang=localStorage.getItem('px_lang')||'fa';
 let statRange='month';
@@ -10431,6 +10540,7 @@ function setTheme(mode){
   if(mode==='light') document.documentElement.classList.add('light');
   else document.documentElement.classList.remove('light');
   localStorage.setItem('px_theme',mode);
+  try{localStorage.setItem('onex_display_mode',mode)}catch(e){}
   applyLang();
 }
 function toggleTheme(){
@@ -10461,6 +10571,7 @@ function goPage(name){
   if(name==='groups')loadGroups();
   if(name==='configs'||name==='dash')refreshAll();
   if(name==='stats'){refreshAll();loadStatsDashboard(false);}
+  if(name==='theme'){renderOnexThemePresets();loadOnexTheme();}
 }
 document.querySelectorAll('.nav-item').forEach(el=>el.addEventListener('click',()=>goPage(el.dataset.page)));
 
@@ -11665,8 +11776,82 @@ setTimeout(bootProtocolPickers,300);
 setTimeout(bootProtocolPickers,1000);
 setInterval(refreshAll,5000);
 
+// ============================================================
+// ONEX THEME SYSTEM — persistent presets + custom palette
+// ============================================================
+const ONEX_THEMES={
+  blue:{name:'ONEX Blue',p:'#3b82f6',s:'#8b5cf6',bg:'#06060b',card:'#12121c',mode:'dark'},
+  purple:{name:'Cyber Purple',p:'#8b5cf6',s:'#ec4899',bg:'#080611',card:'#171126',mode:'dark'},
+  green:{name:'Emerald',p:'#10b981',s:'#06b6d4',bg:'#04100c',card:'#0d1d18',mode:'dark'},
+  cyan:{name:'Ocean',p:'#06b6d4',s:'#3b82f6',bg:'#031015',card:'#0b1b24',mode:'dark'},
+  orange:{name:'Sunset',p:'#f97316',s:'#ef4444',bg:'#120906',card:'#21120d',mode:'dark'},
+  rose:{name:'Rose',p:'#f43f5e',s:'#ec4899',bg:'#12060b',card:'#211019',mode:'dark'},
+  amber:{name:'Amber',p:'#f59e0b',s:'#ef4444',bg:'#110b03',card:'#21170a',mode:'dark'},
+  lime:{name:'Lime',p:'#84cc16',s:'#10b981',bg:'#081003',card:'#14200a',mode:'dark'},
+  indigo:{name:'Indigo',p:'#6366f1',s:'#a855f7',bg:'#070714',card:'#11112a',mode:'dark'},
+  pink:{name:'Pink',p:'#ec4899',s:'#8b5cf6',bg:'#12050e',card:'#211020',mode:'dark'},
+  midnight:{name:'Midnight',p:'#60a5fa',s:'#6366f1',bg:'#030712',card:'#0b1222',mode:'dark'},
+  light:{name:'Light',p:'#2563eb',s:'#7c3aed',bg:'#eef1f8',card:'#ffffff',mode:'light'}
+};
+const ONEX_THEME_LABELS={blue:'آبی ONEX',purple:'بنفش سایبری',green:'زمردی',cyan:'اقیانوسی',orange:'نارنجی غروب',rose:'رز',amber:'کهربایی',lime:'لیمویی',indigo:'نیلی',pink:'صورتی',midnight:'نیمه‌شب',light:'روشن'};
+function hexRgb(hex){const h=String(hex||'').replace('#','');const v=h.length===3?h.split('').map(x=>x+x).join(''):h;if(!/^[0-9a-fA-F]{6}$/.test(v))return [59,130,246];return [parseInt(v.slice(0,2),16),parseInt(v.slice(2,4),16),parseInt(v.slice(4,6),16)]}
+function mixHex(hex,amount){const [r,g,b]=hexRgb(hex);const t=amount<0?0:255;const a=Math.abs(amount);return '#'+[r,g,b].map(v=>Math.round(v+(t-v)*a).toString(16).padStart(2,'0')).join('')}
+function applyOnexTheme(key, opts){
+  let t=ONEX_THEMES[key]||ONEX_THEMES.blue;
+  if(opts) t={...t,...opts};
+  const root=document.documentElement;
+  const [pr,pg,pb]=hexRgb(t.p);
+  const [sr,sg,sb]=hexRgb(t.s);
+  const bg2=t.mode==='light'?mixHex(t.bg,.7):mixHex(t.bg,.10);
+  const bg3=t.mode==='light'?mixHex(t.bg,.82):mixHex(t.bg,.18);
+  root.style.setProperty('--bg',t.bg);root.style.setProperty('--bg2',bg2);root.style.setProperty('--bg3',bg3);root.style.setProperty('--card',t.card);
+  root.style.setProperty('--accent',t.p);root.style.setProperty('--accent2',mixHex(t.p,.28));root.style.setProperty('--purple',t.s);
+  root.style.setProperty('--hover',`rgba(${pr},${pg},${pb},.12)`);root.style.setProperty('--glow',`0 0 40px rgba(${pr},${pg},${pb},.12)`);
+  root.style.setProperty('--action-red',t.p);root.style.setProperty('--action-red-2',t.s);root.style.setProperty('--action-red-soft',`rgba(${pr},${pg},${pb},.12)`);
+  root.style.setProperty('--theme-preview',t.p);root.style.setProperty('--theme-preview2',t.s);
+  root.classList.add('onex-themed');
+  if(t.mode==='light') root.classList.add('light'); else root.classList.remove('light');
+  document.body.dataset.onexTheme=key||'custom';
+  localStorage.setItem('onex_theme_v2',JSON.stringify({key:key||'custom',...t}));
+  updateOnexThemeUI(key||'custom',t);
+}
+function applyCustomOnexTheme(){
+  const t={name:lang==='fa'?'سفارشی':'Custom',p:document.getElementById('themePrimary')?.value||'#3b82f6',s:document.getElementById('themeSecondary')?.value||'#8b5cf6',bg:document.getElementById('themeBackground')?.value||'#06060b',card:document.getElementById('themeCard')?.value||'#12121c',mode:document.documentElement.classList.contains('light')?'light':'dark'};
+  applyOnexTheme('custom',t);
+  toast(lang==='fa'?'تم سفارشی اعمال شد':'Custom theme applied');
+}
+function setOnexThemeMode(mode){
+  let saved;try{saved=JSON.parse(localStorage.getItem('onex_theme_v2')||'{}')}catch(e){saved={}}
+  const key=saved.key&&ONEX_THEMES[saved.key]?saved.key:'blue';
+  if(mode==='system'){const light=window.matchMedia&&window.matchMedia('(prefers-color-scheme: light)').matches;mode=light?'light':'dark'}
+  applyOnexTheme(key,{...saved,mode});
+  updateThemeModeButtons(mode);
+}
+function updateThemeModeButtons(mode){document.querySelectorAll('.theme-mode-buttons button').forEach(b=>b.classList.toggle('on',b.dataset.mode===mode||(b.dataset.mode==='system'&&mode==='system')))}
+function updateOnexThemeUI(key,t){
+  const name=document.getElementById('themeCurrentName');if(name)name.textContent=t.name||ONEX_THEME_LABELS[key]||'Custom';
+  const sw=document.getElementById('themeCurrentSwatch');if(sw)sw.style.background=`linear-gradient(135deg,${t.p},${t.s})`;
+  const p=document.getElementById('themePrimary'),s=document.getElementById('themeSecondary'),bg=document.getElementById('themeBackground'),c=document.getElementById('themeCard');
+  if(p)p.value=t.p;if(s)s.value=t.s;if(bg)bg.value=t.bg;if(c)c.value=t.card;
+  document.querySelectorAll('.theme-preset').forEach(x=>x.classList.toggle('on',x.dataset.theme===key));
+  const mode=t.mode||'dark';updateThemeModeButtons(mode);
+}
+function renderOnexThemePresets(){
+  const box=document.getElementById('themePresetGrid');if(!box)return;
+  box.innerHTML=Object.entries(ONEX_THEMES).map(([key,t])=>`<button type="button" class="theme-preset" data-theme="${key}" style="--theme-preview:${t.p};--theme-preview2:${t.s}" onclick="selectOnexTheme('${key}')"><span class="theme-preset-dot"></span><b>${ONEX_THEME_LABELS[key]||t.name}</b><small>${t.name}</small><span class="theme-preset-check">✓</span></button>`).join('');
+  let saved={};try{saved=JSON.parse(localStorage.getItem('onex_theme_v2')||'{}')}catch(e){}
+  const key=saved.key&&ONEX_THEMES[saved.key]?saved.key:'blue';box.querySelectorAll('.theme-preset').forEach(x=>x.classList.toggle('on',x.dataset.theme===key));
+}
+function selectOnexTheme(key){const t=ONEX_THEMES[key]||ONEX_THEMES.blue;applyOnexTheme(key,t);toast(lang==='fa'?`تم «${ONEX_THEME_LABELS[key]||t.name}» اعمال شد`:`${t.name} theme applied`)}
+function resetOnexTheme(){applyOnexTheme('blue',ONEX_THEMES.blue);toast(lang==='fa'?'تم به حالت پیش‌فرض برگشت':'Theme reset to default')}
+function loadOnexTheme(){
+  let saved;try{saved=JSON.parse(localStorage.getItem('onex_theme_v2')||'{}')}catch(e){saved=null}
+  if(saved&&saved.p){applyOnexTheme(saved.key||'custom',saved);return}
+  applyOnexTheme('blue',ONEX_THEMES.blue);
+}
+window.addEventListener('storage',e=>{if(e.key==='onex_theme_v2')loadOnexTheme()});
+renderOnexThemePresets();loadOnexTheme();
 
-</script>
 </body>
 </html>
 """
