@@ -2401,7 +2401,7 @@ table th:first-child, table td:first-child{overflow:visible}
 .dashboard-hero .hero-version-strip{grid-area:version}
 .dashboard-hero .hero-actions{display:none!important}
 .hero-version-strip{justify-content:flex-start}
-@media(max-width:768px){
+@media(max-width:640px){
   #page-dash .dashboard-hero{display:grid!important;grid-template-columns:minmax(0,1fr) auto!important;grid-template-areas:"hero version"!important;align-items:center!important;gap:7px!important;margin:0 0 10px!important}
   #page-dash .dashboard-hero .hero-main{grid-area:hero!important;min-width:0}
   #page-dash .dashboard-hero .hero-version-strip{grid-area:version!important;display:flex!important;flex-direction:column!important;gap:5px!important;align-self:center!important}
@@ -2518,7 +2518,7 @@ table th:first-child, table td:first-child{overflow:visible}
 .mob-brand-icon img{width:100%!important;height:100%!important;object-fit:contain!important;display:block!important;background:transparent!important;filter:drop-shadow(0 0 7px rgba(0,132,255,.76)) drop-shadow(0 0 15px rgba(0,80,255,.48)) brightness(1.1) saturate(1.1)!important;}
 .top-avatar{width:185px!important;height:77px!important;border-radius:0!important;background:transparent!important;box-shadow:none!important;overflow:visible!important;display:grid!important;place-items:center!important;}
 .top-avatar img{width:100%!important;height:100%!important;object-fit:contain!important;display:block!important;background:transparent!important;filter:drop-shadow(0 0 8px rgba(0,132,255,.78)) drop-shadow(0 0 18px rgba(0,80,255,.5)) drop-shadow(0 8px 13px rgba(0,0,0,.45)) brightness(1.12) saturate(1.12)!important;}
-@media(max-width:768px){
+@media(max-width:640px){
   .sb-logo{padding:10px 5px!important;}
   .sb-logo-icon{width:108px!important;height:45px!important;}
   .mob-brand-icon{width:92px!important;height:38px!important;}
@@ -8589,7 +8589,7 @@ html.light #page-logs .logs-detail-head>button{background:#fff}
    Same components, colors and visual language. Only dimensions,
    columns and spacing change so every element stays in the viewport.
    ============================================================ */
-@media (max-width:768px){
+@media (max-width:640px){
   html,body{width:100%;max-width:100%;min-width:0;overflow-x:hidden}
   body{display:flex;min-height:100vh}
 
@@ -8717,7 +8717,7 @@ html.light #page-logs .logs-detail-head>button{background:#fff}
    ONEX PHONE MODE — FULL WIDTH CONTENT + SLIDE-IN NAV DRAWER
    Keeps the exact panel/components; only phone layout changes.
    ============================================================ */
-@media (max-width:768px){
+@media (max-width:640px){
   html,body{width:100%;min-width:0;overflow-x:hidden}
   body{display:block;min-height:100vh;padding-top:58px}
 
@@ -8849,7 +8849,7 @@ html.light #page-logs .logs-detail-head>button{background:#fff}
 .sb-foot a.danger:hover .logout-ico,.sb-foot button.danger:hover .logout-ico{transform:perspective(80px) rotateY(-16deg) rotateX(8deg) scale(1.12) translateX(-2px);filter:drop-shadow(0 4px 9px rgba(239,68,68,.58))}
 .sb-foot a.danger .logout-ico,.sb-foot button.danger .logout-ico{animation:logoutFloat 2.8s ease-in-out infinite}
 @keyframes logoutFloat{0%,100%{translate:0 0}50%{translate:-2px -1px}}
-@media (max-width:768px){
+@media (max-width:640px){
   .sidebar .nav-item .nav-ico{width:22px;height:22px;min-width:22px;min-height:22px;flex-basis:22px}
   .sidebar .nav-item.on .nav-ico{transform:perspective(80px) rotateY(-8deg) rotateX(5deg) scale(1.04)}
   .sidebar .sb-foot a.danger .logout-ico,.sidebar .sb-foot button.danger .logout-ico,.sb-foot button.danger .logout-ico{width:22px!important;height:22px!important}
@@ -8876,7 +8876,7 @@ html.light #page-logs .logs-detail-head>button{background:#fff}
     linear-gradient(145deg,rgba(255,255,255,.035),transparent 42%,rgba(30,130,255,.055));
 }
 .sidebar > *{position:relative;z-index:1;}
-@media (max-width:768px){
+@media (max-width:640px){
   .sidebar{
     position:fixed !important; top:0 !important; right:0 !important; bottom:0 !important; left:auto !important;
     width:min(86vw,340px) !important; max-width:340px !important; min-width:0 !important;
@@ -9276,7 +9276,7 @@ html.light .protocol-picker-bg{background:rgba(15,23,42,.28)}html.light .protoco
   <button class="mob-menu-btn" id="mobMenuBtn" aria-label="منو">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
   </button>
-  <div class="mob-brand"><div class="mob-brand-icon" aria-label="ONEX PANEL"><img src="/api/onex-panel-logo.png?v=1.3.9" alt="ONEX PANEL"></div><div class="mob-brand-text"><span>پنل مدیریت</span></div></div>
+  <div class="mob-brand"><div class="mob-brand-text"><span>پنل مدیریت</span></div></div>
   <div class="mob-status"><i></i><span>آنلاین</span></div>
 </div>
 <div class="overlay" id="overlay"></div>
@@ -9357,7 +9357,6 @@ html.light .protocol-picker-bg{background:rgba(15,23,42,.28)}html.light .protoco
         <div id="notifyList" class="notify-list"><div class="notify-empty">اعلان جدیدی وجود ندارد.</div></div>
       </div>
     </div>
-    <div class="top-avatar" aria-label="ONEX PANEL"><img src="/api/onex-panel-logo.png?v=1.3.9" alt="ONEX PANEL"></div>
   </div>
 </div>
 
@@ -9937,7 +9936,7 @@ html.light .security-login-box,html.light .security-log-box,html.light .security
    Phone layout mirrors the compact dashboard composition:
    4 stat tiles in one row, then 2-column dashboard cards.
    ============================================================ */
-@media (max-width:768px){
+@media (max-width:640px){
   #page-dash{width:100%;max-width:100%;min-width:0;overflow:visible}
   #page-dash .dashboard-hero{margin:0 0 10px;gap:8px;align-items:center}
   #page-dash .dashboard-hero .hero-actions{display:none!important}
@@ -10185,7 +10184,7 @@ html:not(.light) body:has(.page) .table-wrap{{
 .admin-detail-box span{display:block;color:var(--t3);font-size:8px;margin-bottom:4px}.admin-detail-box b{display:block;color:var(--t1);font-size:10px;word-break:break-word}
 .admin-detail-perms{margin-top:9px;display:flex;gap:5px;flex-wrap:wrap}.admin-detail-perm{font-size:8px;padding:4px 7px;border-radius:7px;background:rgba(59,130,246,.10);border:1px solid rgba(59,130,246,.18);color:var(--t2)}
 .admin-selected-note{padding:8px 10px;border-radius:9px;background:rgba(59,130,246,.07);border:1px solid rgba(59,130,246,.15);color:var(--t3);font-size:9px;margin-bottom:9px}
-@media(max-width:768px){
+@media(max-width:640px){
   .admin-page{max-width:100%;padding-bottom:18px}
   .admin-grid-top,.admin-bottom-grid{grid-template-columns:1fr;gap:8px}
   .admin-section-wide{margin-top:8px}.admin-card{padding:11px!important}.admin-list-head{padding:11px 12px}.admin-list-controls{grid-template-columns:minmax(0,1fr) 105px;gap:6px}
@@ -10429,7 +10428,7 @@ html:not(.light) .range-tab.on,html.light .range-tab.on{
 .notify-update-btn{background:linear-gradient(135deg,var(--action-red),var(--action-red-2)) !important;color:#fff !important;border-color:rgba(255,92,126,.72) !important}
 
 /* Mobile drawer: narrower, starts below the top bar, never hides the logo/hamburger. */
-@media (max-width:768px){
+@media (max-width:640px){
   .sidebar{
     top:58px !important;bottom:0 !important;right:0 !important;left:auto !important;
     width:min(70vw,290px) !important;max-width:290px !important;min-width:0 !important;
