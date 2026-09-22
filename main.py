@@ -8541,6 +8541,28 @@ html.light #page-logs .logs-detail-head>button{background:#fff}
 
 .top-server{display:flex;align-items:center;gap:12px;min-width:0}.top-dot{width:10px;height:10px;border-radius:50%;background:#22c55e;box-shadow:0 0 14px #22c55e;animation:pulseDot 1.8s ease-in-out infinite}.top-server b{font-size:13px}.top-server small{color:var(--t3);font-size:11px}.top-sep{width:1px;height:24px;background:var(--card-b)}
 .top-actions{display:flex;align-items:center;gap:8px}.top-chip{display:flex;align-items:center;gap:7px;padding:9px 12px;border:1px solid var(--card-b);border-radius:12px;background:rgba(255,255,255,.025);color:var(--t2);font-size:11px}.top-avatar{width:38px;height:38px;border-radius:12px;display:grid;place-items:center;background:linear-gradient(135deg,#3b82f6,#8b5cf6);font-weight:900;color:#fff;box-shadow:0 0 24px rgba(59,130,246,.3)}
+/* Lightweight animated 3D dashboard orb — CSS only, no image asset or external dependency. */
+.dashboard-visual{position:relative;height:210px;margin:0 0 16px;border:1px solid rgba(59,130,246,.18);border-radius:24px;overflow:hidden;background:radial-gradient(circle at 50% 48%,rgba(37,99,235,.16),transparent 31%),radial-gradient(circle at 50% 55%,rgba(124,58,237,.10),transparent 48%),linear-gradient(145deg,rgba(5,18,40,.86),rgba(3,9,22,.94));box-shadow:0 16px 40px rgba(0,0,0,.26),inset 0 1px rgba(255,255,255,.05)}
+.dashboard-visual:before{content:"";position:absolute;inset:0;background:radial-gradient(circle at 50% 50%,rgba(32,200,255,.08),transparent 42%),linear-gradient(90deg,transparent 0 49.7%,rgba(96,165,250,.05) 50%,transparent 50.3%),linear-gradient(0deg,transparent 0 49.7%,rgba(96,165,250,.04) 50%,transparent 50.3%);background-size:auto,90px 100%,100% 70px;pointer-events:none}
+.dashboard-visual:after{content:"";position:absolute;left:10%;right:10%;bottom:13px;height:1px;background:linear-gradient(90deg,transparent,rgba(32,200,255,.55),rgba(168,85,247,.45),transparent);box-shadow:0 0 18px rgba(32,200,255,.22);pointer-events:none}
+.dashboard-orb{position:absolute;left:50%;top:50%;width:142px;height:142px;transform:translate(-50%,-50%);transform-style:preserve-3d;animation:dashboardOrbFloat 4.8s ease-in-out infinite}
+.dashboard-orb-core{position:absolute;inset:20px;border-radius:50%;background:radial-gradient(circle at 32% 28%,rgba(170,240,255,.95) 0 5%,rgba(59,130,246,.78) 16%,rgba(8,25,65,.96) 55%,rgba(2,7,20,1) 78%);border:1px solid rgba(147,197,253,.5);box-shadow:inset -18px -15px 30px rgba(0,0,0,.6),inset 9px 7px 20px rgba(96,165,250,.22),0 0 28px rgba(37,99,235,.55),0 0 70px rgba(37,99,235,.20);overflow:hidden}
+.dashboard-orb-core:before{content:"";position:absolute;inset:-20%;background:repeating-linear-gradient(105deg,transparent 0 12px,rgba(96,165,250,.12) 13px 14px,transparent 15px 25px);transform:rotate(18deg);animation:orbSurface 8s linear infinite}
+.dashboard-orb-core:after{content:"";position:absolute;inset:10%;border-radius:50%;border:1px solid rgba(96,165,250,.18);box-shadow:inset 0 0 18px rgba(32,200,255,.08)}
+.dashboard-orb-ring{position:absolute;inset:7px;border:2px solid rgba(32,200,255,.62);border-radius:50%;transform:rotateX(68deg) rotateZ(-12deg);box-shadow:0 0 12px rgba(32,200,255,.48),inset 0 0 8px rgba(32,200,255,.18);animation:orbRingA 5.5s linear infinite}
+.dashboard-orb-ring.r2{inset:15px;border-color:rgba(168,85,247,.72);transform:rotateX(72deg) rotateY(18deg) rotateZ(22deg);animation:orbRingB 7s linear infinite reverse}
+.dashboard-orb-ring.r3{inset:2px;border-color:rgba(59,130,246,.28);transform:rotateY(72deg) rotateZ(8deg);animation:orbRingC 9s linear infinite}
+.dashboard-orb-glow{position:absolute;left:50%;top:50%;width:165px;height:165px;transform:translate(-50%,-50%);border-radius:50%;background:radial-gradient(circle,rgba(37,99,235,.18),transparent 64%);filter:blur(4px);animation:orbGlow 3s ease-in-out infinite}
+.dashboard-orb-particle{position:absolute;width:4px;height:4px;border-radius:50%;background:#67e8f9;box-shadow:0 0 10px #22d3ee;animation:orbParticle 3.8s ease-in-out infinite}
+.dashboard-orb-particle.p1{left:13%;top:31%}.dashboard-orb-particle.p2{right:12%;top:64%;width:3px;height:3px;animation-delay:1s;background:#c084fc;box-shadow:0 0 10px #a855f7}.dashboard-orb-particle.p3{left:25%;bottom:17%;width:3px;height:3px;animation-delay:2s}
+@keyframes dashboardOrbFloat{0%,100%{transform:translate(-50%,-50%) rotateX(3deg) rotateY(-5deg)}50%{transform:translate(-50%,-54%) rotateX(-3deg) rotateY(5deg)}}
+@keyframes orbRingA{to{transform:rotateX(68deg) rotateZ(348deg)}}
+@keyframes orbRingB{to{transform:rotateX(72deg) rotateY(378deg) rotateZ(382deg)}}
+@keyframes orbRingC{to{transform:rotateY(432deg) rotateZ(8deg)}}
+@keyframes orbSurface{to{transform:translateX(32px) rotate(18deg)}}
+@keyframes orbGlow{0%,100%{opacity:.65;transform:translate(-50%,-50%) scale(.92)}50%{opacity:1;transform:translate(-50%,-50%) scale(1.08)}}
+@keyframes orbParticle{0%,100%{transform:translate3d(0,0,0);opacity:.45}50%{transform:translate3d(7px,-12px,20px);opacity:1}}
+@media (prefers-reduced-motion:reduce){.dashboard-orb,.dashboard-orb-ring,.dashboard-orb-core:before,.dashboard-orb-glow,.dashboard-orb-particle{animation:none!important}}
 .dashboard-hero{display:grid;grid-template-columns:minmax(0,1fr) auto auto;align-items:end;gap:12px;margin:0 2px 18px}.hero-main{min-width:0}.hero-version-strip{display:flex;align-items:stretch;gap:8px}.version-mini-card{min-width:128px;min-height:58px;padding:8px 10px;border:1px solid rgba(96,165,250,.18);border-radius:15px;background:linear-gradient(145deg,rgba(12,29,56,.88),rgba(5,13,28,.78));display:flex;align-items:center;gap:8px;box-shadow:0 10px 24px rgba(0,0,0,.20),inset 0 1px rgba(255,255,255,.06)}.version-mini-icon{width:30px;height:30px;flex:0 0 30px;border-radius:10px;display:grid;place-items:center;color:#60a5fa;background:linear-gradient(145deg,rgba(37,99,235,.34),rgba(14,165,233,.14));border:1px solid rgba(96,165,250,.22);font-size:14px;font-weight:900}.version-mini-copy{display:flex;flex-direction:column;gap:2px;min-width:0}.version-mini-copy b{font-size:9px;color:var(--t3);font-weight:700;white-space:nowrap}.version-mini-copy strong{font-size:13px;color:var(--t1);font-weight:900;direction:ltr;text-align:left;white-space:nowrap}.version-live-dot{width:7px;height:7px;flex:0 0 7px;border-radius:50%;background:#22c55e;box-shadow:0 0 10px #22c55e}.dashboard-hero .hero-actions{display:flex;gap:8px;flex-wrap:wrap}.hero-kicker{font-size:10px;letter-spacing:.2em;color:#60a5fa;font-weight:800;text-transform:uppercase}.hero-title{font-size:27px;font-weight:900;line-height:1.25;margin-top:6px}.hero-title span{color:#60a5fa;text-shadow:0 0 22px rgba(96,165,250,.35)}.hero-sub{margin-top:6px;color:var(--t3);font-size:12px}.hero-actions{display:flex;gap:8px;flex-wrap:wrap}
 .onex-metrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;margin-bottom:16px}.onex-metric{position:relative;overflow:hidden;min-height:122px;padding:17px;border:1px solid rgba(96,165,250,.13);border-radius:20px;background:linear-gradient(145deg,rgba(15,25,45,.92),rgba(8,12,22,.92));box-shadow:0 12px 32px rgba(0,0,0,.28),inset 0 1px rgba(255,255,255,.035);transition:.25s}.onex-metric:hover{transform:translateY(-3px);border-color:rgba(96,165,250,.35);box-shadow:0 16px 40px rgba(37,99,235,.14)}.onex-metric:after{content:'';position:absolute;right:-40px;bottom:-55px;width:140px;height:140px;border-radius:50%;background:rgba(37,99,235,.14);filter:blur(18px)}.metric-icon{width:42px;height:42px;border-radius:14px;display:grid;place-items:center;background:rgba(37,99,235,.14);border:1px solid rgba(96,165,250,.24);color:#60a5fa;box-shadow:0 0 20px rgba(37,99,235,.15)}.metric-icon svg{width:21px;height:21px}.onex-metric .metric-label{margin:10px 0 3px}.onex-metric .metric-val{font-size:25px}.metric-trend{position:absolute;left:15px;bottom:16px;font-size:10px;color:#34d399;font-weight:800}
 .dashboard-grid{display:grid;grid-template-columns:minmax(0,1.55fr) minmax(260px,.72fr);gap:14px;align-items:stretch}.dashboard-grid-right{display:grid;grid-template-rows:auto 1fr;gap:14px}.onex-card{background:linear-gradient(145deg,rgba(14,20,34,.92),rgba(7,11,20,.92));border:1px solid rgba(96,165,250,.12);border-radius:20px;box-shadow:0 14px 38px rgba(0,0,0,.3),inset 0 1px rgba(255,255,255,.035);overflow:hidden}.onex-card-head{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:16px 18px;border-bottom:1px solid rgba(255,255,255,.055)}.onex-card-title{display:flex;align-items:center;gap:8px;font-size:13px;font-weight:800}.onex-card-title svg{color:#60a5fa}.onex-card-body{padding:16px 18px}
@@ -8624,6 +8646,7 @@ html.light #page-logs .logs-detail-head>button{background:#fff}
   .onex-3d-control .control-icon{width:25px;height:25px;flex:0 0 25px;border-radius:8px}
   .onex-3d-control svg{width:13px;height:13px}.onex-3d-control .control-copy{min-width:0}.onex-3d-control .control-title{font-size:7px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.onex-3d-control .control-sub{font-size:5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 
+  .dashboard-visual{height:135px;margin-bottom:10px;border-radius:15px}.dashboard-orb{width:92px;height:92px}.dashboard-orb-core{inset:14px}.dashboard-orb-ring{inset:5px}.dashboard-orb-ring.r2{inset:10px}.dashboard-orb-ring.r3{inset:2px}.dashboard-orb-glow{width:112px;height:112px}
   .dashboard-hero{display:flex;align-items:flex-end;justify-content:space-between;gap:5px;margin:0 1px 10px;min-width:0}
   .dashboard-hero>div:first-child{min-width:0}.hero-kicker{font-size:7px;letter-spacing:.14em}.hero-title{font-size:18px;margin-top:3px;line-height:1.25}.hero-sub{font-size:7px;margin-top:3px;white-space:nowrap}.hero-actions{gap:4px;flex:0 0 auto}
   .hero-actions .btn{padding:6px 7px;font-size:7px;border-radius:8px;white-space:nowrap}.hero-actions .btn svg{width:11px;height:11px}
@@ -9395,6 +9418,17 @@ html.light .protocol-picker-bg{background:rgba(15,23,42,.28)}html.light .protoco
     <div class="hero-actions">
       <button class="btn btn-p btn-sm" onclick="goPage('create')">＋ ساخت کانفیگ</button>
       <button class="btn btn-sm" onclick="refreshAll()">↻ بروزرسانی</button>
+    </div>
+  </div>
+
+  <div class="dashboard-visual" aria-hidden="true">
+    <div class="dashboard-orb">
+      <div class="dashboard-orb-glow"></div>
+      <div class="dashboard-orb-ring r3"></div>
+      <div class="dashboard-orb-ring r2"></div>
+      <div class="dashboard-orb-ring"></div>
+      <div class="dashboard-orb-core"></div>
+      <span class="dashboard-orb-particle p1"></span><span class="dashboard-orb-particle p2"></span><span class="dashboard-orb-particle p3"></span>
     </div>
   </div>
 
