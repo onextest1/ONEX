@@ -10705,6 +10705,412 @@ html.light.onex-themed .switch input:checked + .slider{background:var(--accent) 
 html.light.onex-themed .theme-current-row{background:#f8fafc !important;color:#64748b !important}
 html.light.onex-themed .theme-custom-box,
 html.light.onex-themed .theme-mode-box{background:#fff !important}
+
+/* ============================================================
+   ONEX FINAL THEME AUDIT — READABILITY + FULL-PANEL CONSISTENCY
+   This is intentionally the last theme layer. It neutralizes legacy
+   component palettes only where they conflict with the selected theme.
+   Semantic success/warning/danger states remain meaningful.
+   ============================================================ */
+html.onex-themed{
+  color-scheme:dark;
+  --theme-text:var(--t1);
+  --theme-muted:var(--t2);
+  --theme-subtle:var(--t3);
+  --theme-surface:var(--card);
+  --theme-surface-2:var(--bg3);
+  --theme-input:var(--input-bg);
+}
+html.light.onex-themed{color-scheme:light}
+html.onex-themed body,
+html.onex-themed button,
+html.onex-themed input,
+html.onex-themed select,
+html.onex-themed textarea{font-family:'Vazirmatn',Tahoma,Arial,sans-serif}
+html.onex-themed body.en,
+html.onex-themed body.en button,
+html.onex-themed body.en input,
+html.onex-themed body.en select,
+html.onex-themed body.en textarea{font-family:'Inter','Vazirmatn',system-ui,sans-serif}
+
+/* Base text and surfaces */
+html.onex-themed .page,
+html.onex-themed .main{color:var(--theme-text)}
+html.onex-themed .page-title,
+html.onex-themed .card-title,
+html.onex-themed .onex-card-title,
+html.onex-themed .onex-card-head,
+html.onex-themed .metric-label,
+html.onex-themed .metric-val,
+html.onex-themed .metric-trend,
+html.onex-themed .quick-name,
+html.onex-themed .quick-desc,
+html.onex-themed .page-sub,
+html.onex-themed .field label,
+html.onex-themed .info-row,
+html.onex-themed .form-row,
+html.onex-themed .health-name,
+html.onex-themed .health-pct,
+html.onex-themed .cfg-name-row b,
+html.onex-themed .cfg-proto,
+html.onex-themed .cfg-meta,
+html.onex-themed .cfg-status,
+html.onex-themed .cfg-list-head,
+html.onex-themed .group-card-title,
+html.onex-themed .group-card-desc,
+html.onex-themed .group-detail-title,
+html.onex-themed .group-detail-title p,
+html.onex-themed .admin-card-title,
+html.onex-themed .admin-card-sub,
+html.onex-themed .admin-user-name,
+html.onex-themed .tg-title,
+html.onex-themed .tg-desc,
+html.onex-themed .tg-card-head h2,
+html.onex-themed .sub-hero h1,
+html.onex-themed .sub-hero p,
+html.onex-themed .stats-panel-head b,
+html.onex-themed .stats-kpi b,
+html.onex-themed .stats-kpi small,
+html.onex-themed .logs-page-sub,
+html.onex-themed .logs-event-title,
+html.onex-themed .logs-event-desc,
+html.onex-themed .security-action-row,
+html.onex-themed .security-detail-row,
+html.onex-themed .security-section-title,
+html.onex-themed .theme-panel-head h2,
+html.onex-themed .theme-custom-head h3{color:var(--theme-text)!important}
+html.onex-themed .page-sub,
+html.onex-themed .quick-desc,
+html.onex-themed .field label,
+html.onex-themed .cfg-meta,
+html.onex-themed .admin-card-sub,
+html.onex-themed .admin-user-label,
+html.onex-themed .tg-desc,
+html.onex-themed .tg-card-head p,
+html.onex-themed .sub-hero p,
+html.onex-themed .stats-kpi small,
+html.onex-themed .stats-panel-head small,
+html.onex-themed .logs-event-time,
+html.onex-themed .security-action-row small,
+html.onex-themed .security-recent-meta,
+html.onex-themed .security-detail-row span,
+html.onex-themed .security-empty{color:var(--theme-subtle)!important}
+
+html.onex-themed .card,
+html.onex-themed .metric,
+html.onex-themed .onex-card,
+html.onex-themed .onex-metric,
+html.onex-themed .support-tile,
+html.onex-themed .quick-item,
+html.onex-themed .table-wrap,
+html.onex-themed .link-box,
+html.onex-themed .sub-box,
+html.onex-themed .onex-topbar,
+html.onex-themed .onex-control-dock,
+html.onex-themed .version-mini-card,
+html.onex-themed .dashboard-hero,
+html.onex-themed .recent-card,
+html.onex-themed .server-info,
+html.onex-themed .health-list,
+html.onex-themed .traffic-panel,
+html.onex-themed .uptime-panel,
+html.onex-themed .server-panel,
+html.onex-themed .panel-summary,
+html.onex-themed .logs-summary,
+html.onex-themed .logs-list-card,
+html.onex-themed .security-details,
+html.onex-themed .theme-current-row,
+html.onex-themed .theme-custom-box,
+html.onex-themed .theme-mode-box{
+  background:var(--theme-surface)!important;
+  color:var(--theme-text)!important;
+  border-color:var(--onex-border)!important;
+}
+
+/* Secondary controls / fields */
+html.onex-themed .field input,
+html.onex-themed .field select,
+html.onex-themed .field textarea,
+html.onex-themed .cfg-search-box,
+html.onex-themed .cfg-filter-btn,
+html.onex-themed .cfg-select,
+html.onex-themed .group-search,
+html.onex-themed .group-info-item,
+html.onex-themed .group-link-url,
+html.onex-themed .group-config-row,
+html.onex-themed .group-proto-row,
+html.onex-themed .admin-select-shell,
+html.onex-themed .admin-perm-select,
+html.onex-themed .logs-filter,
+html.onex-themed .logs-search-wrap,
+html.onex-themed .tg-field input,
+html.onex-themed .tg-input-wrap input,
+html.onex-themed .tg-search,
+html.onex-themed .tg-user-tools input,
+html.onex-themed .tg-user-tools select,
+html.onex-themed .tg-glass textarea,
+html.onex-themed .sub-url-box,
+html.onex-themed .range-mini,
+html.onex-themed .mini-action,
+html.onex-themed .advanced-subcard,
+html.onex-themed .advanced-toggle,
+html.onex-themed .advanced-preview,
+html.onex-themed .protocol-selected-info{
+  background:var(--theme-input)!important;
+  color:var(--theme-text)!important;
+  border-color:var(--onex-border)!important;
+}
+html.onex-themed input::placeholder,
+html.onex-themed textarea::placeholder{color:var(--theme-subtle)!important}
+html.onex-themed option{background:var(--bg2);color:var(--theme-text)}
+html.onex-themed input:focus,
+html.onex-themed select:focus,
+html.onex-themed textarea:focus{border-color:var(--onex-border-strong)!important;box-shadow:0 0 0 3px var(--onex-accent-soft)!important}
+
+/* Primary UI always uses the selected palette. */
+html.onex-themed .btn-p,
+html.onex-themed .btn-primary,
+html.onex-themed .primary,
+html.onex-themed .cfg-primary-btn,
+html.onex-themed .group-create-btn,
+html.onex-themed .group-config-save,
+html.onex-themed .sub-action.primary,
+html.onex-themed .tg-btn.primary,
+html.onex-themed .tg-join,
+html.onex-themed .protocol-picker-confirm,
+html.onex-themed .stats-refresh-btn,
+html.onex-themed .notify-update-btn,
+html.onex-themed .range-tab.on,
+html.onex-themed .range-mini button.on,
+html.onex-themed .cfg-filter-btn.active,
+html.onex-themed .cfg-filter-btn.on,
+html.onex-themed .nav-item.on,
+html.onex-themed .onex-3d-control.active{
+  background:linear-gradient(135deg,var(--accent),var(--purple))!important;
+  border-color:color-mix(in srgb,var(--accent) 58%,transparent)!important;
+  color:#fff!important;
+}
+
+/* Common legacy blue/pink buttons: only recolor when they are action controls. */
+html.onex-themed .cfg-menu-btn,
+html.onex-themed .group-copy-btn,
+html.onex-themed .group-link-actions button,
+html.onex-themed .group-manage-actions button:first-child,
+html.onex-themed .logs-refresh-btn,
+html.onex-themed .logs-advanced-btn,
+html.onex-themed .logs-reset-filter,
+html.onex-themed .tg-tabs button.on,
+html.onex-themed .tg-audience button.on,
+html.onex-themed .tg-input-wrap button,
+html.onex-themed .tg-user-actions button:not(.danger),
+html.onex-themed .security-stat-action,
+html.onex-themed .theme-mode-buttons button.on{
+  background:var(--onex-accent-soft)!important;
+  color:var(--accent2)!important;
+  border-color:var(--onex-border-strong)!important;
+}
+
+/* Structural legacy gradients are flattened to theme surfaces in both modes. */
+html.onex-themed .group-hero,
+html.onex-themed .group-list-pane,
+html.onex-themed .group-detail-pane,
+html.onex-themed .group-info-card,
+html.onex-themed .group-link-card,
+html.onex-themed .group-proto-card,
+html.onex-themed .group-manage-card,
+html.onex-themed .group-configs-card,
+html.onex-themed .group-card,
+html.onex-themed .group-stat,
+html.onex-themed .cfg-page-hero,
+html.onex-themed .cfg-stat-card,
+html.onex-themed .cfg-list-shell,
+html.onex-themed .cfg-card,
+html.onex-themed .cfg-side,
+html.onex-themed .admin-card,
+html.onex-themed .admin-create-card,
+html.onex-themed .admin-list-card,
+html.onex-themed .admin-perm-card,
+html.onex-themed .admin-activity-list,
+html.onex-themed .security-health,
+html.onex-themed .security-login-box,
+html.onex-themed .security-log-box,
+html.onex-themed .sub-glass,
+html.onex-themed .sub-hero,
+html.onex-themed .telegram-sub-card,
+html.onex-themed .stats-kpi,
+html.onex-themed .stats-panel,
+html.onex-themed .tg-hero,
+html.onex-themed .tg-glass,
+html.onex-themed .tg-stat,
+html.onex-themed .tg-tabs,
+html.onex-themed .backup{
+  background:var(--theme-surface)!important;
+  color:var(--theme-text)!important;
+  border-color:var(--onex-border)!important;
+}
+
+/* Light mode: explicitly fix fixed white-on-white and blue legacy components. */
+html.light.onex-themed body,
+html.light.onex-themed .main,
+html.light.onex-themed .page{background:var(--bg)!important;color:#0f172a!important}
+html.light.onex-themed .sidebar,
+html.light.onex-themed .mob-bar,
+html.light.onex-themed .onex-topbar,
+html.light.onex-themed .onex-control-dock{background:#fff!important;color:#0f172a!important}
+html.light.onex-themed .card,
+html.light.onex-themed .metric,
+html.light.onex-themed .onex-card,
+html.light.onex-themed .onex-metric,
+html.light.onex-themed .support-tile,
+html.light.onex-themed .quick-item,
+html.light.onex-themed .table-wrap,
+html.light.onex-themed .recent-card,
+html.light.onex-themed .dashboard-hero,
+html.light.onex-themed .server-info,
+html.light.onex-themed .health-list,
+html.light.onex-themed .traffic-panel,
+html.light.onex-themed .uptime-panel,
+html.light.onex-themed .server-panel,
+html.light.onex-themed .panel-summary,
+html.light.onex-themed .logs-summary,
+html.light.onex-themed .logs-list-card,
+html.light.onex-themed .group-hero,
+html.light.onex-themed .group-list-pane,
+html.light.onex-themed .group-detail-pane,
+html.light.onex-themed .group-info-card,
+html.light.onex-themed .group-link-card,
+html.light.onex-themed .group-proto-card,
+html.light.onex-themed .group-manage-card,
+html.light.onex-themed .group-configs-card,
+html.light.onex-themed .group-card,
+html.light.onex-themed .group-stat,
+html.light.onex-themed .cfg-page-hero,
+html.light.onex-themed .cfg-stat-card,
+html.light.onex-themed .cfg-list-shell,
+html.light.onex-themed .cfg-card,
+html.light.onex-themed .cfg-side,
+html.light.onex-themed .admin-card,
+html.light.onex-themed .admin-create-card,
+html.light.onex-themed .admin-list-card,
+html.light.onex-themed .admin-perm-card,
+html.light.onex-themed .admin-activity-list,
+html.light.onex-themed .security-health,
+html.light.onex-themed .security-login-box,
+html.light.onex-themed .security-log-box,
+html.light.onex-themed .sub-glass,
+html.light.onex-themed .sub-hero,
+html.light.onex-themed .telegram-sub-card,
+html.light.onex-themed .stats-kpi,
+html.light.onex-themed .stats-panel,
+html.light.onex-themed .tg-hero,
+html.light.onex-themed .tg-glass,
+html.light.onex-themed .tg-stat,
+html.light.onex-themed .backup{background:#fff!important;color:#0f172a!important}
+
+/* Fixed inline colors from legacy cards are the main source of unreadable light text. */
+html.light.onex-themed .page [style*="color:#fff"],
+html.light.onex-themed .page [style*="color: #fff"],
+html.light.onex-themed .page [style*="color:white"],
+html.light.onex-themed .page [style*="color: white"]{color:#0f172a!important}
+html.light.onex-themed .page [style*="background:#0b"],
+html.light.onex-themed .page [style*="background:#05"],
+html.light.onex-themed .page [style*="background:#06"],
+html.light.onex-themed .page [style*="background:#12"],
+html.light.onex-themed .page [style*="background:#15"],
+html.light.onex-themed .page [style*="background:#16"],
+html.light.onex-themed .page [style*="background:#21"],
+html.light.onex-themed .page [style*="background:#25"],
+html.light.onex-themed .page [style*="background:rgba(2,"]{background:#f8fafc!important;color:#334155!important}
+/* Restore white text on actual action buttons after the broad inline-color rule. */
+html.light.onex-themed .btn-p,
+html.light.onex-themed .btn-primary,
+html.light.onex-themed .primary,
+html.light.onex-themed .cfg-primary-btn,
+html.light.onex-themed .group-create-btn,
+html.light.onex-themed .group-config-save,
+html.light.onex-themed .sub-action.primary,
+html.light.onex-themed .tg-btn.primary,
+html.light.onex-themed .tg-join,
+html.light.onex-themed .protocol-picker-confirm,
+html.light.onex-themed .range-tab.on,
+html.light.onex-themed .range-mini button.on,
+html.light.onex-themed .nav-item.on{color:#fff!important}
+
+/* Light tables and table-like lists */
+html.light.onex-themed th,
+html.light.onex-themed td,
+html.light.onex-themed .admin-table-head,
+html.light.onex-themed .admin-row{background:#fff!important;color:#334155!important;border-color:rgba(15,23,42,.08)!important}
+html.light.onex-themed th{color:#64748b!important}
+html.light.onex-themed tr:hover td,
+html.light.onex-themed .admin-row:hover{background:#f8fafc!important}
+html.light.onex-themed .admin-row.selected{background:var(--onex-accent-soft)!important}
+
+/* Stats/graphs: labels readable, graph accents follow theme. */
+html.onex-themed .stats-panel-head b,
+html.onex-themed .stats-kpi b,
+html.onex-themed .stats-kpi small,
+html.onex-themed .stats-legend,
+html.onex-themed .stats-panel-head small{color:var(--theme-text)!important}
+html.onex-themed .traffic-line-d{stroke:var(--accent)!important}
+html.onex-themed .traffic-line-u{stroke:var(--purple)!important}
+html.onex-themed .chart-fill{fill:color-mix(in srgb,var(--accent) 18%,transparent)!important}
+html.onex-themed .chart-line{stroke:var(--accent)!important}
+html.onex-themed .chart-dot{fill:var(--accent)!important}
+html.onex-themed .stats-kpi-icon,
+html.onex-themed .metric-icon,
+html.onex-themed .quick-icon,
+html.onex-themed .cfg-stat-icon{color:var(--accent2)!important;border-color:var(--onex-border)!important;background:var(--onex-accent-soft)!important}
+
+/* Status semantics stay visible in both modes. */
+html.light.onex-themed .security-recent-state.ok,
+html.light.onex-themed .admin-badge.active{color:#15803d!important;background:rgba(34,197,94,.10)!important}
+html.light.onex-themed .security-recent-state.bad,
+html.light.onex-themed .admin-badge.blocked,
+html.light.onex-themed .tg-user-state.bad{color:#dc2626!important;background:rgba(239,68,68,.08)!important}
+html.light.onex-themed .admin-badge.invalid{color:#b45309!important;background:rgba(245,158,11,.10)!important}
+html.light.onex-themed .btn-d,
+html.light.onex-themed .danger-row,
+html.light.onex-themed .delete-all-configs-glass{color:#dc2626!important}
+
+/* Modals/toasts must follow the same surface and text rules. */
+html.onex-themed .modal,
+html.onex-themed .delete-all-modal,
+html.onex-themed .logs-detail-modal{background:var(--theme-surface)!important;color:var(--theme-text)!important;border-color:var(--onex-border)!important}
+html.light.onex-themed .modal,
+html.light.onex-themed .delete-all-modal,
+html.light.onex-themed .logs-detail-modal{background:#fff!important;color:#0f172a!important}
+html.light.onex-themed .modal-title,
+html.light.onex-themed .delete-all-modal-title,
+html.light.onex-themed .logs-detail-head{color:#0f172a!important}
+
+/* Prevent accidental white text on white cards from inherited legacy rules. */
+html.light.onex-themed .page .tg-copy b,
+html.light.onex-themed .page .tg-card-head h2,
+html.light.onex-themed .page .group-card-title,
+html.light.onex-themed .page .group-detail-title,
+html.light.onex-themed .page .cfg-name-row b,
+html.light.onex-themed .page .cfg-list-head b,
+html.light.onex-themed .page .stats-panel-head b,
+html.light.onex-themed .page .admin-card-title,
+html.light.onex-themed .page .admin-user-name{color:#0f172a!important}
+
+/* Protocol picker / advanced config */
+html.light.onex-themed .protocol-picker,
+html.light.onex-themed .protocol-option,
+html.light.onex-themed .protocol-picker-foot,
+html.light.onex-themed .advanced-config-panel,
+html.light.onex-themed .advanced-config-card{background:#fff!important;color:#0f172a!important;border-color:rgba(15,23,42,.10)!important}
+html.light.onex-themed .protocol-option-name,
+html.light.onex-themed .protocol-option-desc,
+html.light.onex-themed .advanced-subtitle,
+html.light.onex-themed .advanced-note{color:#334155!important}
+html.light.onex-themed .protocol-option.selected{border-color:var(--accent)!important;background:var(--onex-accent-soft)!important}
+
+/* Keep intentional brand/logo artwork unchanged; only surrounding typography is themed. */
+html.onex-themed .sb-logo-caption span,
+html.onex-themed .sb-logo-caption b{filter:drop-shadow(0 0 6px color-mix(in srgb,var(--accent) 35%,transparent))}
+
 </style>
 <section class="page" id="page-news">
   <div class="page-head">
@@ -12180,6 +12586,16 @@ function applyOnexTheme(key, opts){
   root.style.setProperty('--bg',t.bg);root.style.setProperty('--bg2',bg2);root.style.setProperty('--bg3',bg3);root.style.setProperty('--card',t.card);
   root.style.setProperty('--accent',t.p);root.style.setProperty('--accent2',mixHex(t.p,.28));root.style.setProperty('--purple',t.s);
   root.style.setProperty('--hover',`rgba(${pr},${pg},${pb},.12)`);root.style.setProperty('--glow',`0 0 40px rgba(${pr},${pg},${pb},.12)`);
+  // Keep every page readable when the selected palette changes. These tokens are
+  // consumed by the final global theme layer below, including legacy cards that
+  // still contain fixed colors in their original component CSS.
+  if(t.mode==='light'){
+    root.style.setProperty('--t1','#0f172a');root.style.setProperty('--t2','#334155');root.style.setProperty('--t3','#64748b');
+    root.style.setProperty('--card-b','rgba(15,23,42,.10)');root.style.setProperty('--input-bg','#f8fafc');
+  }else{
+    root.style.setProperty('--t1','#f8fafc');root.style.setProperty('--t2','rgba(248,250,252,.72)');root.style.setProperty('--t3','rgba(248,250,252,.48)');
+    root.style.setProperty('--card-b','rgba(148,163,184,.16)');root.style.setProperty('--input-bg','rgba(2,10,24,.62)');
+  }
   root.style.setProperty('--action-red',t.p);root.style.setProperty('--action-red-2',t.s);root.style.setProperty('--action-red-soft',`rgba(${pr},${pg},${pb},.12)`);
   root.style.setProperty('--theme-preview',t.p);root.style.setProperty('--theme-preview2',t.s);
   root.classList.add('onex-themed');
