@@ -4,10 +4,12 @@ import asyncio
 import secrets
 import socket
 import time
+import uuid as uuidlib
 from datetime import datetime
 
 from fastapi import APIRouter, Request, HTTPException
 from fastapi.responses import StreamingResponse
+from starlette.requests import ClientDisconnect
 
 from main import (
     LINKS,
@@ -26,17 +28,17 @@ from onex.core.traffic_limiter import throttle
 
 router = APIRouter()
 
-XHTTP_BUF = 512 * 1024
+XHTTP_BUF = 1024 * 1024
 DOWNLINK_QUEUE_MAX = 512
 SESSION_IDLE_TIMEOUT = 30
 REAPER_INTERVAL = 10
 TCP_CONNECT_TIMEOUT = 10.0
-SOCK_BUF_SIZE = 2 * 1024 * 1024
+SOCK_BUF_SIZE = 4 * 1024 * 1024
 FLOW_MIN_HW = 256 * 1024
-FLOW_MAX_HW = 16 * 1024 * 1024
+FLOW_MAX_HW = 32 * 1024 * 1024
 FLOW_START_HW = 2 * 1024 * 1024
-FLOW_FAST_DRAIN_MS = 2.0  
-FLOW_SLOW_DRAIN_MS = 25.0  
+FLOW_FAST_DRAIN_MS = 12.0  
+FLOW_SLOW_DRAIN_MS = 40.0  
 QUOTA_MIN_BATCH = 32 * 1024
 QUOTA_MAX_BATCH = 1 * 1024 * 1024
 QUOTA_START_BATCH = 64 * 1024
@@ -137,7 +139,7 @@ class _AdaptiveFlow:
         elapsed_ms = (time.monotonic() - t0) * 1000
         self.last_drain_ms = elapsed_ms
         if elapsed_ms < FLOW_FAST_DRAIN_MS:
-            self.high_water = min(FLOW_MAX_HW, int(self.high_water * 1.5) + 65536)
+            self.high_water = min(FLOW_MAX_HW, int(self.high_water * 2.0) + 65536)
         elif elapsed_ms > FLOW_SLOW_DRAIN_MS:
             self.high_water = max(FLOW_MIN_HW, self.high_water // 2)
 
@@ -463,57 +465,89 @@ async def stream_up_upload(uuid: str, session_id: str, request: Request):
     return {"ok": True}
 
 # ══════════════════════════════ STREAM-ONE ══════════════════════════════
-# Xray's stream-one wire format is a single long-lived POST whose URL contains
-# only the configured path.  Unlike packet-up/stream-up, the session id is NOT
-# appended to the URL; Xray keeps the request/response pair as one connection.
-# The response body is the downstream half of the same tunnel.
-async def _stream_one_uplink(session_id: str, uuid: str, sess: dict, request: Request):
+# Xray stream-one is ONE long-lived HTTP request/response pair. There is no
+# session id and no UUID in the URL; the VLESS UUID is inside bytes 1..16 of
+# the first request body. The response body is the downlink of the same HTTP
+# stream.
+STREAM_ONE_MAX_HEADER = 64 * 1024
+
+
+def _stream_one_extract_uuid(buf: bytes) -> str:
+    if len(buf) < 17:
+        raise ValueError("VLESS header too small")
+    if buf[0] != 0:
+        raise ValueError("unsupported VLESS version")
+    try:
+        return str(uuidlib.UUID(bytes=bytes(buf[1:17])))
+    except (ValueError, AttributeError) as exc:
+        raise ValueError("invalid VLESS UUID") from exc
+
+
+async def _read_stream_one_preamble(request: Request):
+    """Read until the complete VLESS request header is available, then return
+    the same async iterator so no request-body bytes are lost."""
+    iterator = request.stream().__aiter__()
+    header_buf = bytearray()
+    while True:
+        try:
+            chunk = await iterator.__anext__()
+        except StopAsyncIteration:
+            raise ValueError("empty stream-one request")
+        if not chunk:
+            continue
+        header_buf.extend(chunk)
+        if len(header_buf) > STREAM_ONE_MAX_HEADER:
+            raise ValueError("VLESS header is too large")
+        if _vless_header_complete(header_buf):
+            break
+    return iterator, bytes(header_buf), _stream_one_extract_uuid(header_buf)
+
+
+async def _stream_one_uplink_iter(session_id: str, uuid: str, sess: dict, iterator, first_chunk: bytes):
     gate = sess.get("gate")
     if gate is None:
         gate = _QuotaGate(uuid)
         sess["gate"] = gate
-
     flow = sess.get("flow")
     if flow is None:
         flow = _AdaptiveFlow()
         sess["flow"] = flow
-
     conn = connections.get(sess["conn_id"])
     writer = sess.get("writer")
-    header_buf = bytearray()
-    max_header = 64 * 1024
+
+    async def handle_chunk(chunk: bytes):
+        nonlocal writer
+        if not chunk:
+            return
+        sess["last_seen"] = time.time()
+        if not await gate.add(len(chunk)):
+            raise HTTPException(status_code=403, detail="quota/disabled/unknown")
+        await throttle(uuid, len(chunk))
+        stats["total_requests"] += 1
+        if conn:
+            conn["bytes"] += len(chunk)
+        if writer is None:
+            await _open_tcp_for_session(session_id, uuid, sess, chunk)
+            writer = sess["writer"]
+            return
+        if writer.is_closing():
+            raise ConnectionError("transport closing")
+        writer.write(chunk)
+        if flow.should_drain(writer.transport.get_write_buffer_size()):
+            await flow.drain(writer)
 
     try:
-        async for chunk in request.stream():
-            if not chunk:
-                continue
-
-            sess["last_seen"] = time.time()
-            if not await gate.add(len(chunk)):
-                raise HTTPException(status_code=403, detail="quota/disabled/unknown")
-            await throttle(uuid, len(chunk))
-            stats["total_requests"] += 1
-            if conn:
-                conn["bytes"] += len(chunk)
-
-            if writer is None:
-                # HTTP chunk boundaries are not VLESS frame boundaries. The
-                # first VLESS header may be split across multiple ASGI chunks,
-                # so buffer only until the complete address/header is present.
-                header_buf.extend(chunk)
-                if len(header_buf) > max_header:
-                    raise ValueError("VLESS header is too large")
-                if not _vless_header_complete(header_buf):
-                    continue
-                await _open_tcp_for_session(session_id, uuid, sess, bytes(header_buf))
-                writer = sess["writer"]
-                header_buf.clear()
-                continue
-
-            writer.write(chunk)
-            if flow.should_drain(writer.transport.get_write_buffer_size()):
-                await flow.drain(writer)
-
+        # Includes the VLESS header plus any payload that arrived in the same
+        # HTTP DATA chunk. It must be written exactly once.
+        await handle_chunk(first_chunk)
+        while True:
+            try:
+                chunk = await iterator.__anext__()
+            except StopAsyncIteration:
+                break
+            await handle_chunk(chunk)
+        await gate.flush()
+    except ClientDisconnect:
         await gate.flush()
     except HTTPException:
         await gate.flush()
@@ -522,24 +556,28 @@ async def _stream_one_uplink(session_id: str, uuid: str, sess: dict, request: Re
         raise
     except Exception as exc:
         error_logs.append({"error": str(exc), "time": datetime.now().isoformat()})
+        await gate.flush()
     finally:
-        # The request/response pair is the stream-one session. When either side
-        # finishes, close the tunnel and release the server-side session.
         await _teardown(session_id)
 
 
-async def _stream_one_response(session_id: str, uuid: str, request: Request):
+async def _stream_one_response(request: Request):
+    # Authenticate from the VLESS body because stream-one has no UUID/session
+    # metadata in the URL. This is the critical difference from packet-up and
+    # stream-up and was the root cause of the previous non-working link.
+    try:
+        iterator, first_chunk, uuid = await _read_stream_one_preamble(request)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+
     await _check_link(uuid)
-    sess = await _get_or_create_session(
-        uuid, "stream-one", session_id, _req_client_ip(request)
-    )
+    session_id = "one-" + secrets.token_urlsafe(18)
+    sess = await _get_or_create_session(uuid, "stream-one", session_id, _req_client_ip(request))
     if sess.get("closed"):
         raise HTTPException(status_code=404, detail="session closed")
 
-    # Consume the request body concurrently with the response generator. This
-    # is required for true full-duplex stream-one operation.
     sess["uplink_task"] = asyncio.create_task(
-        _stream_one_uplink(session_id, uuid, sess, request)
+        _stream_one_uplink_iter(session_id, uuid, sess, iterator, first_chunk)
     )
 
     fp = request.query_params.get("fp", DEFAULT_FINGERPRINT)
@@ -553,23 +591,18 @@ async def _stream_one_response(session_id: str, uuid: str, request: Request):
     )
 
 
-# Canonical Xray stream-one endpoint: path + UUID, no session id in the URL.
-@router.post("/xhttp-siz10/stream-one/{uuid}")
-@router.post("/xhttp-siz10/stream-one/{uuid}/")
-async def stream_one(uuid: str, request: Request):
+# Canonical Xray stream-one endpoint: configured path only, no UUID/session suffix.
+@router.post("/xhttp-siz10/stream-one")
+@router.post("/xhttp-siz10/stream-one/")
+async def stream_one(request: Request):
     ensure_reaper()
-    # Server-side correlation id; Xray keeps its stream-one session inside the
-    # HTTP request/response rather than putting it in the URL.
-    session_id = "one-" + secrets.token_urlsafe(18)
-    return await _stream_one_response(session_id, uuid, request)
+    return await _stream_one_response(request)
 
 
-# Keep compatibility with the earlier ONEX experimental URL form. This is not
-# used by generated Xray stream-one links, but allows older clients/configs to
-# continue working while they are migrated.
-@router.post("/xhttp-siz10/stream-one/{uuid}/{session_id}")
-@router.post("/xhttp-siz10/stream-one/{uuid}/{session_id}/")
-async def stream_one_legacy(uuid: str, session_id: str, request: Request):
+# Accept extra segments under the stream-one namespace for operator-defined
+# paths; generated ONEX links always use the canonical path above.
+@router.post("/xhttp-siz10/stream-one/{tail:path}")
+async def stream_one_custom_path(tail: str, request: Request):
     ensure_reaper()
-    return await _stream_one_response(session_id, uuid, request)
+    return await _stream_one_response(request)
 

@@ -110,20 +110,24 @@ def _protocol_safe_advanced(advanced: dict[str, Any], protocol: str, *, all_prot
             pass
 
     if all_protocols:
-        # One account can expose all native protocols, but transports are not
-        # interchangeable between them.
+        # In an all-protocol account the selected UI transport is NOT reused
+        # blindly by every native protocol. Each native inbound gets a valid
+        # transport of its own; otherwise e.g. selecting XHTTP or gRPC in the
+        # UI can make the generated Trojan/HTTP/SS inbounds invalid.
         if protocol in {"shadowsocks", "socks5", "http", "hysteria2"}:
             n["type"] = "tcp"
         elif protocol == "vless-grpc-reality":
             n["type"] = "grpc"
             tls["mode"] = "reality"
             tls["enabled"] = True
-        elif protocol == "trojan" and str(tls.get("mode") or "tls").lower() == "reality":
+        elif protocol == "trojan":
+            n["type"] = "tcp"
             tls["mode"] = "tls"
+            tls["enabled"] = True
 
-    # gRPC is one of the native protocols included by an all-protocol account.
-    # Its service name is independent from the selected UI protocol, so a
-    # generic all-protocol configuration must still have a valid value.
+    # Any native gRPC inbound needs a service name. This is a protocol-level
+    # default, not something the user should have to fill in when creating an
+    # all-protocol account.
     host = a.setdefault("host", {})
     if str(n.get("type") or "").lower() == "grpc" and not str(host.get("service_name") or n.get("service_name") or "").strip():
         host["service_name"] = str(n.get("service_name") or "ONEX").strip() or "ONEX"
