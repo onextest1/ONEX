@@ -2525,6 +2525,49 @@ table th:first-child, table td:first-child{overflow:visible}
   .top-avatar{width:92px!important;height:38px!important;}
 }
 </style>
+
+<style>
+/* ONEX 1.3.9 — single 3D wordmark in the top chrome.
+   The navigation drawer intentionally has no logo block. */
+#sidebar > .sb-logo{display:none!important;}
+#sidebar .sb-logo-icon{display:none!important;}
+
+/* Desktop top bar: crisp, centered-size wordmark. */
+.top-avatar{
+  width:185px!important;height:77px!important;
+  display:grid!important;place-items:center!important;
+  background:transparent!important;border:0!important;border-radius:0!important;
+  box-shadow:none!important;overflow:visible!important;
+}
+.top-avatar img{
+  width:100%!important;height:100%!important;object-fit:contain!important;
+  display:block!important;background:transparent!important;
+  filter:drop-shadow(0 0 8px rgba(0,132,255,.82))
+         drop-shadow(0 0 18px rgba(0,80,255,.55))
+         drop-shadow(0 8px 14px rgba(0,0,0,.45))
+         brightness(1.12) saturate(1.12)!important;
+}
+
+/* Mobile top bar: larger than the old tiny mark, but still leaves room for controls. */
+.mob-brand{display:flex!important;align-items:center!important;justify-content:center!important;gap:0!important;min-width:0!important;}
+.mob-brand-icon{
+  width:132px!important;height:54px!important;
+  display:grid!important;place-items:center!important;flex:0 0 132px!important;
+  background:transparent!important;border:0!important;border-radius:0!important;
+  box-shadow:none!important;overflow:visible!important;
+}
+.mob-brand-icon img{
+  width:100%!important;height:100%!important;object-fit:contain!important;
+  display:block!important;background:transparent!important;
+  filter:drop-shadow(0 0 7px rgba(0,132,255,.82))
+         drop-shadow(0 0 16px rgba(0,80,255,.52))
+         brightness(1.12) saturate(1.12)!important;
+}
+.mob-brand-text{display:none!important;}
+@media(max-width:380px){
+  .mob-brand-icon{width:118px!important;height:48px!important;flex-basis:118px!important;}
+}
+</style>
 </head>
 
 <body>
@@ -9233,7 +9276,7 @@ html.light .protocol-picker-bg{background:rgba(15,23,42,.28)}html.light .protoco
   <button class="mob-menu-btn" id="mobMenuBtn" aria-label="منو">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
   </button>
-  <div class="mob-brand"><div class="mob-brand-icon" aria-label="ONEX PANEL"><img src="/api/onex-panel-logo.png?v=1.3.8" alt="ONEX PANEL"></div><div class="mob-brand-text"><span>پنل مدیریت</span></div></div>
+  <div class="mob-brand"><div class="mob-brand-icon" aria-label="ONEX PANEL"><img src="/api/onex-panel-logo.png?v=1.3.9" alt="ONEX PANEL"></div><div class="mob-brand-text"><span>پنل مدیریت</span></div></div>
   <div class="mob-status"><i></i><span>آنلاین</span></div>
 </div>
 <div class="overlay" id="overlay"></div>
@@ -9242,9 +9285,6 @@ html.light .protocol-picker-bg{background:rgba(15,23,42,.28)}html.light .protoco
   <button class="sb-toggle" id="sbToggle" title="Toggle">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
   </button>
-  <div class="sb-logo">
-    <div class="sb-logo-icon" aria-label="ONEX PANEL"><img src="/api/onex-panel-logo.png?v=1.3.8" alt="ONEX PANEL"></div>
-  </div>
   <nav class="nav">
     <div class="nav-sec" data-i18n="sec_panel">پنــــل</div>
     <button class="nav-item on" data-page="dash" data-perm="dash">
@@ -9317,7 +9357,7 @@ html.light .protocol-picker-bg{background:rgba(15,23,42,.28)}html.light .protoco
         <div id="notifyList" class="notify-list"><div class="notify-empty">اعلان جدیدی وجود ندارد.</div></div>
       </div>
     </div>
-    <div class="top-avatar" aria-label="ONEX PANEL"><img src="/api/onex-panel-logo.png?v=1.3.8" alt="ONEX PANEL"></div>
+    <div class="top-avatar" aria-label="ONEX PANEL"><img src="/api/onex-panel-logo.png?v=1.3.9" alt="ONEX PANEL"></div>
   </div>
 </div>
 
