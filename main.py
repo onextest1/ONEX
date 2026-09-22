@@ -11111,6 +11111,264 @@ html.light.onex-themed .protocol-option.selected{border-color:var(--accent)!impo
 html.onex-themed .sb-logo-caption span,
 html.onex-themed .sb-logo-caption b{filter:drop-shadow(0 0 6px color-mix(in srgb,var(--accent) 35%,transparent))}
 
+/* ============================================================
+   ONEX CONTRAST AUDIT — FINAL GLOBAL PASS
+   Goal: no unreadable text, no legacy blue/pink surfaces and no
+   white-on-white content in any theme. Semantic status colors stay.
+   ============================================================ */
+html.onex-themed .dashboard-hero,
+html.onex-themed .onex-metric,
+html.onex-themed .onex-card,
+html.onex-themed .version-mini-card,
+html.onex-themed .quick-item,
+html.onex-themed .recent-card,
+html.onex-themed .server-info,
+html.onex-themed .health-list,
+html.onex-themed .traffic-panel,
+html.onex-themed .uptime-panel,
+html.onex-themed .telegram-card,
+html.onex-themed .onex-3d-control,
+html.onex-themed .top-chip,
+html.onex-themed .panel-summary,
+html.onex-themed .recent-table,
+html.onex-themed .table-wrap,
+html.onex-themed .action-card,
+html.onex-themed .logs-summary,
+html.onex-themed .logs-list-card{
+  border-color:var(--onex-border)!important;
+}
+
+/* Dashboard surfaces use the selected palette instead of legacy blue glass. */
+html.onex-themed .onex-metric,
+html.onex-themed .onex-card,
+html.onex-themed .version-mini-card,
+html.onex-themed .quick-item,
+html.onex-themed .recent-card,
+html.onex-themed .server-info,
+html.onex-themed .health-list,
+html.onex-themed .traffic-panel,
+html.onex-themed .uptime-panel,
+html.onex-themed .panel-summary,
+html.onex-themed .action-card,
+html.onex-themed .telegram-card{
+  background:var(--theme-surface)!important;
+  color:var(--theme-text)!important;
+}
+html.onex-themed .onex-card-head{border-color:var(--onex-border)!important}
+html.onex-themed .onex-3d-control{
+  background:linear-gradient(145deg,var(--theme-surface-2),var(--theme-surface))!important;
+  color:var(--theme-text)!important;
+  box-shadow:0 8px 22px color-mix(in srgb,var(--accent) 9%,transparent),inset 0 1px rgba(255,255,255,.06)!important;
+}
+html.onex-themed .onex-3d-control .control-icon,
+html.onex-themed .top-avatar,
+html.onex-themed .sb-logo-icon,
+html.onex-themed .mob-brand-icon{
+  background:linear-gradient(145deg,var(--accent),var(--purple))!important;
+  box-shadow:0 8px 22px color-mix(in srgb,var(--accent) 20%,transparent)!important;
+}
+html.onex-themed .version-mini-icon,
+html.onex-themed .metric-icon,
+html.onex-themed .quick-icon,
+html.onex-themed .health-icon{
+  background:var(--onex-accent-soft)!important;
+  border-color:var(--onex-border)!important;
+  color:var(--accent2)!important;
+}
+html.onex-themed .quick-item:nth-child(2) .quick-icon,
+html.onex-themed .quick-item:nth-child(3) .quick-icon,
+html.onex-themed .quick-item:nth-child(4) .quick-icon{
+  background:var(--onex-accent-soft)!important;color:var(--accent2)!important;
+}
+html.onex-themed .hero-kicker,
+html.onex-themed .hero-title span,
+html.onex-themed .onex-footer b,
+html.onex-themed .version-mini-icon,
+html.onex-themed .tg-handle,
+html.onex-themed .onex-card-title svg{color:var(--accent2)!important}
+html.onex-themed .hero-title,
+html.onex-themed .hero-sub,
+html.onex-themed .version-mini-copy b,
+html.onex-themed .version-mini-copy strong,
+html.onex-themed .metric-label,
+html.onex-themed .metric-val,
+html.onex-themed .metric-trend,
+html.onex-themed .control-title,
+html.onex-themed .control-sub,
+html.onex-themed .health-name,
+html.onex-themed .health-pct,
+html.onex-themed .quick-name,
+html.onex-themed .quick-desc,
+html.onex-themed .info-row,
+html.onex-themed .recent-table th,
+html.onex-themed .recent-table td,
+html.onex-themed .top-server b,
+html.onex-themed .top-server small,
+html.onex-themed .top-chip{
+  color:var(--theme-text)!important;
+}
+html.onex-themed .metric-label,
+html.onex-themed .control-sub,
+html.onex-themed .health-name,
+html.onex-themed .health-pct,
+html.onex-themed .quick-desc,
+html.onex-themed .hero-sub,
+html.onex-themed .version-mini-copy b,
+html.onex-themed .recent-table th,
+html.onex-themed .info-row span:first-child,
+html.onex-themed .top-server small{color:var(--theme-subtle)!important}
+
+/* Charts and progress indicators follow the selected accent. */
+html.onex-themed .chart-line{stroke:var(--accent)!important;filter:drop-shadow(0 0 7px color-mix(in srgb,var(--accent) 55%,transparent))!important}
+html.onex-themed .chart-dot{fill:var(--accent)!important;stroke:var(--accent)!important}
+html.onex-themed .health-fill{background:linear-gradient(90deg,var(--accent),var(--purple))!important;box-shadow:0 0 12px color-mix(in srgb,var(--accent) 35%,transparent)!important}
+html.onex-themed .range-mini button.on{background:var(--accent)!important;color:#fff!important}
+html.onex-themed .chart-badge{border-color:var(--onex-border)!important;background:var(--theme-surface-2)!important;color:var(--theme-text)!important}
+
+/* Light mode: every dashboard text-bearing element gets a readable dark token. */
+html.light.onex-themed .page span,
+html.light.onex-themed .page p,
+html.light.onex-themed .page b,
+html.light.onex-themed .page strong,
+html.light.onex-themed .page small,
+html.light.onex-themed .page label,
+html.light.onex-themed .page td,
+html.light.onex-themed .page th,
+html.light.onex-themed .page h1,
+html.light.onex-themed .page h2,
+html.light.onex-themed .page h3,
+html.light.onex-themed .page h4,
+html.light.onex-themed .page h5,
+html.light.onex-themed .page h6{
+  color:#0f172a!important;
+}
+html.light.onex-themed .page .page-sub,
+html.light.onex-themed .page .hero-sub,
+html.light.onex-themed .page .metric-label,
+html.light.onex-themed .page .control-sub,
+html.light.onex-themed .page .quick-desc,
+html.light.onex-themed .page .field label,
+html.light.onex-themed .page .cfg-meta,
+html.light.onex-themed .page .admin-card-sub,
+html.light.onex-themed .page .tg-desc,
+html.light.onex-themed .page .stats-kpi small,
+html.light.onex-themed .page .stats-panel-head small,
+html.light.onex-themed .page .logs-event-time,
+html.light.onex-themed .page .security-recent-meta,
+html.light.onex-themed .page .security-detail-row span,
+html.light.onex-themed .page .onex-footer,
+html.light.onex-themed .page .version-mini-copy b{
+  color:#64748b!important;
+}
+/* Inline legacy white/low-alpha text is the source of most white-on-white bugs. */
+html.light.onex-themed .page [style*="color:#fff"],
+html.light.onex-themed .page [style*="color: #fff"],
+html.light.onex-themed .page [style*="color:white"],
+html.light.onex-themed .page [style*="color: white"],
+html.light.onex-themed .page [style*="color:rgba(255,255,255"],
+html.light.onex-themed .page [style*="color: rgba(255,255,255"],
+html.light.onex-themed .page [style*="color:rgba(248,250,252"],
+html.light.onex-themed .page [style*="color: rgba(248,250,252"]{
+  color:#334155!important;
+}
+/* Dashboard light surfaces: white cards, dark text, themed accents. */
+html.light.onex-themed .dashboard-hero,
+html.light.onex-themed .onex-metric,
+html.light.onex-themed .onex-card,
+html.light.onex-themed .version-mini-card,
+html.light.onex-themed .quick-item,
+html.light.onex-themed .recent-card,
+html.light.onex-themed .server-info,
+html.light.onex-themed .health-list,
+html.light.onex-themed .traffic-panel,
+html.light.onex-themed .uptime-panel,
+html.light.onex-themed .panel-summary,
+html.light.onex-themed .action-card,
+html.light.onex-themed .telegram-card{
+  background:#fff!important;
+  color:#0f172a!important;
+  border-color:rgba(15,23,42,.10)!important;
+  box-shadow:0 10px 30px rgba(15,23,42,.07)!important;
+}
+html.light.onex-themed .onex-card-head{border-color:rgba(15,23,42,.08)!important}
+html.light.onex-themed .onex-3d-control{background:#fff!important;color:#0f172a!important;border-color:rgba(15,23,42,.10)!important}
+html.light.onex-themed .chart-grid-line{stroke:rgba(100,116,139,.16)!important}
+html.light.onex-themed .chart-badge{background:#f8fafc!important;color:#334155!important;border-color:rgba(15,23,42,.10)!important}
+html.light.onex-themed .recent-table th{background:#f8fafc!important;color:#64748b!important}
+html.light.onex-themed .recent-table td{color:#334155!important;border-color:rgba(15,23,42,.07)!important}
+html.light.onex-themed .info-row{border-color:rgba(15,23,42,.07)!important}
+html.light.onex-themed .info-row span:first-child{color:#64748b!important}
+html.light.onex-themed .info-row span:last-child{color:#334155!important}
+html.light.onex-themed .top-chip{background:#f8fafc!important;color:#334155!important;border-color:rgba(15,23,42,.10)!important}
+html.light.onex-themed .health-track{background:#e2e8f0!important}
+html.light.onex-themed .xray-state{background:rgba(34,197,94,.07)!important;border-color:rgba(34,197,94,.18)!important}
+html.light.onex-themed .xray-state span:last-child,
+html.light.onex-themed .recent-status{color:#15803d!important}
+
+/* Restore intentional semantic/action colors after the light contrast pass. */
+html.light.onex-themed .btn-p,
+html.light.onex-themed .btn-primary,
+html.light.onex-themed .primary,
+html.light.onex-themed .cfg-primary-btn,
+html.light.onex-themed .group-create-btn,
+html.light.onex-themed .group-config-save,
+html.light.onex-themed .sub-action.primary,
+html.light.onex-themed .tg-btn.primary,
+html.light.onex-themed .tg-join,
+html.light.onex-themed .protocol-picker-confirm,
+html.light.onex-themed .range-tab.on,
+html.light.onex-themed .range-mini button.on,
+html.light.onex-themed .nav-item.on,
+html.light.onex-themed .onex-3d-control.active{color:#fff!important}
+html.light.onex-themed .page a:not(.btn):not(.tg-join){color:var(--accent2)!important}
+html.light.onex-themed .hero-title span,
+html.light.onex-themed .hero-kicker,
+html.light.onex-themed .onex-footer b,
+html.light.onex-themed .tg-handle{color:var(--accent2)!important}
+html.light.onex-themed .btn-d,
+html.light.onex-themed .danger-row,
+html.light.onex-themed .delete-all-configs-glass,
+html.light.onex-themed .tg-user-actions button.danger{color:#dc2626!important}
+html.light.onex-themed .ok,
+html.light.onex-themed .good,
+html.light.onex-themed .recent-status,
+html.light.onex-themed .security-recent-state.ok,
+html.light.onex-themed .admin-badge.active{color:#15803d!important}
+html.light.onex-themed .bad,
+html.light.onex-themed .security-recent-state.bad,
+html.light.onex-themed .admin-badge.blocked{color:#dc2626!important}
+html.light.onex-themed .orange,
+html.light.onex-themed .admin-badge.invalid{color:#b45309!important}
+
+html.onex-themed .telegram-card{background:linear-gradient(145deg,var(--theme-surface-2),var(--theme-surface))!important;color:var(--theme-text)!important}
+html.onex-themed .tg-logo{background:linear-gradient(145deg,var(--accent),var(--purple))!important;box-shadow:0 0 28px color-mix(in srgb,var(--accent) 45%,transparent)!important}
+html.onex-themed .tg-btn{background:linear-gradient(135deg,var(--accent),var(--purple))!important;box-shadow:0 8px 24px color-mix(in srgb,var(--accent) 24%,transparent)!important;color:#fff!important}
+html.light.onex-themed .telegram-card{background:#fff!important;border-color:rgba(15,23,42,.10)!important;box-shadow:0 10px 30px rgba(15,23,42,.07)!important}
+html.light.onex-themed .tg-title,html.light.onex-themed .tg-desc{color:#334155!important}
+html.light.onex-themed .tg-handle{color:var(--accent2)!important}
+
+/* Dark mode: keep all legacy surfaces/text inside the same readable tokens. */
+html.onex-themed:not(.light) .page [style*="background:#fff"],
+html.onex-themed:not(.light) .page [style*="background: #fff"],
+html.onex-themed:not(.light) .page [style*="background:white"],
+html.onex-themed:not(.light) .page [style*="background: white"]{
+  background:var(--theme-surface)!important;
+  color:var(--theme-text)!important;
+}
+html.onex-themed:not(.light) .page input,
+html.onex-themed:not(.light) .page select,
+html.onex-themed:not(.light) .page textarea{color:var(--theme-text)!important}
+html.onex-themed:not(.light) .page input::placeholder,
+html.onex-themed:not(.light) .page textarea::placeholder{color:var(--theme-subtle)!important}
+
+/* Never let a theme turn the mobile/desktop menu text invisible. */
+html.light.onex-themed .nav-item{color:#475569!important}
+html.light.onex-themed .nav-item.on{color:#fff!important}
+html.light.onex-themed .nav-sec{color:#64748b!important}
+html.light.onex-themed .sb-foot button,
+html.light.onex-themed .sb-foot a.btn{color:#475569!important;background:#f8fafc!important}
+html.light.onex-themed .sb-foot a.danger{color:#dc2626!important;background:rgba(239,68,68,.07)!important}
+
 </style>
 <section class="page" id="page-news">
   <div class="page-head">
