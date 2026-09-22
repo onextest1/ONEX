@@ -2568,52 +2568,6 @@ table th:first-child, table td:first-child{overflow:visible}
   .mob-brand-icon{width:118px!important;height:48px!important;flex-basis:118px!important;}
 }
 </style>
-
-<style id="onex-header-brand-final">
-/* Final mobile chrome: no external/raster logo dependency. */
-.mob-bar{
-  min-height:64px!important;
-  padding:8px 12px!important;
-  display:grid!important;
-  grid-template-columns:44px minmax(0,1fr) 62px!important;
-  align-items:center!important;
-  gap:8px!important;
-}
-.mob-menu-btn{
-  width:42px!important;height:42px!important;
-  display:grid!important;place-items:center!important;
-  border-radius:13px!important;
-  padding:0!important;
-  position:relative!important;
-}
-.mob-menu-btn .onex-menu-glyph{width:23px;height:20px;display:flex;flex-direction:column;justify-content:space-between;align-items:center;}
-.mob-menu-btn .onex-menu-glyph i{display:block;width:22px;height:2.4px;border-radius:999px;background:#fff;box-shadow:0 0 7px rgba(105,170,255,.34);transition:transform .22s ease,opacity .18s ease,width .22s ease;}
-.mob-menu-btn.is-open .onex-menu-glyph i:nth-child(1){transform:translateY(8.8px) rotate(45deg)}
-.mob-menu-btn.is-open .onex-menu-glyph i:nth-child(2){opacity:0;width:8px}
-.mob-menu-btn.is-open .onex-menu-glyph i:nth-child(3){transform:translateY(-8.8px) rotate(-45deg)}
-.mob-brand{
-  justify-self:center!important;
-  width:max-content!important;max-width:100%!important;
-  display:flex!important;align-items:center!important;justify-content:center!important;
-  gap:8px!important;margin:0!important;min-width:0!important;
-}
-.mob-brand-mark{width:38px;height:38px;display:block;flex:0 0 38px;filter:drop-shadow(0 5px 10px rgba(49,111,255,.30));}
-.mob-brand-mark svg{width:100%;height:100%;display:block;}
-.mob-brand-copy{display:flex;flex-direction:column;justify-content:center;line-height:1;min-width:0;text-align:left;direction:ltr;}
-.mob-brand-copy b{font:800 16px/1 Inter,system-ui,sans-serif;letter-spacing:.08em;color:#f7fbff;white-space:nowrap;}
-.mob-brand-copy small{margin-top:4px;font:700 7px/1 Inter,system-ui,sans-serif;letter-spacing:.18em;color:rgba(190,215,240,.68);white-space:nowrap;}
-.mob-status{justify-self:end;display:flex!important;align-items:center!important;gap:5px!important;white-space:nowrap!important;}
-.mob-status i{width:7px!important;height:7px!important;flex:0 0 7px!important;border-radius:50%!important;background:#16d978!important;box-shadow:0 0 10px rgba(22,217,120,.72)!important;}
-.mob-status span{font-size:9px!important;color:rgba(220,235,248,.68)!important;}
-@media(max-width:380px){
-  .mob-bar{grid-template-columns:42px minmax(0,1fr) 56px!important;padding:7px 9px!important;}
-  .mob-menu-btn{width:40px!important;height:40px!important;}
-  .mob-brand-mark{width:34px;height:34px;flex-basis:34px;}
-  .mob-brand-copy b{font-size:14px}.mob-brand-copy small{font-size:6px;margin-top:3px}
-  .mob-status span{font-size:8px}
-}
-@media(prefers-reduced-motion:reduce){.mob-menu-btn .onex-menu-glyph i{transition:none!important}}
-</style>
 </head>
 
 <body>
@@ -9314,33 +9268,65 @@ html.light .protocol-picker-bg{background:rgba(15,23,42,.28)}html.light .protoco
 
 .all-proto-toggle{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:10px 0 14px;padding:12px 14px;border:1px solid rgba(34,197,94,.22);border-radius:14px;background:rgba(34,197,94,.035);cursor:pointer;user-select:none}
 .all-proto-toggle span{display:block;min-width:0}.all-proto-toggle b{display:block;font-size:12px}.all-proto-toggle small{display:block;color:var(--t3);font-size:10px;margin-top:4px;line-height:1.6}.all-proto-toggle input{position:absolute;opacity:0;pointer-events:none}.all-proto-toggle i{position:relative;flex:0 0 48px;width:48px;height:28px;border-radius:999px;background:#4b5563;transition:.2s;box-shadow:inset 0 0 0 1px rgba(255,255,255,.12)}.all-proto-toggle i:before{content:"";position:absolute;top:4px;right:24px;width:20px;height:20px;border-radius:50%;background:#fff;box-shadow:0 2px 6px rgba(0,0,0,.35);transition:.2s}.all-proto-toggle:has(input:checked) i{background:#22c55e;box-shadow:0 0 12px rgba(34,197,94,.28)}.all-proto-toggle:has(input:checked) i:before{right:4px}.all-proto-toggle:focus-within{outline:2px solid rgba(34,197,94,.35);outline-offset:2px}
+
+
+/* ============================================================
+   ONEX X BRAND — approved panel chrome
+   Sidebar + top bar + mobile header. Kept vector-only so it stays
+   sharp on every screen density and does not depend on raster art.
+   ============================================================ */
+.onex-x-svg{display:block;width:100%;height:100%;overflow:visible}
+.onex-x-shadow{filter:drop-shadow(0 0 8px rgba(36,145,255,.52)) drop-shadow(0 0 16px rgba(123,72,255,.24))}
+.onex-brand-word{font-family:Inter,system-ui,sans-serif;font-weight:900;letter-spacing:.055em;color:#f8fbff;line-height:.9;white-space:nowrap}
+.onex-brand-word .x{background:linear-gradient(135deg,#29b8ff 5%,#276cff 46%,#9851ff 92%);-webkit-background-clip:text;background-clip:text;color:transparent;text-shadow:none}
+.onex-brand-sub{font:700 7px/1.2 Inter,system-ui,sans-serif;letter-spacing:.32em;color:rgba(159,183,216,.62);margin-top:5px;white-space:nowrap}
+html.light .onex-brand-word{color:#0f172a}
+html.light .onex-brand-sub{color:#64748b}
+
+/* Sidebar brand sits at the very top of the drawer/column. */
+.sb-logo.onex-approved-brand{display:flex!important;align-items:center!important;justify-content:flex-start!important;gap:11px!important;padding:16px 14px!important;min-height:82px!important;border-bottom:1px solid rgba(96,165,250,.13)!important;background:linear-gradient(180deg,rgba(34,91,185,.09),transparent)!important;overflow:hidden}
+.onex-sidebar-mark{width:52px;height:52px;flex:0 0 52px;padding:6px;border-radius:15px;background:linear-gradient(145deg,rgba(5,20,46,.92),rgba(5,10,28,.86));border:1px solid rgba(72,139,255,.27);box-shadow:inset 0 1px rgba(255,255,255,.06),0 10px 25px rgba(0,0,0,.25),0 0 20px rgba(36,112,255,.10)}
+.onex-sidebar-copy{min-width:0;display:flex;flex-direction:column;align-items:flex-start}
+.onex-sidebar-copy .onex-brand-word{font-size:22px}
+.sidebar.collapsed .sb-logo.onex-approved-brand{justify-content:center!important;padding:14px 8px!important;min-height:80px!important}
+.sidebar.collapsed .onex-sidebar-mark{width:48px;height:48px;flex-basis:48px;padding:6px}
+.sidebar.collapsed .onex-sidebar-copy{display:none!important}
+
+/* Top bar logo. */
+.onex-topbar-brand{display:flex;align-items:center;gap:10px;min-width:158px;height:46px;padding:5px 11px 5px 7px;border-radius:14px;border:1px solid rgba(63,126,255,.20);background:linear-gradient(135deg,rgba(10,28,61,.54),rgba(5,12,30,.30));box-shadow:inset 0 1px rgba(255,255,255,.045)}
+.onex-topbar-mark{width:39px;height:39px;flex:0 0 39px;padding:3px}
+.onex-topbar-copy{display:flex;flex-direction:column;align-items:flex-start;min-width:0}
+.onex-topbar-copy .onex-brand-word{font-size:20px;letter-spacing:.045em}
+.onex-topbar-copy .onex-brand-sub{font-size:6px;letter-spacing:.25em;margin-top:4px}
+html.light .onex-topbar-brand{background:#fff;border-color:rgba(37,99,235,.16);box-shadow:0 5px 18px rgba(15,23,42,.05)}
+
+/* Mobile uses the same approved X instead of the old text-only title. */
+.mob-brand.onex-approved-mobile{display:flex!important;align-items:center!important;justify-content:center!important;gap:8px!important}
+.onex-mobile-mark{width:40px;height:40px;flex:0 0 40px;padding:3px}
+.onex-mobile-copy{display:flex;flex-direction:column;align-items:flex-start}
+.onex-mobile-copy .onex-brand-word{font-size:18px}
+.onex-mobile-copy .onex-brand-sub{font-size:5.5px;letter-spacing:.22em;margin-top:3px}
+
+@media(max-width:1100px){
+  .onex-topbar-brand{min-width:132px;padding-left:5px;padding-right:8px;gap:7px}.onex-topbar-mark{width:34px;height:34px;flex-basis:34px}.onex-topbar-copy .onex-brand-word{font-size:17px}.onex-topbar-copy .onex-brand-sub{display:none}
+}
+@media(max-width:760px){
+  .onex-topbar-brand{display:none!important}
+}
+@media(max-width:640px){
+  .sidebar .sb-logo.onex-approved-brand{display:flex!important;min-height:72px!important;padding:10px 12px!important}.sidebar .onex-sidebar-mark{width:45px!important;height:45px!important;flex-basis:45px!important}.sidebar .onex-sidebar-copy .onex-brand-word{font-size:20px!important}
+}
+@media(max-width:390px){.onex-mobile-mark{width:35px;height:35px;flex-basis:35px}.onex-mobile-copy .onex-brand-word{font-size:16px}}
+
 </style>
 </head>
 <body>
 
 <div class="mob-bar" id="mobBar">
-  <button class="mob-menu-btn" id="mobMenuBtn" aria-label="منو" aria-expanded="false">
-    <span class="onex-menu-glyph" aria-hidden="true"><i></i><i></i><i></i></span>
+  <button class="mob-menu-btn" id="mobMenuBtn" aria-label="منو">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
   </button>
-  <div class="mob-brand" aria-label="ONEX Control Panel">
-    <span class="mob-brand-mark" aria-hidden="true">
-      <svg viewBox="0 0 44 44" fill="none">
-        <defs>
-          <linearGradient id="onexHeaderGrad" x1="4" y1="4" x2="40" y2="40" gradientUnits="userSpaceOnUse">
-            <stop stop-color="#27B7FF"/><stop offset=".52" stop-color="#4B6BFF"/><stop offset="1" stop-color="#A44CFF"/>
-          </linearGradient>
-          <linearGradient id="onexHeaderText" x1="10" y1="10" x2="35" y2="35" gradientUnits="userSpaceOnUse">
-            <stop stop-color="#FFFFFF"/><stop offset="1" stop-color="#C9E9FF"/>
-          </linearGradient>
-        </defs>
-        <rect x="2" y="2" width="40" height="40" rx="12" fill="url(#onexHeaderGrad)"/>
-        <rect x="3" y="3" width="38" height="38" rx="11" stroke="rgba(255,255,255,.42)"/>
-        <path d="M12 13.5c2.1-2.2 5.2-3.5 8.4-3.5 6.2 0 11.1 4.9 11.1 11s-4.9 11-11.1 11c-3.2 0-6.3-1.3-8.4-3.5" stroke="url(#onexHeaderText)" stroke-width="3.2" stroke-linecap="round"/>
-        <path d="m13 13 18 18M31 13 13 31" stroke="#fff" stroke-width="2.6" stroke-linecap="round" opacity=".94"/>
-      </svg>
-    </span>
-    <span class="mob-brand-copy"><b>ONEX</b><small>CONTROL PANEL</small></span>
-  </div>
+  <div class="mob-brand onex-approved-mobile"><div class="onex-mobile-mark"><svg class="onex-x-svg onex-x-shadow" viewBox="0 0 100 100" role="img" aria-label="ONEX logo"><defs><linearGradient id="mxa" x1="8" y1="8" x2="90" y2="92" gradientUnits="userSpaceOnUse"><stop stop-color="#2ec9ff"/><stop offset=".48" stop-color="#2376ff"/><stop offset="1" stop-color="#7b42ff"/></linearGradient><linearGradient id="mxb" x1="88" y1="10" x2="22" y2="93" gradientUnits="userSpaceOnUse"><stop stop-color="#6b50ff"/><stop offset=".62" stop-color="#843fff"/><stop offset="1" stop-color="#a855f7"/></linearGradient></defs><path d="M10 12h20l27 29-14 14L10 20z" fill="url(#mxa)"/><path d="M10 88h20l28-30-14-14L10 80z" fill="url(#mxa)"/><path d="M90 12H70L43 41l14 14 33-35z" fill="url(#mxb)"/><path d="M90 88H70L42 58l14-14 34 36z" fill="url(#mxb)"/><path d="M42 42 58 58 50 67 34 50z" fill="#0f5ce7" opacity=".78"/><path d="M58 42 42 58 50 67 66 50z" fill="#7137f0" opacity=".78"/></svg></div><div class="onex-mobile-copy"><div class="onex-brand-word">ONE<span class="x">X</span></div><div class="onex-brand-sub">MANAGE · CONNECT · GROW</div></div></div>
   <div class="mob-status"><i></i><span>آنلاین</span></div>
 </div>
 <div class="overlay" id="overlay"></div>
@@ -9349,6 +9335,10 @@ html.light .protocol-picker-bg{background:rgba(15,23,42,.28)}html.light .protoco
   <button class="sb-toggle" id="sbToggle" title="Toggle">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
   </button>
+  <div class="sb-logo onex-approved-brand" aria-label="ONEX Panel">
+    <div class="onex-sidebar-mark"><svg class="onex-x-svg onex-x-shadow" viewBox="0 0 100 100" role="img" aria-label="ONEX logo"><defs><linearGradient id="sxa" x1="8" y1="8" x2="90" y2="92" gradientUnits="userSpaceOnUse"><stop stop-color="#2ec9ff"/><stop offset=".48" stop-color="#2376ff"/><stop offset="1" stop-color="#7b42ff"/></linearGradient><linearGradient id="sxb" x1="88" y1="10" x2="22" y2="93" gradientUnits="userSpaceOnUse"><stop stop-color="#6b50ff"/><stop offset=".62" stop-color="#843fff"/><stop offset="1" stop-color="#a855f7"/></linearGradient></defs><path d="M10 12h20l27 29-14 14L10 20z" fill="url(#sxa)"/><path d="M10 88h20l28-30-14-14L10 80z" fill="url(#sxa)"/><path d="M90 12H70L43 41l14 14 33-35z" fill="url(#sxb)"/><path d="M90 88H70L42 58l14-14 34 36z" fill="url(#sxb)"/><path d="M42 42 58 58 50 67 34 50z" fill="#0f5ce7" opacity=".78"/><path d="M58 42 42 58 50 67 66 50z" fill="#7137f0" opacity=".78"/></svg></div>
+    <div class="onex-sidebar-copy"><div class="onex-brand-word">ONE<span class="x">X</span></div><div class="onex-brand-sub">MANAGE · CONNECT · GROW</div></div>
+  </div>
   <nav class="nav">
     <div class="nav-sec" data-i18n="sec_panel">پنــــل</div>
     <button class="nav-item on" data-page="dash" data-perm="dash">
@@ -9408,6 +9398,10 @@ html.light .protocol-picker-bg{background:rgba(15,23,42,.28)}html.light .protoco
 <main class="main" id="main">
 
 <div class="onex-topbar">
+  <div class="onex-topbar-brand" aria-label="ONEX Panel">
+    <div class="onex-topbar-mark"><svg class="onex-x-svg onex-x-shadow" viewBox="0 0 100 100" role="img" aria-label="ONEX logo"><defs><linearGradient id="txa" x1="8" y1="8" x2="90" y2="92" gradientUnits="userSpaceOnUse"><stop stop-color="#2ec9ff"/><stop offset=".48" stop-color="#2376ff"/><stop offset="1" stop-color="#7b42ff"/></linearGradient><linearGradient id="txb" x1="88" y1="10" x2="22" y2="93" gradientUnits="userSpaceOnUse"><stop stop-color="#6b50ff"/><stop offset=".62" stop-color="#843fff"/><stop offset="1" stop-color="#a855f7"/></linearGradient></defs><path d="M10 12h20l27 29-14 14L10 20z" fill="url(#txa)"/><path d="M10 88h20l28-30-14-14L10 80z" fill="url(#txa)"/><path d="M90 12H70L43 41l14 14 33-35z" fill="url(#txb)"/><path d="M90 88H70L42 58l14-14 34 36z" fill="url(#txb)"/><path d="M42 42 58 58 50 67 34 50z" fill="#0f5ce7" opacity=".78"/><path d="M58 42 42 58 50 67 66 50z" fill="#7137f0" opacity=".78"/></svg></div>
+    <div class="onex-topbar-copy"><div class="onex-brand-word">ONE<span class="x">X</span></div><div class="onex-brand-sub">MANAGE · CONNECT · GROW</div></div>
+  </div>
   <div class="top-server"><span class="top-dot"></span><b>سرور آنلاین</b><span class="top-sep"></span><small id="topHost">—</small><span class="top-sep"></span><small id="topUptime">Uptime: —</small></div>
   <div class="top-actions">
     <div class="top-setting-group" aria-label="Language controls">
@@ -11962,8 +11956,8 @@ function toggleTheme(){
 
 const sb=document.getElementById('sidebar'),main=document.getElementById('main');
 const mobMenuBtn=document.getElementById('mobMenuBtn'),overlay=document.getElementById('overlay');
-function closeMobileNav(){ if(sb) sb.classList.remove('mobile-open'); if(overlay) overlay.classList.remove('show'); if(mobMenuBtn){mobMenuBtn.classList.remove('is-open');mobMenuBtn.setAttribute('aria-expanded','false');} }
-function openMobileNav(){ if(sb) sb.classList.add('mobile-open'); if(overlay) overlay.classList.add('show'); if(mobMenuBtn){mobMenuBtn.classList.add('is-open');mobMenuBtn.setAttribute('aria-expanded','true');} }
+function closeMobileNav(){ if(sb) sb.classList.remove('mobile-open'); if(overlay) overlay.classList.remove('show'); }
+function openMobileNav(){ if(sb) sb.classList.add('mobile-open'); if(overlay) overlay.classList.add('show'); }
 if(mobMenuBtn) mobMenuBtn.onclick=()=>{ if(sb.classList.contains('mobile-open')) closeMobileNav(); else openMobileNav(); };
 if(overlay) overlay.onclick=closeMobileNav;
 
