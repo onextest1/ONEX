@@ -496,8 +496,11 @@ class NativeCore:
 
     @staticmethod
     def _native_protocols_for(link: dict[str, Any]) -> list[str]:
+        # The panel's "all protocols" subscription is Railway-only. Native/VPS
+        # protocols are always deployed one-by-one from an explicitly selected
+        # VPS protocol, never as part of the Railway subscription bundle.
         if _truth(link.get("all_protocols")):
-            return list(SUPPORTED)
+            return []
         proto = str(link.get("protocol") or "")
         return [proto] if proto in SUPPORTED else []
 
