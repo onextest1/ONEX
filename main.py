@@ -1083,6 +1083,8 @@ def generate_vless_link(
     alpn_value = (alpn or DEFAULT_ALPN_BY_PROTOCOL.get(protocol, "http/1.1")).strip()
     label = quote(str(remark or "ONEX"), safe="")
     adv = normalize_advanced_config((link or {}).get("advanced"))
+    if link and link.get("all_protocols"):
+        adv = _protocol_safe_advanced(adv, protocol, all_protocols=True)
     adv_host = adv["host"].get("host") or adv["host"].get("address") or host
     adv_path = adv["host"].get("path") or adv["network"].get("path")
     adv_sni = adv["tls"].get("sni") or adv["tls"].get("server_name") or host
@@ -1110,7 +1112,13 @@ def generate_vless_link(
         return "vless://" + uuid + "@" + host + ":" + str(port_value) + "?" + "&".join(f"{k}={quote(str(v), safe=',/') }" for k,v in q.items()) + "#" + label
     if protocol.startswith("xhttp-"):
         mode = protocol.replace("xhttp-", "")
-        path = adv_path or f"/xhttp-siz10/{mode}/{uuid}"
+        # stream-one carries the VLESS UUID inside the request body, so its
+        # HTTP path MUST NOT contain /{uuid}. packet-up/stream-up keep their
+        # session-bearing paths unchanged.
+        if mode == "stream-one":
+            path = "/xhttp-siz10/stream-one"
+        else:
+            path = adv_path or f"/xhttp-siz10/{mode}/{uuid}"
         q = {"encryption":"none","security":security,"type":"xhttp","mode":mode,"host":adv_host,"path":path,"sni":adv_sni,"fp":adv_fp,"alpn":adv_alpn}
         if adv["tls"].get("allow_insecure"): q["allowInsecure"] = "1"
         return "vless://" + uuid + "@" + host + ":" + str(port_value) + "?" + "&".join(f"{k}={quote(str(v), safe=',/') }" for k,v in q.items()) + "#" + label
@@ -6822,7 +6830,7 @@ async def get_connections(
 # ============================================================
 
 try:
-    from onex.core.native_core import NativeCore
+    from onex.core.native_core import NativeCore, _protocol_safe_advanced
     NATIVE_CORE = NativeCore(DATA_DIR)
     # Native protocols are intentionally not advertised yet.
     # Keep the creation menu and the "all protocols" subscription limited
