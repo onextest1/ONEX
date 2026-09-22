@@ -102,7 +102,6 @@ PROTOCOL_ICON_FILES = {
     "xhttp-packet-up": PROTOCOL_ICON_DIR / "onex-xhttp.png",
     "xhttp-stream-up": PROTOCOL_ICON_DIR / "onex-gamig.png",
     "xhttp-stream-one": PROTOCOL_ICON_DIR / "onex-stream.png",
-    "trojan-xhttp": PROTOCOL_ICON_DIR / "onex-trojan-xhttp.png",
 }
 
 SECRET_FILE = DATA_DIR / "pixonpanel_secret.key"
@@ -273,7 +272,6 @@ PROTOCOL_LABELS = {
     "xhttp-stream-up": "ONEX Gaming",
     "xhttp-stream-one": "ONEX Stream",
     "trojan-ws": "Trojan (WebSocket)",
-    "trojan-xhttp": "Trojan + XHTTP + TLS",
     "trojan": "Trojan",
     "shadowsocks": "Shadowsocks",
     "socks5": "SOCKS5",
@@ -307,7 +305,6 @@ DEFAULT_FINGERPRINT = "chrome"
 DEFAULT_ALPN_BY_PROTOCOL = {
     "vless-ws": "http/1.1",
     "trojan-ws": "http/1.1",
-    "trojan-xhttp": "h2,http/1.1",
     "xhttp-packet-up": "h2,http/1.1",
     "xhttp-stream-up": "h2,http/1.1",
     "xhttp-stream-one": "h2,http/1.1",
@@ -1056,7 +1053,7 @@ def set_auth_cookie(
 def protocol_public_port(link: dict | None, protocol: str, fallback: int = DEFAULT_PORT) -> int:
     if (link or {}).get("all_protocols") and protocol not in getattr(NATIVE_CORE, "SUPPORTED", ()):
         return safe_int((link or {}).get("port", fallback), fallback, MIN_PORT, MAX_PORT)
-    if protocol in {"vless-ws", "xhttp-packet-up", "xhttp-stream-up", "xhttp-stream-one", "trojan-ws", "trojan-xhttp", "vmess-ws"}:
+    if protocol in {"vless-ws", "xhttp-packet-up", "xhttp-stream-up", "xhttp-stream-one", "trojan-ws", "vmess-ws"}:
         return safe_int((link or {}).get("port", fallback), fallback, MIN_PORT, MAX_PORT)
     try:
         adv_ports = ((link or {}).get("advanced") or {}).get("ports") or []
@@ -1111,15 +1108,6 @@ def generate_vless_link(
             if r.get("public_key"): q["pbk"]=r["public_key"]
             if r.get("short_id"): q["sid"]=r["short_id"]
         return "vless://" + uuid + "@" + host + ":" + str(port_value) + "?" + "&".join(f"{k}={quote(str(v), safe=',/') }" for k,v in q.items()) + "#" + label
-    if protocol == "trojan-xhttp":
-        # Trojan password is the UUID; the server validates its SHA-224 hash
-        # inside the XHTTP relay.  Keep TLS mandatory and use stream-up for a
-        # single long-lived request, which matches the ONEX XHTTP engine.
-        path = adv_path or f"/txhttp-siz10/stream-up/{uuid}"
-        q = {"security":"tls", "type":"xhttp", "mode":"stream-up", "host":adv_host, "path":path, "sni":adv_sni, "fp":adv_fp, "alpn":adv_alpn}
-        if adv["tls"].get("allow_insecure"):
-            q["allowInsecure"] = "1"
-        return "trojan://" + uuid + "@" + host + ":" + str(port_value) + "?" + "&".join(f"{k}={quote(str(v), safe=',/') }" for k,v in q.items()) + "#" + label
     if protocol.startswith("xhttp-"):
         mode = protocol.replace("xhttp-", "")
         path = adv_path or f"/xhttp-siz10/{mode}/{uuid}"
@@ -1133,9 +1121,9 @@ def generate_vless_link(
         # Keep Trojan+WS client transport settings aligned with VLESS+WS.
         # The password remains the UUID; the WS/TLS transport follows the
         # same advanced host/path/SNI/fingerprint/ALPN settings.
-        path = adv_path or "/trojan-ws"
+        path = adv_path or f"/ws/{uuid}"
         q = {
-            "security": "tls" if security == "none" else security,
+            "security": security,
             "type": "ws",
             "host": adv_host,
             "path": path,
@@ -1682,7 +1670,7 @@ async def make_link(
         "config_count": max(1, min(40, int(config_count or 1))),
         "all_protocols": bool(all_protocols),
         "advanced": normalize_advanced_config(advanced),
-        "native_protocols": [p for p in PROTOCOLS if p not in {"vless-ws", "xhttp-packet-up", "xhttp-stream-up", "xhttp-stream-one", "trojan-ws", "trojan-xhttp", "vmess-ws"}],
+        "native_protocols": [p for p in PROTOCOLS if p not in {"vless-ws", "xhttp-packet-up", "xhttp-stream-up", "xhttp-stream-one", "trojan-ws", "vmess-ws"}],
         "usage_history": [],
     }
 
@@ -6920,17 +6908,11 @@ try:
         relay_ws_to_tcp,
         relay_tcp_to_ws,
         websocket_tunnel,
-        trojan_ws_tunnel,
     )
 
     app.add_api_websocket_route(
         "/ws/{uuid}",
         websocket_tunnel,
-    )
-    # Standard Trojan WS endpoint: unlike VLESS, the UUID is not part of the path.
-    app.add_api_websocket_route(
-        "/trojan-ws",
-        trojan_ws_tunnel,
     )
 
     if "vless-ws" not in PROTOCOLS:
@@ -6969,7 +6951,6 @@ try:
         "xhttp-packet-up",
         "xhttp-stream-up",
         "xhttp-stream-one",
-        "trojan-xhttp",
     ):
         if _protocol not in PROTOCOLS:
             PROTOCOLS.append(_protocol)
@@ -6993,7 +6974,6 @@ _PROTOCOL_ORDER = [
     "xhttp-stream-up",
     "xhttp-stream-one",
     "trojan-ws",
-    "trojan-xhttp",
     "trojan",
     "shadowsocks",
     "socks5",
@@ -12585,7 +12565,7 @@ function setCfgSort(v,el){cfgSortMode=v;document.querySelectorAll('#cfgFilterRow
 function configExpired(l){return !!l.expired||(l.expires_at&&new Date(l.expires_at).getTime()<=Date.now())||(Number(l.limit_bytes)>0&&Number(l.used_bytes||0)>=Number(l.limit_bytes))}
 function getFilteredConfigs(){const q=(document.getElementById('cfgSearch')?.value||'').trim().toLowerCase();let a=__allLinks.filter(l=>{const dead=configExpired(l),active=l.active!==false&&!dead;if(cfgStatusFilter==='active'&&!active)return false;if(cfgStatusFilter==='expired'&&!dead)return false;if(!q)return true;return [l.label,l.name,l.protocol,l.protocol_label,l.uuid,l.id,l.sub,l.sub_url,l.vless,l.vless_full].map(x=>String(x||'').toLowerCase()).some(x=>x.includes(q))});a.sort((x,y)=>cfgSortMode==='name'?String(x.label||x.name||'').localeCompare(String(y.label||y.name||'')):cfgSortMode==='usage'?Number(y.used_bytes||0)-Number(x.used_bytes||0):String(y.created_at||'').localeCompare(String(x.created_at||'')));return a}
 function filterConfigs(){renderConfigCards(getFilteredConfigs())}
-function protocolUi(id){const m={'vless-ws':['ONEX WB','/api/protocol-icon/vless-ws.png'],'xhttp-packet-up':['ONEX Xhttp','/api/protocol-icon/xhttp-packet-up.png'],'xhttp-stream-up':['ONEX GAMING','/api/protocol-icon/xhttp-stream-up.png'],'xhttp-stream-one':['ONEX Stream','/api/protocol-icon/xhttp-stream-one.png'],'trojan-ws':['Trojan (WS)','/api/protocol-icon/vless-ws.png'],'trojan-xhttp':['Trojan XHTTP TLS','/api/protocol-icon/trojan-xhttp.png']};return m[id]||[String(id||'').toUpperCase(),'/api/protocol-icon/vless-ws.png']}
+function protocolUi(id){const m={'vless-ws':['ONEX WB','/api/protocol-icon/vless-ws.png'],'xhttp-packet-up':['ONEX Xhttp','/api/protocol-icon/xhttp-packet-up.png'],'xhttp-stream-up':['ONEX GAMING','/api/protocol-icon/xhttp-stream-up.png'],'xhttp-stream-one':['ONEX Stream','/api/protocol-icon/xhttp-stream-one.png'],'trojan-ws':['Trojan (WS)','/api/protocol-icon/vless-ws.png']};return m[id]||[String(id||'').toUpperCase(),'/api/protocol-icon/vless-ws.png']}
 function cfgDate(v){if(!v)return 'بدون انقضا';try{return new Date(v).toLocaleDateString('fa-IR',{year:'numeric',month:'2-digit',day:'2-digit'})}catch(e){return String(v).slice(0,10)}}
 function updateConfigStats(){const total=__allLinks.length,expired=__allLinks.filter(configExpired).length,active=__allLinks.filter(l=>l.active!==false&&!configExpired(l)).length,used=__allLinks.reduce((n,l)=>n+Number(l.used_bytes||0),0),set=(id,v)=>{const e=document.getElementById(id);if(e)e.textContent=v};set('cfgStatTotal',total);set('cfgStatUsed',fmtB(used));set('cfgStatActive',active);set('cfgStatExpired',expired);set('cfgVisibleCount',`${getFilteredConfigs().length} مورد`)}
 let __openConfigMenuUid='';
@@ -12914,17 +12894,16 @@ async function restoreBot(){
    LIGHT STATIC 3D PROTOCOL PICKER
    ============================================================ */
 const PROTOCOL_PICKER_GROUPS=[
-  {title:'',ids:['vless-ws','xhttp-packet-up','xhttp-stream-up','xhttp-stream-one','trojan-ws','trojan-xhttp']}
+  {title:'',ids:['vless-ws','xhttp-packet-up','xhttp-stream-up','xhttp-stream-one','trojan-ws']}
 ];
-const PROTOCOL_PICKER_NAMES={"vless-ws":"ONEX WB","xhttp-packet-up":"ONEX Xhttp","xhttp-stream-up":"ONEX Gaming","xhttp-stream-one":"ONEX Stream","trojan-ws":"Trojan (WS)","trojan-xhttp":"Trojan XHTTP TLS","trojan":"Trojan","shadowsocks":"Shadowsocks","socks5":"SOCKS5","http":"HTTP Proxy","hysteria2":"Hysteria2","vless-grpc-reality":"VLESS gRPC Reality"};
-const PROTOCOL_PICKER_DESCS={"vless-ws":"VLESS + WebSocket","xhttp-packet-up":"VLESS + XHTTP","xhttp-stream-up":"VLESS + XHTTP","xhttp-stream-one":"VLESS + XHTTP","trojan-ws":"Trojan + WebSocket (Railway-safe)","trojan-xhttp":"Trojan + XHTTP + TLS","trojan":"Trojan","shadowsocks":"Shadowsocks","socks5":"SOCKS5","http":"HTTP Proxy","hysteria2":"Hysteria2","vless-grpc-reality":"VLESS + gRPC + Reality"};
+const PROTOCOL_PICKER_NAMES={"vless-ws":"ONEX WB","xhttp-packet-up":"ONEX Xhttp","xhttp-stream-up":"ONEX Gaming","xhttp-stream-one":"ONEX Stream","trojan-ws":"Trojan (WS)","trojan":"Trojan","shadowsocks":"Shadowsocks","socks5":"SOCKS5","http":"HTTP Proxy","hysteria2":"Hysteria2","vless-grpc-reality":"VLESS gRPC Reality"};
+const PROTOCOL_PICKER_DESCS={"vless-ws":"VLESS + WebSocket","xhttp-packet-up":"VLESS + XHTTP","xhttp-stream-up":"VLESS + XHTTP","xhttp-stream-one":"VLESS + XHTTP","trojan-ws":"Trojan + WebSocket (Railway-safe)","trojan":"Trojan","shadowsocks":"Shadowsocks","socks5":"SOCKS5","http":"HTTP Proxy","hysteria2":"Hysteria2","vless-grpc-reality":"VLESS + gRPC + Reality"};
 const PROTOCOL_3D_ICONS={
   "vless-ws":{c1:"#24a9ff",c2:"#1264ff",c3:"#6d3cff",mark:"V",glow:"#168cff"},
   "xhttp-packet-up":{c1:"#35c8ff",c2:"#0877d8",c3:"#3155ff",mark:"XP",glow:"#21b8ff"},
   "xhttp-stream-up":{c1:"#36e6ff",c2:"#0894c9",c3:"#16b7d1",mark:"XS",glow:"#21d9ee"},
   "xhttp-stream-one":{c1:"#b04cff",c2:"#6b1fe1",c3:"#3b25ad",mark:"XC",glow:"#a14cff"},
   "vmess-ws":{c1:"#d05cff",c2:"#7726e8",c3:"#4522a6",mark:"M",glow:"#a54cff"},
-  "trojan-xhttp":{c1:"#ff8b4d",c2:"#e25b18",c3:"#9e3510",mark:"TX",glow:"#ff6b2a"},
   "trojan-ws":{c1:"#ff6676",c2:"#e51c35",c3:"#a90f2b",mark:"T",glow:"#ff4058"},
   "trojan":{c1:"#ff6676",c2:"#e51c35",c3:"#a90f2b",mark:"T",glow:"#ff4058"},
   "shadowsocks":{c1:"#54e887",c2:"#11ae57",c3:"#078341",mark:"S",glow:"#22d66c"},
@@ -12937,7 +12916,7 @@ let __protocolPickerTarget='' ;
 let __protocolPickerOptions=[];
 function protocolPickerLabel(id){const p=__protocolPickerOptions.find(x=>x.id===id);return PROTOCOL_PICKER_NAMES[id]||p?.label||id||'Vortex Link'}
 function protocolPickerShort(id){return PROTOCOL_PICKER_NAMES[id]||id}
-const PROTOCOL_ICON_DATA={"vless-ws":"/api/protocol-icon/vless-ws.png","xhttp-packet-up":"/api/protocol-icon/xhttp-packet-up.png","xhttp-stream-up":"/api/protocol-icon/xhttp-stream-up.png","xhttp-stream-one":"/api/protocol-icon/xhttp-stream-one.png","trojan-xhttp":"/api/protocol-icon/trojan-xhttp.png"};
+const PROTOCOL_ICON_DATA={"vless-ws":"/api/protocol-icon/vless-ws.png","xhttp-packet-up":"/api/protocol-icon/xhttp-packet-up.png","xhttp-stream-up":"/api/protocol-icon/xhttp-stream-up.png","xhttp-stream-one":"/api/protocol-icon/xhttp-stream-one.png"};
 function protocolIconMarkup(id){
   const srcMap=PROTOCOL_ICON_DATA;
   const src=srcMap[id]||srcMap["vless-ws"];
