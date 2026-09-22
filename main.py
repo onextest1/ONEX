@@ -2926,17 +2926,25 @@ body:after{background:radial-gradient(circle at 50% 55%,transparent 0,rgba(0,0,0
 }
 @media(prefers-reduced-motion:reduce){.onex-nav-logo{animation:none!important}}
 
-/* FINAL LOGO PLACEMENT — header + mobile hamburger drawer only */
+/* FINAL LOGO PLACEMENT — exactly one logo per chrome context. */
 .onex-topbar{position:relative!important;}
-.onex-topbar-brand{position:absolute!important;left:50%!important;top:50%!important;transform:translate(-50%,-50%)!important;min-width:150px!important;height:48px!important;z-index:2!important;}
-.onex-topbar-brand .onex-nav-logo{width:150px!important;height:48px!important;object-fit:contain!important;}
+.onex-topbar-brand{position:absolute!important;left:50%!important;top:50%!important;transform:translate(-50%,-50%)!important;min-width:132px!important;height:42px!important;z-index:2!important;}
+.onex-topbar-brand .onex-nav-logo{width:132px!important;height:42px!important;object-fit:contain!important;}
 .sb-mobile-brand{display:none!important;}
-@media(max-width:640px){
-  /* The mobile top bar already owns the hamburger/logo; do not duplicate it in the server card. */
+
+/* Mobile/tablet: use ONLY the mobile bar logo. Hide the desktop topbar logo
+   at a wider breakpoint because Android browsers can report a large CSS viewport. */
+@media(max-width:900px){
   .onex-topbar-brand{display:none!important;}
-  .mob-brand .onex-nav-logo{width:112px!important;height:44px!important;}
-  .sb-mobile-brand{display:flex!important;align-items:center!important;justify-content:center!important;min-height:92px!important;padding:12px 18px!important;border-bottom:1px solid rgba(88,180,255,.16)!important;}
-  .sb-mobile-brand-logo{display:block!important;width:172px!important;height:72px!important;object-fit:contain!important;filter:drop-shadow(0 0 8px rgba(0,132,255,.70)) drop-shadow(0 0 18px rgba(105,60,255,.32)) brightness(1.10) saturate(1.12)!important;animation:onexDrawerLogoFloat 4.8s ease-in-out infinite!important;}
+  .mob-brand{display:flex!important;align-items:center!important;justify-content:center!important;flex:1 1 auto!important;min-width:0!important;}
+  .mob-brand .onex-nav-logo{width:104px!important;height:38px!important;object-fit:contain!important;}
+  .sb-mobile-brand{display:flex!important;align-items:center!important;justify-content:center!important;min-height:64px!important;height:64px!important;padding:7px 12px!important;box-sizing:border-box!important;border-bottom:1px solid rgba(88,180,255,.16)!important;}
+  .sb-mobile-brand-logo{display:block!important;width:124px!important;height:50px!important;object-fit:contain!important;filter:drop-shadow(0 0 7px rgba(0,132,255,.65)) drop-shadow(0 0 13px rgba(105,60,255,.26)) brightness(1.08) saturate(1.10)!important;animation:onexDrawerLogoFloat 4.8s ease-in-out infinite!important;}
+}
+@media(max-width:420px){
+  .mob-brand .onex-nav-logo{width:94px!important;height:35px!important;}
+  .sb-mobile-brand{min-height:58px!important;height:58px!important;}
+  .sb-mobile-brand-logo{width:112px!important;height:45px!important;}
 }
 @keyframes onexDrawerLogoFloat{0%,100%{transform:translateY(0) scale(1)}50%{transform:translateY(-2px) scale(1.012)}}
 @media(prefers-reduced-motion:reduce){.sb-mobile-brand-logo{animation:none!important}}
