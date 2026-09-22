@@ -11369,6 +11369,94 @@ html.light.onex-themed .sb-foot button,
 html.light.onex-themed .sb-foot a.btn{color:#475569!important;background:#f8fafc!important}
 html.light.onex-themed .sb-foot a.danger{color:#dc2626!important;background:rgba(239,68,68,.07)!important}
 
+
+/* ============================================================
+   ONEX LIGHT ENVIRONMENT + SHADOW CLEANUP
+   Light mode must never expose the legacy dark canvas or black
+   halos around progress bars/cards. Dark mode remains unchanged.
+   ============================================================ */
+html.light.onex-themed body{
+  background:linear-gradient(180deg,#f8fafc 0%,#f3f6fb 52%,#eef2f7 100%)!important;
+  color:#0f172a!important;
+}
+html.light.onex-themed body::before{
+  background:
+    radial-gradient(ellipse 80% 50% at 100% 0%,color-mix(in srgb,var(--accent) 8%,transparent),transparent 52%),
+    radial-gradient(ellipse 60% 40% at 0% 100%,color-mix(in srgb,var(--purple) 5%,transparent),transparent 48%)!important;
+  opacity:1!important;
+}
+html.light.onex-themed .main,
+html.light.onex-themed .page,
+html.light.onex-themed .page.on{
+  background:transparent!important;
+}
+/* Legacy inline dark fills used by meters, mini panels and old cards. */
+html.light.onex-themed .page [style*="background:rgba(0,0,0"],
+html.light.onex-themed .page [style*="background: rgba(0,0,0"],
+html.light.onex-themed .page [style*="background:rgba(2,10,24"],
+html.light.onex-themed .page [style*="background: rgba(2,10,24"],
+html.light.onex-themed .page [style*="background:rgba(3,9,20"],
+html.light.onex-themed .page [style*="background: rgba(3,9,20"],
+html.light.onex-themed .page [style*="background:rgba(4,13,30"],
+html.light.onex-themed .page [style*="background: rgba(4,13,30"]{
+  background:#f8fafc!important;
+  color:#334155!important;
+}
+/* Remove heavy black ambient shadows from light surfaces. */
+html.light.onex-themed .page .onex-card,
+html.light.onex-themed .page .onex-metric,
+html.light.onex-themed .page .version-mini-card,
+html.light.onex-themed .page .quick-item,
+html.light.onex-themed .page .recent-card,
+html.light.onex-themed .page .server-info,
+html.light.onex-themed .page .health-list,
+html.light.onex-themed .page .traffic-panel,
+html.light.onex-themed .page .uptime-panel,
+html.light.onex-themed .page .action-card,
+html.light.onex-themed .page .group-hero,
+html.light.onex-themed .page .group-list-pane,
+html.light.onex-themed .page .group-detail-pane,
+html.light.onex-themed .page .group-info-card,
+html.light.onex-themed .page .group-link-card,
+html.light.onex-themed .page .group-proto-card,
+html.light.onex-themed .page .group-manage-card,
+html.light.onex-themed .page .group-configs-card,
+html.light.onex-themed .page .group-card,
+html.light.onex-themed .page .cfg-page-hero,
+html.light.onex-themed .page .cfg-stat-card,
+html.light.onex-themed .page .cfg-list-shell,
+html.light.onex-themed .page .cfg-card,
+html.light.onex-themed .page .cfg-side,
+html.light.onex-themed .page .cfg-menu,
+html.light.onex-themed .page .cfg-tools,
+html.light.onex-themed .page .admin-card,
+html.light.onex-themed .page .admin-create-card,
+html.light.onex-themed .page .admin-list-card,
+html.light.onex-themed .page .admin-perm-card,
+html.light.onex-themed .page .security-health,
+html.light.onex-themed .page .security-login-box,
+html.light.onex-themed .page .security-log-box{
+  box-shadow:0 8px 24px rgba(15,23,42,.055)!important;
+}
+/* Progress tracks must be neutral light surfaces; fills keep the theme accent. */
+html.light.onex-themed .health-track,
+html.light.onex-themed .progress-track,
+html.light.onex-themed .progress-bar-track,
+html.light.onex-themed .meter-track,
+html.light.onex-themed .speed-track,
+html.light.onex-themed .usage-track{
+  background:#e2e8f0!important;
+  box-shadow:none!important;
+}
+html.light.onex-themed .health-fill,
+html.light.onex-themed .progress-fill,
+html.light.onex-themed .progress-bar-fill,
+html.light.onex-themed .meter-fill,
+html.light.onex-themed .speed-fill,
+html.light.onex-themed .usage-fill{
+  background:linear-gradient(90deg,var(--accent),var(--purple))!important;
+  box-shadow:0 0 8px color-mix(in srgb,var(--accent) 22%,transparent)!important;
+}
 </style>
 <section class="page" id="page-news">
   <div class="page-head">
