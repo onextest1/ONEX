@@ -167,24 +167,6 @@ async def onex_panel_logo():
     return FileResponse(path, media_type="image/png", headers={"Cache-Control": "no-cache, max-age=0, must-revalidate"})
 
 
-@app.get("/api/onex-dashboard-logo.svg", include_in_schema=False)
-async def onex_dashboard_logo():
-    """Serve the current ONEX dashboard wordmark."""
-    path = BASE_DIR / "assets" / "branding" / "onex-dashboard-logo.svg"
-    if not path.is_file():
-        raise HTTPException(status_code=404, detail="ONEX dashboard logo not found")
-    return FileResponse(path, media_type="image/svg+xml", headers={"Cache-Control": "no-cache, max-age=0, must-revalidate"})
-
-
-@app.get("/api/onex-menu-icon.svg", include_in_schema=False)
-async def onex_menu_icon():
-    """Serve the custom ONEX mobile menu icon."""
-    path = BASE_DIR / "assets" / "branding" / "onex-menu-icon.svg"
-    if not path.is_file():
-        raise HTTPException(status_code=404, detail="ONEX menu icon not found")
-    return FileResponse(path, media_type="image/svg+xml", headers={"Cache-Control": "no-cache, max-age=0, must-revalidate"})
-
-
 @app.get("/api/protocol-icon/{protocol_id}.png", include_in_schema=False)
 async def protocol_icon(protocol_id: str):
     """Serve a bundled protocol icon for the create-config picker."""
@@ -2585,6 +2567,52 @@ table th:first-child, table td:first-child{overflow:visible}
 @media(max-width:380px){
   .mob-brand-icon{width:118px!important;height:48px!important;flex-basis:118px!important;}
 }
+</style>
+
+<style id="onex-header-brand-final">
+/* Final mobile chrome: no external/raster logo dependency. */
+.mob-bar{
+  min-height:64px!important;
+  padding:8px 12px!important;
+  display:grid!important;
+  grid-template-columns:44px minmax(0,1fr) 62px!important;
+  align-items:center!important;
+  gap:8px!important;
+}
+.mob-menu-btn{
+  width:42px!important;height:42px!important;
+  display:grid!important;place-items:center!important;
+  border-radius:13px!important;
+  padding:0!important;
+  position:relative!important;
+}
+.mob-menu-btn .onex-menu-glyph{width:23px;height:20px;display:flex;flex-direction:column;justify-content:space-between;align-items:center;}
+.mob-menu-btn .onex-menu-glyph i{display:block;width:22px;height:2.4px;border-radius:999px;background:#fff;box-shadow:0 0 7px rgba(105,170,255,.34);transition:transform .22s ease,opacity .18s ease,width .22s ease;}
+.mob-menu-btn.is-open .onex-menu-glyph i:nth-child(1){transform:translateY(8.8px) rotate(45deg)}
+.mob-menu-btn.is-open .onex-menu-glyph i:nth-child(2){opacity:0;width:8px}
+.mob-menu-btn.is-open .onex-menu-glyph i:nth-child(3){transform:translateY(-8.8px) rotate(-45deg)}
+.mob-brand{
+  justify-self:center!important;
+  width:max-content!important;max-width:100%!important;
+  display:flex!important;align-items:center!important;justify-content:center!important;
+  gap:8px!important;margin:0!important;min-width:0!important;
+}
+.mob-brand-mark{width:38px;height:38px;display:block;flex:0 0 38px;filter:drop-shadow(0 5px 10px rgba(49,111,255,.30));}
+.mob-brand-mark svg{width:100%;height:100%;display:block;}
+.mob-brand-copy{display:flex;flex-direction:column;justify-content:center;line-height:1;min-width:0;text-align:left;direction:ltr;}
+.mob-brand-copy b{font:800 16px/1 Inter,system-ui,sans-serif;letter-spacing:.08em;color:#f7fbff;white-space:nowrap;}
+.mob-brand-copy small{margin-top:4px;font:700 7px/1 Inter,system-ui,sans-serif;letter-spacing:.18em;color:rgba(190,215,240,.68);white-space:nowrap;}
+.mob-status{justify-self:end;display:flex!important;align-items:center!important;gap:5px!important;white-space:nowrap!important;}
+.mob-status i{width:7px!important;height:7px!important;flex:0 0 7px!important;border-radius:50%!important;background:#16d978!important;box-shadow:0 0 10px rgba(22,217,120,.72)!important;}
+.mob-status span{font-size:9px!important;color:rgba(220,235,248,.68)!important;}
+@media(max-width:380px){
+  .mob-bar{grid-template-columns:42px minmax(0,1fr) 56px!important;padding:7px 9px!important;}
+  .mob-menu-btn{width:40px!important;height:40px!important;}
+  .mob-brand-mark{width:34px;height:34px;flex-basis:34px;}
+  .mob-brand-copy b{font-size:14px}.mob-brand-copy small{font-size:6px;margin-top:3px}
+  .mob-status span{font-size:8px}
+}
+@media(prefers-reduced-motion:reduce){.mob-menu-btn .onex-menu-glyph i{transition:none!important}}
 </style>
 </head>
 
@@ -9287,38 +9315,31 @@ html.light .protocol-picker-bg{background:rgba(15,23,42,.28)}html.light .protoco
 .all-proto-toggle{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:10px 0 14px;padding:12px 14px;border:1px solid rgba(34,197,94,.22);border-radius:14px;background:rgba(34,197,94,.035);cursor:pointer;user-select:none}
 .all-proto-toggle span{display:block;min-width:0}.all-proto-toggle b{display:block;font-size:12px}.all-proto-toggle small{display:block;color:var(--t3);font-size:10px;margin-top:4px;line-height:1.6}.all-proto-toggle input{position:absolute;opacity:0;pointer-events:none}.all-proto-toggle i{position:relative;flex:0 0 48px;width:48px;height:28px;border-radius:999px;background:#4b5563;transition:.2s;box-shadow:inset 0 0 0 1px rgba(255,255,255,.12)}.all-proto-toggle i:before{content:"";position:absolute;top:4px;right:24px;width:20px;height:20px;border-radius:50%;background:#fff;box-shadow:0 2px 6px rgba(0,0,0,.35);transition:.2s}.all-proto-toggle:has(input:checked) i{background:#22c55e;box-shadow:0 0 12px rgba(34,197,94,.28)}.all-proto-toggle:has(input:checked) i:before{right:4px}.all-proto-toggle:focus-within{outline:2px solid rgba(34,197,94,.35);outline-offset:2px}
 </style>
-<style>
-/* ONEX 1.3.9 — dashboard brand + custom mobile menu mark */
-.mob-bar{position:relative!important;}
-.mob-brand{position:absolute!important;left:50%!important;top:50%!important;transform:translate(-50%,-50%)!important;width:min(154px,34vw)!important;height:48px!important;display:flex!important;align-items:center!important;justify-content:center!important;pointer-events:none!important;}
-.mob-brand-logo{display:block!important;width:154px!important;height:48px!important;object-fit:contain!important;filter:drop-shadow(0 0 8px rgba(59,130,246,.28)) drop-shadow(0 5px 12px rgba(0,0,0,.35))!important;}
-.mob-brand-text{display:none!important;}
-.mob-menu-btn{display:grid!important;place-items:center!important;padding:0!important;}
-.mob-menu-btn img{width:31px!important;height:31px!important;display:block!important;object-fit:contain!important;}
-.mob-menu-btn{transition:transform .18s ease,filter .18s ease!important;}
-.mob-menu-btn:hover{filter:brightness(1.08)!important;}
-.mob-menu-btn:active{transform:scale(.94)!important;}
-.mob-menu-btn[aria-expanded="true"]{transform:rotate(90deg)!important;}
-@media(max-width:420px){
-  .mob-brand{width:136px!important;height:43px!important;}
-  .mob-brand-logo{width:136px!important;height:43px!important;}
-  .mob-menu-btn img{width:29px!important;height:29px!important;}
-}
-@media(max-width:360px){
-  .mob-brand{width:124px!important;height:40px!important;}
-  .mob-brand-logo{width:124px!important;height:40px!important;}
-  .mob-menu-btn img{width:27px!important;height:27px!important;}
-}
-</style>
 </head>
 <body>
 
 <div class="mob-bar" id="mobBar">
   <button class="mob-menu-btn" id="mobMenuBtn" aria-label="منو" aria-expanded="false">
-    <img src="/api/onex-menu-icon.svg" alt="" aria-hidden="true">
+    <span class="onex-menu-glyph" aria-hidden="true"><i></i><i></i><i></i></span>
   </button>
   <div class="mob-brand" aria-label="ONEX Control Panel">
-    <img class="mob-brand-logo" src="/api/onex-dashboard-logo.svg" alt="ONEX Control Panel">
+    <span class="mob-brand-mark" aria-hidden="true">
+      <svg viewBox="0 0 44 44" fill="none">
+        <defs>
+          <linearGradient id="onexHeaderGrad" x1="4" y1="4" x2="40" y2="40" gradientUnits="userSpaceOnUse">
+            <stop stop-color="#27B7FF"/><stop offset=".52" stop-color="#4B6BFF"/><stop offset="1" stop-color="#A44CFF"/>
+          </linearGradient>
+          <linearGradient id="onexHeaderText" x1="10" y1="10" x2="35" y2="35" gradientUnits="userSpaceOnUse">
+            <stop stop-color="#FFFFFF"/><stop offset="1" stop-color="#C9E9FF"/>
+          </linearGradient>
+        </defs>
+        <rect x="2" y="2" width="40" height="40" rx="12" fill="url(#onexHeaderGrad)"/>
+        <rect x="3" y="3" width="38" height="38" rx="11" stroke="rgba(255,255,255,.42)"/>
+        <path d="M12 13.5c2.1-2.2 5.2-3.5 8.4-3.5 6.2 0 11.1 4.9 11.1 11s-4.9 11-11.1 11c-3.2 0-6.3-1.3-8.4-3.5" stroke="url(#onexHeaderText)" stroke-width="3.2" stroke-linecap="round"/>
+        <path d="m13 13 18 18M31 13 13 31" stroke="#fff" stroke-width="2.6" stroke-linecap="round" opacity=".94"/>
+      </svg>
+    </span>
+    <span class="mob-brand-copy"><b>ONEX</b><small>CONTROL PANEL</small></span>
   </div>
   <div class="mob-status"><i></i><span>آنلاین</span></div>
 </div>
@@ -11941,10 +11962,9 @@ function toggleTheme(){
 
 const sb=document.getElementById('sidebar'),main=document.getElementById('main');
 const mobMenuBtn=document.getElementById('mobMenuBtn'),overlay=document.getElementById('overlay');
-function closeMobileNav(){ if(sb) sb.classList.remove('mobile-open'); if(overlay) overlay.classList.remove('show'); syncMobileMenuState(); }
-function openMobileNav(){ if(sb) sb.classList.add('mobile-open'); if(overlay) overlay.classList.add('show'); syncMobileMenuState(); }
+function closeMobileNav(){ if(sb) sb.classList.remove('mobile-open'); if(overlay) overlay.classList.remove('show'); if(mobMenuBtn){mobMenuBtn.classList.remove('is-open');mobMenuBtn.setAttribute('aria-expanded','false');} }
+function openMobileNav(){ if(sb) sb.classList.add('mobile-open'); if(overlay) overlay.classList.add('show'); if(mobMenuBtn){mobMenuBtn.classList.add('is-open');mobMenuBtn.setAttribute('aria-expanded','true');} }
 if(mobMenuBtn) mobMenuBtn.onclick=()=>{ if(sb.classList.contains('mobile-open')) closeMobileNav(); else openMobileNav(); };
-function syncMobileMenuState(){ if(mobMenuBtn) mobMenuBtn.setAttribute('aria-expanded', sb.classList.contains('mobile-open') ? 'true' : 'false'); }
 if(overlay) overlay.onclick=closeMobileNav;
 
 document.getElementById('sbToggle').onclick=()=>{
