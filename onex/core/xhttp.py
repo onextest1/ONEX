@@ -34,11 +34,12 @@ SESSION_IDLE_TIMEOUT = 30
 REAPER_INTERVAL = 10
 TCP_CONNECT_TIMEOUT = 10.0
 SOCK_BUF_SIZE = 4 * 1024 * 1024
+TCP_USER_TIMEOUT_MS = 20_000
 FLOW_MIN_HW = 256 * 1024
-FLOW_MAX_HW = 32 * 1024 * 1024
-FLOW_START_HW = 2 * 1024 * 1024
-FLOW_FAST_DRAIN_MS = 12.0  
-FLOW_SLOW_DRAIN_MS = 40.0  
+FLOW_MAX_HW = 16 * 1024 * 1024
+FLOW_START_HW = 1 * 1024 * 1024
+FLOW_FAST_DRAIN_MS = 4.0
+FLOW_SLOW_DRAIN_MS = 25.0  
 QUOTA_MIN_BATCH = 32 * 1024
 QUOTA_MAX_BATCH = 1 * 1024 * 1024
 QUOTA_START_BATCH = 64 * 1024
@@ -83,6 +84,13 @@ def _tune_socket(writer: asyncio.StreamWriter):
         sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
         sock.setsockopt(socket.SOL_SOCKET, socket.SO_SNDBUF, SOCK_BUF_SIZE)
         sock.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, SOCK_BUF_SIZE)
+        # Linux latency/cleanup knobs.  Keep them optional for non-Linux hosts.
+        quickack = getattr(socket, "TCP_QUICKACK", None)
+        if quickack is not None:
+            sock.setsockopt(socket.IPPROTO_TCP, quickack, 1)
+        user_timeout = getattr(socket, "TCP_USER_TIMEOUT", None)
+        if user_timeout is not None:
+            sock.setsockopt(socket.IPPROTO_TCP, user_timeout, TCP_USER_TIMEOUT_MS)
     except OSError:
         pass
 
@@ -178,6 +186,11 @@ def _vless_header_complete(buf: bytes) -> bool:
 
 async def _open_tcp_from_header(first_chunk: bytes):
     command, address, port, payload = await parse_vless_header(first_chunk)
+    # ONEX XHTTP currently exposes a TCP VLESS relay.  Reject UDP/Mux instead
+    # of treating their bytes as a TCP destination, which otherwise produces
+    # confusing client-side latency failures.
+    if command != 1:
+        raise ValueError(f"unsupported VLESS command: {command}")
     reader, writer = await asyncio.wait_for(
         asyncio.open_connection(address, port), timeout=TCP_CONNECT_TIMEOUT
     )
@@ -222,7 +235,7 @@ async def _get_or_create_session(uuid: str, mode: str, session_id: str, ip: str 
             "down_q": asyncio.Queue(maxsize=DOWNLINK_QUEUE_MAX),
             "last_seen": time.time(),
             "conn_id": conn_id, "tcp_open": False, "closed": False,
-            "seq_buf": {}, "next_seq": 0,
+            "seq_buf": {}, "next_seq": 0, "downlink_header_sent": False,
             "gate": None,  # لازی ساخته می‌شه: _QuotaGate تطبیقی مخصوص stream-up
             "flow": None,  # لازی ساخته می‌شه: _AdaptiveFlow مخصوص stream-up
         }
@@ -285,8 +298,11 @@ def ensure_reaper():
 
 
 async def _pump_tcp_to_queue(session_id: str, uuid: str, reader: asyncio.StreamReader, down_q: asyncio.Queue):
-    first = True
-    gate = _QuotaGate(uuid) 
+    gate = _QuotaGate(uuid)
+    stream_one = False
+    async with XHTTP_LOCK:
+        sess0 = xhttp_sessions.get(session_id)
+        stream_one = bool(sess0 and sess0.get("mode") == "stream-one")
     try:
         while True:
             data = await reader.read(XHTTP_BUF)
@@ -301,8 +317,18 @@ async def _pump_tcp_to_queue(session_id: str, uuid: str, reader: asyncio.StreamR
                 c = connections.get(sess["conn_id"])
                 if c:
                     c["bytes"] += len(data)
-            payload = (b"\x00\x00" + data) if first else data
-            first = False
+            # VLESS response header is emitted immediately by the Stream-One
+            # HTTP response generator.  Do not prepend it again to target data.
+            # Packet/stream-up still use the legacy first-chunk prefix here.
+            if stream_one:
+                payload = data
+            else:
+                async with XHTTP_LOCK:
+                    sess2 = xhttp_sessions.get(session_id)
+                    first_sent = bool(sess2 and sess2.get("downlink_header_sent"))
+                    if sess2 and not first_sent:
+                        sess2["downlink_header_sent"] = True
+                payload = data if first_sent else b"\x00\x00" + data
             await down_q.put(payload)
     except (asyncio.CancelledError, Exception):
         pass
@@ -322,9 +348,15 @@ async def _open_tcp_for_session(session_id: str, uuid: str, sess: dict, first_ch
     asyncio.create_task(save_state())
 
 
-def _downstream_gen(sess: dict):
+def _downstream_gen(sess: dict, *, stream_one: bool = False):
     async def gen():
         try:
+            if stream_one:
+                # Xray VLESS clients decode the response header before they can
+                # report the connection as established.  The official XHTTP
+                # server flushes HTTP 200 and the VLESS response header before
+                # dispatching the destination, so do the same.
+                yield VLESS_RESPONSE_HEADER
             while True:
                 chunk = await sess["down_q"].get()
                 if chunk is None:
@@ -470,6 +502,7 @@ async def stream_up_upload(uuid: str, session_id: str, request: Request):
 # the first request body. The response body is the downlink of the same HTTP
 # stream.
 STREAM_ONE_MAX_HEADER = 64 * 1024
+VLESS_RESPONSE_HEADER = b"\x00\x00"
 
 
 def _stream_one_extract_uuid(buf: bytes) -> str:
@@ -585,7 +618,7 @@ async def _stream_one_response(request: Request):
     headers["cache-control"] = "no-store"
     headers["x-accel-buffering"] = "no"
     return StreamingResponse(
-        _downstream_gen(sess),
+        _downstream_gen(sess, stream_one=True),
         headers=headers,
         media_type=headers["content-type"],
     )
