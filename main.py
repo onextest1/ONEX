@@ -102,6 +102,21 @@ PROTOCOL_ICON_FILES = {
     "xhttp-packet-up": PROTOCOL_ICON_DIR / "onex-xhttp.png",
     "xhttp-stream-up": PROTOCOL_ICON_DIR / "onex-gamig.png",
     "xhttp-stream-one": PROTOCOL_ICON_DIR / "onex-stream.png",
+    # VPS protocols reuse the bundled ONEX artwork so the picker stays self-contained.
+    "trojan": PROTOCOL_ICON_DIR / "onex-trojan-xhttp.png",
+    "shadowsocks": PROTOCOL_ICON_DIR / "nova-link.png",
+    "socks5": PROTOCOL_ICON_DIR / "nova-link.png",
+    "http": PROTOCOL_ICON_DIR / "nova-link.png",
+    "hysteria2": PROTOCOL_ICON_DIR / "xstream-pulse.png",
+    "vless-reality": PROTOCOL_ICON_DIR / "onex-wb.png",
+    "vless-grpc-reality": PROTOCOL_ICON_DIR / "onex-stream.png",
+    "vmess": PROTOCOL_ICON_DIR / "nova-link.png",
+    "tuic": PROTOCOL_ICON_DIR / "xstream-edge.png",
+    "anytls": PROTOCOL_ICON_DIR / "onex-xhttp.png",
+    "naive": PROTOCOL_ICON_DIR / "xstream-pulse.png",
+    "shadowtls": PROTOCOL_ICON_DIR / "onex-trojan-xhttp.png",
+    "snell": PROTOCOL_ICON_DIR / "nova-link.png",
+    "hysteria": PROTOCOL_ICON_DIR / "xstream-edge.png",
 }
 
 SECRET_FILE = DATA_DIR / "pixonpanel_secret.key"
@@ -267,18 +282,25 @@ http_client: httpx.AsyncClient | None = None
 PROTOCOLS: list[str] = []
 
 PROTOCOL_LABELS = {
+    # Railway-safe ONEX transports
     "vless-ws": "ONEX WB",
     "xhttp-packet-up": "ONEX Xhttp",
     "xhttp-stream-up": "ONEX Gaming",
-    "xhttp-stream-one": "ONEX Stream",
-    "trojan-ws": "Trojan (WebSocket)",
+    # VPS-native protocols
     "trojan": "Trojan",
     "shadowsocks": "Shadowsocks",
     "socks5": "SOCKS5",
     "http": "HTTP Proxy",
     "hysteria2": "Hysteria2",
+    "vless-reality": "VLESS Reality",
     "vless-grpc-reality": "VLESS gRPC Reality",
-    "wireguard": "WireGuard",
+    "vmess": "VMess",
+    "tuic": "TUIC",
+    "anytls": "AnyTLS",
+    "naive": "NaiveProxy",
+    "shadowtls": "ShadowTLS",
+    "snell": "Snell",
+    "hysteria": "Hysteria",
 }
 
 PROTOCOL_ALIASES = {
@@ -1180,8 +1202,35 @@ def generate_vless_link(
         hy = adv.get("hysteria2") or {}
         if hy.get("obfs_password"): q["obfs"] = hy.get("obfs_type") or "salamander"; q["obfs-password"] = hy.get("obfs_password")
         return f"hysteria2://{uuid}@{host}:{port_value}/?" + "&".join(f"{k}={quote(str(v), safe=',/') }" for k,v in q.items()) + "#" + label
+    if protocol == "vless-reality":
+        try:
+            reality = NATIVE_CORE.reality_info()  # type: ignore[name-defined]
+            custom_r = adv["tls"].get("reality") or {}
+            pbk = quote(str(custom_r.get("public_key") or reality.get("public_key", "")), safe="")
+            sid = quote(str(custom_r.get("short_id") or reality.get("short_id", "")), safe="")
+        except Exception:
+            pbk, sid = "", ""
+        q = {"encryption":"none","security":"reality","type":"tcp","sni":adv_sni,"fp":adv_fp,"pbk":pbk,"sid":sid}
+        return "vless://" + uuid + "@" + host + ":" + str(port_value) + "?" + "&".join(f"{k}={quote(str(v), safe=',/') }" for k,v in q.items()) + "#" + label
+    if protocol == "vmess":
+        raw = {"v":"2","ps":remark,"add":host,"port":port_value,"id":uuid,"aid":0,"scy":"auto","net":"tcp","type":"none","host":"","path":"","tls":"tls","sni":adv_sni,"fp":adv_fp}
+        return "vmess://" + base64.b64encode(json.dumps(raw,separators=(",",":"),ensure_ascii=False).encode()).decode()
+    if protocol == "tuic":
+        return f"tuic://{uuid}:{uuid}@{host}:{port_value}?sni={quote(adv_sni)}&alpn=h3&congestion_control=bbr#" + label
+    if protocol == "anytls":
+        insecure = 1 if (adv["tls"].get("allow_insecure") or getattr(NATIVE_CORE, "self_signed", False)) else 0
+        return f"anytls://{uuid}@{host}:{port_value}?sni={quote(adv_sni)}&insecure={insecure}#" + label
+    if protocol == "naive":
+        return f"naive+https://{quote(uuid)}:{quote(uuid)}@{host}:{port_value}/?sni={quote(adv_sni)}#" + label
+    if protocol == "shadowtls":
+        hs = quote(str(os.getenv("ONEX_SHADOWTLS_HANDSHAKE", adv_sni or host)))
+        return f"shadowtls://{uuid}@{host}:{port_value}?version=3&sni={hs}#" + label
+    if protocol == "snell":
+        return f"snell://{uuid}@{host}:{port_value}?version=5#" + label
+    if protocol == "hysteria":
+        insecure = 1 if (adv["tls"].get("allow_insecure") or getattr(NATIVE_CORE, "self_signed", False)) else 0
+        return f"hysteria://{uuid}@{host}:{port_value}/?sni={quote(adv_sni)}&insecure={insecure}#" + label
     if protocol == "tuic": return f"tuic://{uuid}:{uuid}@{host}:{port_value}?sni={quote(host)}&alpn=h3#{label}"
-    if protocol == "wireguard": return f"wireguard://{uuid}@{host}:{port_value}?publicKey={uuid}#{label}"
     return f"vless://{uuid}@{host}:{port_value}"
 
 def vless_link_for_link(
@@ -7011,14 +7060,20 @@ _PROTOCOL_ORDER = [
     "vless-ws",
     "xhttp-packet-up",
     "xhttp-stream-up",
-    "xhttp-stream-one",
-    "trojan-ws",
     "trojan",
     "shadowsocks",
     "socks5",
     "http",
     "hysteria2",
+    "vless-reality",
     "vless-grpc-reality",
+    "vmess",
+    "tuic",
+    "anytls",
+    "naive",
+    "shadowtls",
+    "snell",
+    "hysteria",
 ]
 PROTOCOLS[:] = [p for p in _PROTOCOL_ORDER if p in PROTOCOLS]
 
@@ -8978,7 +9033,7 @@ html.light .top-setting-group,html.light .top-notify-btn{background:#fff!importa
 .protocol-picker-scroll{overflow:auto;padding:14px 16px 16px}.protocol-section{margin-bottom:17px}.protocol-section-title{display:flex;align-items:center;gap:9px;margin:0 2px 9px;color:#93c5fd;font-size:11px;font-weight:900}.protocol-section-title:before{content:"";height:1px;flex:1;background:linear-gradient(90deg,rgba(59,130,246,.05),rgba(59,130,246,.38));order:2}.protocol-section-title span{order:1}.protocol-section-title b{font-size:13px;order:3;font-weight:500}
 .protocol-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}.protocol-option{position:relative;min-height:108px;border-radius:16px;border:1px solid rgba(96,165,250,.16);background:linear-gradient(145deg,rgba(17,34,62,.74),rgba(7,16,32,.82));padding:7px 10px 10px;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;overflow:hidden;box-shadow:inset 0 1px rgba(255,255,255,.045)}.protocol-option:hover{border-color:rgba(96,165,250,.42)}.protocol-option.selected{border-color:#38bdf8;box-shadow:0 0 0 1px rgba(56,189,248,.18),0 0 22px rgba(37,99,235,.20);background:linear-gradient(145deg,rgba(18,53,91,.88),rgba(22,18,63,.86))}.protocol-option.selected:after{content:"✓";position:absolute;top:7px;right:7px;width:21px;height:21px;border-radius:50%;display:grid;place-items:center;background:linear-gradient(145deg,#38bdf8,#6366f1);color:#fff;font-size:12px;font-weight:900}.protocol-option-radio{position:absolute;top:10px;left:10px;width:16px;height:16px;border-radius:50%;border:2px solid rgba(191,219,254,.65);background:transparent}.protocol-option.selected .protocol-option-radio{border-color:#22d3ee}
 .protocol-option-icon.proto-3d{width:76px;height:76px;display:grid;place-items:center;position:relative;z-index:1;flex:0 0 auto}.proto-3d .static-icon{width:74px;height:74px;display:block;object-fit:contain;filter:drop-shadow(0 7px 10px rgba(0,0,0,.30))}.protocol-option-name{font-size:11px;font-weight:900;position:relative;z-index:1;color:#f8fafc}.protocol-option-desc{font-size:8.5px;color:var(--t3);margin-top:2px;position:relative;z-index:1}
-.protocol-picker-foot{padding:11px 16px 15px;border-top:1px solid rgba(148,163,184,.12);background:linear-gradient(180deg,rgba(5,13,27,.72),rgba(5,11,24,.98));display:flex;align-items:center;gap:10px;direction:rtl;flex:0 0 auto}.protocol-selected-info{flex:1;min-width:0;height:38px;border-radius:12px;border:1px solid rgba(96,165,250,.16);background:rgba(15,35,64,.55);display:flex;align-items:center;justify-content:center;color:#93c5fd;font-size:9px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding:0 10px}.protocol-picker-confirm{flex:0 0 auto;height:42px;padding:0 18px;border:0;border-radius:12px;background:linear-gradient(135deg,#2196f3,#7c4dff);color:#fff;font-family:inherit;font-size:11px;font-weight:900;cursor:pointer;box-shadow:0 8px 20px rgba(37,99,235,.22)}
+.protocol-picker-section{margin:0 0 14px;padding:10px;border:1px solid rgba(59,130,246,.14);border-radius:16px;background:rgba(3,13,30,.35)}.protocol-picker-section-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:0 0 9px;padding:3px 4px;direction:rtl}.protocol-picker-section-head div{display:flex;flex-direction:column;gap:2px}.protocol-picker-section-head b{font-size:12px;color:#f8fbff}.protocol-picker-section-head small{font-size:8px;color:#7fa8d8}.protocol-picker-section-head>span{min-width:24px;height:24px;border-radius:9px;display:grid;place-items:center;background:rgba(124,77,255,.14);border:1px solid rgba(124,77,255,.22);color:#c4b5fd;font-size:9px;font-weight:900}.protocol-picker-section.vps .protocol-picker-section-head>span{background:rgba(14,165,233,.12);border-color:rgba(14,165,233,.2);color:#7dd3fc}.protocol-picker-section .protocol-grid{margin:0}.protocol-picker-section.vps .protocol-option{min-height:118px}.protocol-picker-section.railway .protocol-option{min-height:122px}.protocol-picker-section.railway{border-color:rgba(236,72,153,.18)}.protocol-picker-section.railway .protocol-picker-section-head>span{color:#f9a8d4;background:rgba(236,72,153,.12);border-color:rgba(236,72,153,.2)}.protocol-picker-foot{padding:11px 16px 15px;border-top:1px solid rgba(148,163,184,.12);background:linear-gradient(180deg,rgba(5,13,27,.72),rgba(5,11,24,.98));display:flex;align-items:center;gap:10px;direction:rtl;flex:0 0 auto}.protocol-selected-info{flex:1;min-width:0;height:38px;border-radius:12px;border:1px solid rgba(96,165,250,.16);background:rgba(15,35,64,.55);display:flex;align-items:center;justify-content:center;color:#93c5fd;font-size:9px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding:0 10px}.protocol-picker-confirm{flex:0 0 auto;height:42px;padding:0 18px;border:0;border-radius:12px;background:linear-gradient(135deg,#2196f3,#7c4dff);color:#fff;font-family:inherit;font-size:11px;font-weight:900;cursor:pointer;box-shadow:0 8px 20px rgba(37,99,235,.22)}
 html.light .protocol-picker-bg{background:rgba(15,23,42,.28)}html.light .protocol-picker{background:linear-gradient(145deg,#fff,#f7fbff);color:#0f172a}html.light .protocol-option{background:linear-gradient(145deg,#fff,#f7faff)}html.light .protocol-option-name{color:#0f172a}html.light .protocol-option-desc{color:#64748b}html.light .protocol-selected-info{background:#eff6ff;border-color:#bfdbfe;color:#2563eb}
 @media(max-width:560px){.protocol-picker-bg{padding:8px}.protocol-picker{width:calc(100vw - 16px);max-height:90vh;border-radius:20px}.protocol-picker-head{padding:13px 14px 12px}.protocol-picker-title{font-size:15px}.protocol-picker-scroll{padding:11px}.protocol-grid{gap:7px}.protocol-option{min-height:104px;padding:7px}.protocol-option-icon.proto-3d{width:64px;height:64px}.proto-3d .static-icon{width:62px;height:62px}.protocol-option-name{font-size:10px}.protocol-option-desc{font-size:7.5px}.protocol-picker-foot{padding:9px 11px 11px;gap:7px}.protocol-selected-info{height:34px;font-size:8px}.protocol-picker-confirm{height:40px;padding:0 12px;font-size:10px}}
 @media(max-width:360px){.protocol-grid{grid-template-columns:1fr}.protocol-option{min-height:90px}}
@@ -12604,7 +12659,7 @@ function setCfgSort(v,el){cfgSortMode=v;document.querySelectorAll('#cfgFilterRow
 function configExpired(l){return !!l.expired||(l.expires_at&&new Date(l.expires_at).getTime()<=Date.now())||(Number(l.limit_bytes)>0&&Number(l.used_bytes||0)>=Number(l.limit_bytes))}
 function getFilteredConfigs(){const q=(document.getElementById('cfgSearch')?.value||'').trim().toLowerCase();let a=__allLinks.filter(l=>{const dead=configExpired(l),active=l.active!==false&&!dead;if(cfgStatusFilter==='active'&&!active)return false;if(cfgStatusFilter==='expired'&&!dead)return false;if(!q)return true;return [l.label,l.name,l.protocol,l.protocol_label,l.uuid,l.id,l.sub,l.sub_url,l.vless,l.vless_full].map(x=>String(x||'').toLowerCase()).some(x=>x.includes(q))});a.sort((x,y)=>cfgSortMode==='name'?String(x.label||x.name||'').localeCompare(String(y.label||y.name||'')):cfgSortMode==='usage'?Number(y.used_bytes||0)-Number(x.used_bytes||0):String(y.created_at||'').localeCompare(String(x.created_at||'')));return a}
 function filterConfigs(){renderConfigCards(getFilteredConfigs())}
-function protocolUi(id){const m={'vless-ws':['ONEX WB','/api/protocol-icon/vless-ws.png'],'xhttp-packet-up':['ONEX Xhttp','/api/protocol-icon/xhttp-packet-up.png'],'xhttp-stream-up':['ONEX GAMING','/api/protocol-icon/xhttp-stream-up.png'],'xhttp-stream-one':['ONEX Stream','/api/protocol-icon/xhttp-stream-one.png'],'trojan-ws':['Trojan (WS)','/api/protocol-icon/vless-ws.png']};return m[id]||[String(id||'').toUpperCase(),'/api/protocol-icon/vless-ws.png']}
+function protocolUi(id){const m={'vless-ws':['ONEX WB','/api/protocol-icon/vless-ws.png'],'xhttp-packet-up':['ONEX Xhttp','/api/protocol-icon/xhttp-packet-up.png'],'xhttp-stream-up':['ONEX GAMING','/api/protocol-icon/xhttp-stream-up.png'],'trojan':['Trojan','/api/protocol-icon/trojan.png'],'shadowsocks':['Shadowsocks','/api/protocol-icon/shadowsocks.png'],'socks5':['SOCKS5','/api/protocol-icon/socks5.png'],'http':['HTTP Proxy','/api/protocol-icon/http.png'],'hysteria2':['Hysteria2','/api/protocol-icon/hysteria2.png'],'vless-reality':['VLESS Reality','/api/protocol-icon/vless-reality.png'],'vless-grpc-reality':['VLESS gRPC Reality','/api/protocol-icon/vless-grpc-reality.png'],'vmess':['VMess','/api/protocol-icon/vmess.png'],'tuic':['TUIC','/api/protocol-icon/tuic.png'],'anytls':['AnyTLS','/api/protocol-icon/anytls.png'],'naive':['NaiveProxy','/api/protocol-icon/naive.png'],'shadowtls':['ShadowTLS','/api/protocol-icon/shadowtls.png'],'snell':['Snell','/api/protocol-icon/snell.png'],'hysteria':['Hysteria','/api/protocol-icon/hysteria.png']};return m[id]||[String(id||'').toUpperCase(),'/api/protocol-icon/vless-ws.png']}
 function cfgDate(v){if(!v)return 'بدون انقضا';try{return new Date(v).toLocaleDateString('fa-IR',{year:'numeric',month:'2-digit',day:'2-digit'})}catch(e){return String(v).slice(0,10)}}
 function updateConfigStats(){const total=__allLinks.length,expired=__allLinks.filter(configExpired).length,active=__allLinks.filter(l=>l.active!==false&&!configExpired(l)).length,used=__allLinks.reduce((n,l)=>n+Number(l.used_bytes||0),0),set=(id,v)=>{const e=document.getElementById(id);if(e)e.textContent=v};set('cfgStatTotal',total);set('cfgStatUsed',fmtB(used));set('cfgStatActive',active);set('cfgStatExpired',expired);set('cfgVisibleCount',`${getFilteredConfigs().length} مورد`)}
 let __openConfigMenuUid='';
@@ -12933,38 +12988,23 @@ async function restoreBot(){
    LIGHT STATIC 3D PROTOCOL PICKER
    ============================================================ */
 const PROTOCOL_PICKER_GROUPS=[
-  {title:'',ids:['vless-ws','xhttp-packet-up','xhttp-stream-up','xhttp-stream-one','trojan-ws']}
+  {title:'پروتکل‌های Railway',subtitle:'پروتکل‌های سازگار با Railway',ids:['vless-ws','xhttp-packet-up','xhttp-stream-up'],kind:'railway'},
+  {title:'پروتکل‌های VPS',subtitle:'تمام پروتکل‌های قابل ساخت روی VPS',ids:['trojan','shadowsocks','socks5','http','hysteria2','vless-reality','vless-grpc-reality','vmess','tuic','anytls','naive','shadowtls','snell','hysteria'],kind:'vps'}
 ];
-const PROTOCOL_PICKER_NAMES={"vless-ws":"ONEX WB","xhttp-packet-up":"ONEX Xhttp","xhttp-stream-up":"ONEX Gaming","xhttp-stream-one":"ONEX Stream","trojan-ws":"Trojan (WS)","trojan":"Trojan","shadowsocks":"Shadowsocks","socks5":"SOCKS5","http":"HTTP Proxy","hysteria2":"Hysteria2","vless-grpc-reality":"VLESS gRPC Reality"};
-const PROTOCOL_PICKER_DESCS={"vless-ws":"VLESS + WebSocket","xhttp-packet-up":"VLESS + XHTTP","xhttp-stream-up":"VLESS + XHTTP","xhttp-stream-one":"VLESS + XHTTP","trojan-ws":"Trojan + WebSocket (Railway-safe)","trojan":"Trojan","shadowsocks":"Shadowsocks","socks5":"SOCKS5","http":"HTTP Proxy","hysteria2":"Hysteria2","vless-grpc-reality":"VLESS + gRPC + Reality"};
-const PROTOCOL_3D_ICONS={
-  "vless-ws":{c1:"#24a9ff",c2:"#1264ff",c3:"#6d3cff",mark:"V",glow:"#168cff"},
-  "xhttp-packet-up":{c1:"#35c8ff",c2:"#0877d8",c3:"#3155ff",mark:"XP",glow:"#21b8ff"},
-  "xhttp-stream-up":{c1:"#36e6ff",c2:"#0894c9",c3:"#16b7d1",mark:"XS",glow:"#21d9ee"},
-  "xhttp-stream-one":{c1:"#b04cff",c2:"#6b1fe1",c3:"#3b25ad",mark:"XC",glow:"#a14cff"},
-  "vmess-ws":{c1:"#d05cff",c2:"#7726e8",c3:"#4522a6",mark:"M",glow:"#a54cff"},
-  "trojan-ws":{c1:"#ff6676",c2:"#e51c35",c3:"#a90f2b",mark:"T",glow:"#ff4058"},
-  "trojan":{c1:"#ff6676",c2:"#e51c35",c3:"#a90f2b",mark:"T",glow:"#ff4058"},
-  "shadowsocks":{c1:"#54e887",c2:"#11ae57",c3:"#078341",mark:"S",glow:"#22d66c"},
-  "socks5":{c1:"#45dfff",c2:"#0b9fc8",c3:"#08779e",mark:"5",glow:"#20d5ff"},
-  "http":{c1:"#78a7ff",c2:"#3975e8",c3:"#2448a9",mark:"H",glow:"#4d8cff"},
-  "hysteria2":{c1:"#55e9ff",c2:"#08a9c5",c3:"#087b99",mark:"H2",glow:"#21dfff"},
-  "vless-grpc-reality":{c1:"#b04cff",c2:"#6b1fe1",c3:"#3b25ad",mark:"GR",glow:"#a14cff"},
-};
-let __protocolPickerTarget='' ;
-let __protocolPickerOptions=[];
+const PROTOCOL_PICKER_NAMES={"vless-ws":"ONEX WB","xhttp-packet-up":"ONEX Xhttp","xhttp-stream-up":"ONEX Gaming","trojan":"Trojan","shadowsocks":"Shadowsocks","socks5":"SOCKS5","http":"HTTP Proxy","hysteria2":"Hysteria2","vless-reality":"VLESS Reality","vless-grpc-reality":"VLESS gRPC Reality","vmess":"VMess","tuic":"TUIC","anytls":"AnyTLS","naive":"NaiveProxy","shadowtls":"ShadowTLS","snell":"Snell","hysteria":"Hysteria"};
+const PROTOCOL_PICKER_DESCS={"vless-ws":"VLESS + WebSocket","xhttp-packet-up":"VLESS + XHTTP","xhttp-stream-up":"VLESS + XHTTP","trojan":"Trojan + TLS","shadowsocks":"Shadowsocks","socks5":"SOCKS5","http":"HTTP Proxy","hysteria2":"Hysteria2 + QUIC","vless-reality":"VLESS + Reality","vless-grpc-reality":"VLESS + gRPC + Reality","vmess":"VMess + TLS","tuic":"TUIC + QUIC","anytls":"AnyTLS + TLS","naive":"NaiveProxy + TLS","shadowtls":"ShadowTLS v3","snell":"Snell v5","hysteria":"Hysteria + QUIC"};
+const PROTOCOL_ICON_DATA={"vless-ws":"/api/protocol-icon/vless-ws.png","xhttp-packet-up":"/api/protocol-icon/xhttp-packet-up.png","xhttp-stream-up":"/api/protocol-icon/xhttp-stream-up.png","trojan":"/api/protocol-icon/trojan.png","shadowsocks":"/api/protocol-icon/shadowsocks.png","socks5":"/api/protocol-icon/socks5.png","http":"/api/protocol-icon/http.png","hysteria2":"/api/protocol-icon/hysteria2.png","vless-reality":"/api/protocol-icon/vless-reality.png","vless-grpc-reality":"/api/protocol-icon/vless-grpc-reality.png","vmess":"/api/protocol-icon/vmess.png","tuic":"/api/protocol-icon/tuic.png","anytls":"/api/protocol-icon/anytls.png","naive":"/api/protocol-icon/naive.png","shadowtls":"/api/protocol-icon/shadowtls.png","snell":"/api/protocol-icon/snell.png","hysteria":"/api/protocol-icon/hysteria.png"};
 function protocolPickerLabel(id){const p=__protocolPickerOptions.find(x=>x.id===id);return PROTOCOL_PICKER_NAMES[id]||p?.label||id||'Vortex Link'}
 function protocolPickerShort(id){return PROTOCOL_PICKER_NAMES[id]||id}
 const PROTOCOL_ICON_DATA={"vless-ws":"/api/protocol-icon/vless-ws.png","xhttp-packet-up":"/api/protocol-icon/xhttp-packet-up.png","xhttp-stream-up":"/api/protocol-icon/xhttp-stream-up.png","xhttp-stream-one":"/api/protocol-icon/xhttp-stream-one.png"};
 function protocolIconMarkup(id){
-  const srcMap=PROTOCOL_ICON_DATA;
-  const src=srcMap[id]||srcMap["vless-ws"];
+  const src=PROTOCOL_ICON_DATA[id]||PROTOCOL_ICON_DATA["vless-ws"];
   return `<span class="protocol-option-icon proto-3d" aria-hidden="true"><img class="protocol-art-icon" src="${src}" alt="" loading="eager" decoding="async"></span>`
 }
 function setupProtocolPickers(){['cProto','aProto'].forEach(id=>{const sel=document.getElementById(id);if(!sel)return;sel.classList.add('protocol-native');sel.style.setProperty('display','none','important');sel.setAttribute('aria-hidden','true');let trigger=sel.parentNode.querySelector(`.protocol-trigger[data-for="${id}"]`);if(!trigger){trigger=document.createElement('button');trigger.type='button';trigger.className='protocol-trigger';trigger.dataset.for=id;sel.parentNode.insertBefore(trigger,sel.nextSibling)}trigger.onclick=e=>{e.preventDefault();openProtocolPicker(id)};syncProtocolPicker(id)})}
 function syncProtocolPicker(id){const sel=document.getElementById(id),trigger=document.querySelector(`.protocol-trigger[data-for="${id}"]`);if(!sel||!trigger)return;const value=sel.value||'vless-ws';trigger.innerHTML=`<span class="protocol-trigger-main"><span class="protocol-trigger-icon">${protocolIconMarkup(value)}</span><span class="protocol-trigger-text"><span class="protocol-trigger-name">${esc(protocolPickerShort(value))}</span><span class="protocol-trigger-sub">${lang==='fa'?'برای تغییر، انتخاب کنید':'Tap to choose another protocol'}</span></span></span><span class="protocol-trigger-arrow">⌄</span>`}
 function ensureProtocolPicker(){let bg=document.getElementById('protocolPickerBg');if(bg)return bg;bg=document.createElement('div');bg.id='protocolPickerBg';bg.className='protocol-picker-bg';bg.innerHTML=`<div class="protocol-picker" role="dialog" aria-modal="true"><div class="protocol-picker-head"><div class="protocol-picker-head-icon"><span>✦</span></div><div class="protocol-picker-head-text"><div class="protocol-picker-title">${lang==='fa'?'انتخاب پروتکل':'Select Protocol'}</div><div class="protocol-picker-subtitle">${lang==='fa'?'پروتکل موردنظر را انتخاب کنید':'Choose the protocol you want to use'}</div></div><button type="button" class="protocol-picker-close" id="protocolPickerClose">×</button></div><div class="protocol-picker-scroll" id="protocolPickerScroll"></div><div class="protocol-picker-foot"><div class="protocol-selected-info" id="protocolSelectedInfo">—</div><button type="button" class="protocol-picker-confirm" id="protocolPickerConfirm">${lang==='fa'?'تأیید و ادامه →':'Confirm & Continue →'}</button></div></div>`;document.body.appendChild(bg);bg.addEventListener('click',e=>{if(e.target===bg)closeProtocolPicker()});bg.querySelector('#protocolPickerClose').onclick=closeProtocolPicker;bg.querySelector('#protocolPickerConfirm').onclick=confirmProtocolPicker;return bg}
-function openProtocolPicker(targetId){const sel=document.getElementById(targetId);if(!sel)return;const bg=ensureProtocolPicker();__protocolPickerTarget=targetId;const current=sel.value||'vless-ws';const available=new Set([...sel.options].map(o=>o.value));const ids=PROTOCOL_PICKER_GROUPS[0].ids.filter(id=>available.has(id));const scroll=bg.querySelector('#protocolPickerScroll');scroll.innerHTML=`<div class="protocol-grid protocol-grid-all">${ids.map(id=>`<button type="button" class="protocol-option ${id===current?'selected':''}" data-proto="${id}"><span class="protocol-option-radio"></span>${protocolIconMarkup(id)}<span class="protocol-option-name">${esc(protocolPickerShort(id))}</span><span class="protocol-option-desc">${id===current?(lang==='fa'?'انتخاب‌شده · ':'Selected · ')+(PROTOCOL_PICKER_DESCS[id]||''):(PROTOCOL_PICKER_DESCS[id]|| (lang==='fa'?'برای انتخاب کلیک کنید':'Tap to choose'))}</span></button>`).join('')}</div>`;scroll.querySelectorAll('.protocol-option').forEach(btn=>btn.addEventListener('click',()=>chooseProtocol(btn.dataset.proto)));bg.querySelector('#protocolSelectedInfo').textContent=(lang==='fa'?'پروتکل انتخاب‌شده: ':'Selected: ')+protocolPickerShort(current);bg.classList.add('open');document.body.style.overflow='hidden'}
+function openProtocolPicker(targetId){const sel=document.getElementById(targetId);if(!sel)return;const bg=ensureProtocolPicker();__protocolPickerTarget=targetId;const current=sel.value||'vless-ws';const available=new Set([...sel.options].map(o=>o.value));const sections=PROTOCOL_PICKER_GROUPS.map(g=>{const ids=g.ids.filter(id=>available.has(id));if(!ids.length)return '';return `<section class="protocol-picker-section ${g.kind||''}"><div class="protocol-picker-section-head"><div><b>${esc(g.title)}</b><small>${esc(g.subtitle||'')}</small></div><span>${ids.length}</span></div><div class="protocol-grid protocol-grid-all">${ids.map(id=>`<button type="button" class="protocol-option ${id===current?'selected':''}" data-proto="${id}"><span class="protocol-option-radio"></span>${protocolIconMarkup(id)}<span class="protocol-option-name">${esc(protocolPickerShort(id))}</span><span class="protocol-option-desc">${id===current?(lang==='fa'?'انتخاب‌شده · ':'Selected · ')+(PROTOCOL_PICKER_DESCS[id]||''):(PROTOCOL_PICKER_DESCS[id]|| (lang==='fa'?'برای انتخاب کلیک کنید':'Tap to choose'))}</span></button>`).join('')}</div></section>`}).join('');const scroll=bg.querySelector('#protocolPickerScroll');scroll.innerHTML=sections;scroll.querySelectorAll('.protocol-option').forEach(btn=>btn.addEventListener('click',()=>chooseProtocol(btn.dataset.proto)));bg.querySelector('#protocolSelectedInfo').textContent=(lang==='fa'?'پروتکل انتخاب‌شده: ':'Selected: ')+protocolPickerShort(current);bg.classList.add('open');document.body.style.overflow='hidden'}
 function chooseProtocol(id){const sel=document.getElementById(__protocolPickerTarget),bg=document.getElementById('protocolPickerBg');if(!sel||!bg)return;sel.value=id;bg.querySelectorAll('.protocol-option').forEach(x=>x.classList.toggle('selected',x.dataset.proto===id));bg.querySelector('#protocolSelectedInfo').textContent=(lang==='fa'?'پروتکل انتخاب‌شده: ':'Selected: ')+protocolPickerShort(id);syncProtocolPicker(__protocolPickerTarget);sel.dispatchEvent(new Event('change',{bubbles:true}))}
 function confirmProtocolPicker(){if(__protocolPickerTarget){const sel=document.getElementById(__protocolPickerTarget);if(sel)sel.dispatchEvent(new Event('change',{bubbles:true}))}closeProtocolPicker()}
 function closeProtocolPicker(){const bg=document.getElementById('protocolPickerBg');if(bg)bg.classList.remove('open');document.body.style.overflow=''}
