@@ -39,7 +39,7 @@ from fastapi.middleware.cors import CORSMiddleware
 # ============================================================
 
 APP_NAME = "ONEX"
-APP_VERSION = "1.3.1"
+APP_VERSION = "1.3.4"
 
 SUPPORT_USERNAME = "@V2rayTun0"
 SUPPORT_URL = "https://t.me/V2rayTun0"
@@ -102,21 +102,21 @@ PROTOCOL_ICON_FILES = {
     "xhttp-packet-up": PROTOCOL_ICON_DIR / "onex-xhttp.png",
     "xhttp-stream-up": PROTOCOL_ICON_DIR / "onex-gamig.png",
     "xhttp-stream-one": PROTOCOL_ICON_DIR / "onex-stream.png",
-    # VPS protocols reuse the bundled ONEX artwork so the picker stays self-contained.
-    "trojan": PROTOCOL_ICON_DIR / "onex-trojan-xhttp.png",
-    "shadowsocks": PROTOCOL_ICON_DIR / "nova-link.png",
-    "socks5": PROTOCOL_ICON_DIR / "nova-link.png",
-    "http": PROTOCOL_ICON_DIR / "nova-link.png",
-    "hysteria2": PROTOCOL_ICON_DIR / "xstream-pulse.png",
-    "vless-reality": PROTOCOL_ICON_DIR / "onex-wb.png",
-    "vless-grpc-reality": PROTOCOL_ICON_DIR / "onex-stream.png",
-    "vmess": PROTOCOL_ICON_DIR / "nova-link.png",
-    "tuic": PROTOCOL_ICON_DIR / "xstream-edge.png",
-    "anytls": PROTOCOL_ICON_DIR / "onex-xhttp.png",
-    "naive": PROTOCOL_ICON_DIR / "xstream-pulse.png",
-    "shadowtls": PROTOCOL_ICON_DIR / "onex-trojan-xhttp.png",
-    "snell": PROTOCOL_ICON_DIR / "nova-link.png",
-    "hysteria": PROTOCOL_ICON_DIR / "xstream-edge.png",
+    # VPS/native protocols each have their own ONEX-style neon artwork.
+    "trojan": PROTOCOL_ICON_DIR / "trojan.png",
+    "shadowsocks": PROTOCOL_ICON_DIR / "shadowsocks.png",
+    "socks5": PROTOCOL_ICON_DIR / "socks5.png",
+    "http": PROTOCOL_ICON_DIR / "http.png",
+    "hysteria2": PROTOCOL_ICON_DIR / "hysteria2.png",
+    "vless-reality": PROTOCOL_ICON_DIR / "vless-reality.png",
+    "vless-grpc-reality": PROTOCOL_ICON_DIR / "vless-grpc-reality.png",
+    "vmess": PROTOCOL_ICON_DIR / "vmess.png",
+    "tuic": PROTOCOL_ICON_DIR / "tuic.png",
+    "anytls": PROTOCOL_ICON_DIR / "anytls.png",
+    "naive": PROTOCOL_ICON_DIR / "naive.png",
+    "shadowtls": PROTOCOL_ICON_DIR / "shadowtls.png",
+    "snell": PROTOCOL_ICON_DIR / "snell.png",
+    "hysteria": PROTOCOL_ICON_DIR / "hysteria.png",
 }
 
 SECRET_FILE = DATA_DIR / "pixonpanel_secret.key"
@@ -280,6 +280,10 @@ http_client: httpx.AsyncClient | None = None
 # optional xhttp_siz10 module is loaded successfully.  Do not put URL-only
 # protocol names here: a generated URI is not enough to make a server support it.
 PROTOCOLS: list[str] = []
+
+# The "all protocols in one subscription" switch is intentionally Railway-only.
+# VPS/native protocols remain individually selectable and individually deployable.
+RAILWAY_SUB_PROTOCOLS = ("vless-ws", "xhttp-packet-up", "xhttp-stream-up")
 
 PROTOCOL_LABELS = {
     # Railway-safe ONEX transports
@@ -1270,7 +1274,7 @@ def group_subscription_lines_for_link(
     # meant a normal single-protocol link could unexpectedly appear as every
     # protocol in its subscription.
     if link.get("all_protocols"):
-        selected = [normalize_protocol(str(p)) for p in (protocols or PROTOCOLS)]
+        selected = [normalize_protocol(str(p)) for p in RAILWAY_SUB_PROTOCOLS]
     else:
         selected = [normalize_protocol(str(link.get("protocol", DEFAULT_PROTOCOL)))]
     selected = [p for p in selected if p in PROTOCOLS]
@@ -3555,6 +3559,8 @@ async def create_link_api(
         category_id = "0"
     config_count = safe_int(body.get("config_count", 1), minimum=1, maximum=40)
     all_protocols = bool(body.get("all_protocols", False))
+    if all_protocols and protocol not in RAILWAY_SUB_PROTOCOLS:
+        all_protocols = False
     if all_protocols:
         config_count = 1
     sub_id = str(body.get("sub_id") or "").strip() or None
@@ -3639,7 +3645,7 @@ async def create_link_api(
         ),
         "ok": True,
     }
-    native_relevant = bool(NATIVE_CORE and (all_protocols or protocol in getattr(NATIVE_CORE, "SUPPORTED", ())))
+    native_relevant = bool(NATIVE_CORE and (not all_protocols) and protocol in getattr(NATIVE_CORE, "SUPPORTED", ()))
     if native_relevant:
         if not await sync_native_core():
             async with LINKS_LOCK:
@@ -3654,7 +3660,7 @@ async def create_link_api(
         asyncio.create_task(sync_native_core())
     if all_protocols:
         result["all_protocols"] = True
-        result["protocol_count"] = len(PROTOCOLS)
+        result["protocol_count"] = len(RAILWAY_SUB_PROTOCOLS)
 
     return result
 
@@ -3685,6 +3691,8 @@ async def create_auto_link(
     cfg = profiles.get(profile, profiles["balanced"])
     config_count = safe_int(body.get("config_count", 1), minimum=1, maximum=40)
     all_protocols = bool(body.get("all_protocols", False))
+    if all_protocols and protocol not in RAILWAY_SUB_PROTOCOLS:
+        all_protocols = False
     if all_protocols:
         config_count = 1
     uid, link = await make_link(
@@ -3702,7 +3710,7 @@ async def create_auto_link(
         asyncio.create_task(sync_native_core())
     if all_protocols:
         result["all_protocols"] = True
-        result["protocol_count"] = len(PROTOCOLS)
+        result["protocol_count"] = len(RAILWAY_SUB_PROTOCOLS)
     log_activity("link", f"کانفیگ خودکار «{link['label']}» با {PROTOCOL_LABELS.get(protocol, protocol)} ساخته شد", "ok")
     return result
 
@@ -4302,7 +4310,7 @@ async def update_link(
             )
 
         if "all_protocols" in body:
-            link["all_protocols"] = bool(body.get("all_protocols"))
+            link["all_protocols"] = bool(body.get("all_protocols")) and link.get("protocol") in RAILWAY_SUB_PROTOCOLS
             if link["all_protocols"]:
                 link["config_count"] = 1
 
@@ -4388,7 +4396,7 @@ async def update_link(
 
     await save_state()
 
-    native_relevant = bool(NATIVE_CORE and (link.get("all_protocols") or link.get("protocol") in getattr(NATIVE_CORE, "SUPPORTED", ())))
+    native_relevant = bool(NATIVE_CORE and (not link.get("all_protocols")) and link.get("protocol") in getattr(NATIVE_CORE, "SUPPORTED", ()))
     if native_relevant and not await sync_native_core():
         async with LINKS_LOCK:
             LINKS[uid] = previous_link
@@ -4658,7 +4666,7 @@ async def subscription_single(
     else:
         lines = []
     cfg_count = 1 if link.get("all_protocols") else max(1, min(40, int(link.get("config_count") or 1)))
-    protocols = list(PROTOCOLS) if link.get("all_protocols") else [link.get("protocol", DEFAULT_PROTOCOL)]
+    protocols = list(RAILWAY_SUB_PROTOCOLS) if link.get("all_protocols") else [link.get("protocol", DEFAULT_PROTOCOL)]
     if clean_ips:
         hosts = list(clean_ips)
         while len(hosts) < cfg_count:
@@ -6346,7 +6354,7 @@ async def public_sub_data(
         # exposes only its selected protocol; an all-protocol link expands to
         # the protocols enabled for this subscription group.
         if link.get("all_protocols"):
-            protocols = [p for p in (sub.get("protocols") or PROTOCOLS) if str(p) in PROTOCOLS]
+            protocols = [p for p in RAILWAY_SUB_PROTOCOLS if p in PROTOCOLS]
         else:
             selected = normalize_protocol(str(link.get("protocol", DEFAULT_PROTOCOL)))
             protocols = [selected] if selected in PROTOCOLS else []
@@ -6881,9 +6889,7 @@ async def get_connections(
 try:
     from onex.core.native_core import NativeCore, _protocol_safe_advanced
     NATIVE_CORE = NativeCore(DATA_DIR)
-    # Native protocols are intentionally not advertised yet.
-    # Keep the creation menu and the "all protocols" subscription limited
-    # to the four currently exposed panel-backed protocols.
+     # Native protocols are advertised individually; the all-protocol subscription remains Railway-only.
     for _native_protocol in getattr(NATIVE_CORE, "SUPPORTED", ()):
         if _native_protocol not in PROTOCOLS:
             PROTOCOLS.append(_native_protocol)
@@ -6967,7 +6973,7 @@ async def reset_link_advanced(uid: str, request: Request, token=Depends(require_
         link["alpn"] = link["advanced"]["tls"].get("alpn") or link.get("alpn") or ""
         snapshot = deepcopy(link)
     await save_state()
-    if NATIVE_CORE and (snapshot.get("all_protocols") or snapshot.get("protocol") in getattr(NATIVE_CORE, "SUPPORTED", ())):
+    if NATIVE_CORE and (not snapshot.get("all_protocols")) and snapshot.get("protocol") in getattr(NATIVE_CORE, "SUPPORTED", ()):
         if not await sync_native_core():
             async with LINKS_LOCK:
                 LINKS[uid] = previous
@@ -9390,7 +9396,7 @@ html.light .protocol-picker-bg{background:rgba(15,23,42,.28)}html.light .protoco
       <div class="field"><label>دسته تنظیمات</label><select id="cGroup"></select></div>
       <div class="field"><label>گروه اشتراک</label><select id="cSubGroup"><option value="">بدون گروه (عمومی)</option></select><small style="display:block;margin-top:5px;color:var(--t3);font-size:9px">با انتخاب گروه، این کانفیگ بعد از ساخت خودکار عضو همان گروه می‌شود.</small></div>
 <div class="form-row">
-        <label class="all-proto-toggle" title="یک اکانت با همه پروتکل‌ها و یک ساب"><span><b>همه پروتکل‌ها در یک ساب</b><small>یک اکانت · همه پروتکل‌های پنل · یک لینک اشتراک</small></span><input id="cAllProtocols" type="checkbox"><i aria-hidden="true"></i></label>
+        <label class="all-proto-toggle" title="یک اکانت با همه پروتکل‌ها و یک ساب"><span><b>همه پروتکل‌ها در یک ساب</b><small>یک اکانت · فقط ۳ پروتکل Railway · یک لینک اشتراک</small></span><input id="cAllProtocols" type="checkbox"><i aria-hidden="true"></i></label>
         <div class="field"><label data-i18n="label_days">انقضـا (روز)</label><input id="cDays" type="number" value="0" min="0"></div>
       </div>
       <div class="form-row">
@@ -12987,6 +12993,7 @@ async function restoreBot(){
 /* ============================================================
    LIGHT STATIC 3D PROTOCOL PICKER
    ============================================================ */
+const RAILWAY_SUB_PROTOCOLS=['vless-ws','xhttp-packet-up','xhttp-stream-up'];
 const PROTOCOL_PICKER_GROUPS=[
   {title:'پروتکل‌های Railway',subtitle:'پروتکل‌های سازگار با Railway',ids:['vless-ws','xhttp-packet-up','xhttp-stream-up'],kind:'railway'},
   {title:'پروتکل‌های VPS',subtitle:'تمام پروتکل‌های قابل ساخت روی VPS',ids:['trojan','shadowsocks','socks5','http','hysteria2','vless-reality','vless-grpc-reality','vmess','tuic','anytls','naive','shadowtls','snell','hysteria'],kind:'vps'}
@@ -13002,13 +13009,15 @@ function protocolIconMarkup(id){
 }
 function setupProtocolPickers(){['cProto','aProto'].forEach(id=>{const sel=document.getElementById(id);if(!sel)return;sel.classList.add('protocol-native');sel.style.setProperty('display','none','important');sel.setAttribute('aria-hidden','true');let trigger=sel.parentNode.querySelector(`.protocol-trigger[data-for="${id}"]`);if(!trigger){trigger=document.createElement('button');trigger.type='button';trigger.className='protocol-trigger';trigger.dataset.for=id;sel.parentNode.insertBefore(trigger,sel.nextSibling)}trigger.onclick=e=>{e.preventDefault();openProtocolPicker(id)};syncProtocolPicker(id)})}
 function syncProtocolPicker(id){const sel=document.getElementById(id),trigger=document.querySelector(`.protocol-trigger[data-for="${id}"]`);if(!sel||!trigger)return;const value=sel.value||'vless-ws';trigger.innerHTML=`<span class="protocol-trigger-main"><span class="protocol-trigger-icon">${protocolIconMarkup(value)}</span><span class="protocol-trigger-text"><span class="protocol-trigger-name">${esc(protocolPickerShort(value))}</span><span class="protocol-trigger-sub">${lang==='fa'?'برای تغییر، انتخاب کنید':'Tap to choose another protocol'}</span></span></span><span class="protocol-trigger-arrow">⌄</span>`}
+function syncAllProtocolToggle(){const sel=document.getElementById('cProto'),all=document.getElementById('cAllProtocols'),wrap=all?.closest('.all-proto-toggle');if(!sel||!all)return;const railway=RAILWAY_SUB_PROTOCOLS.includes(sel.value);if(!railway){all.checked=false;all.disabled=true;if(wrap){wrap.style.opacity='0.48';wrap.style.cursor='not-allowed';wrap.title=lang==='fa'?'این گزینه فقط برای پروتکل‌های Railway است':'This option is only for Railway protocols';}}else{all.disabled=false;if(wrap){wrap.style.opacity='1';wrap.style.cursor='pointer';wrap.title=lang==='fa'?'فقط سه پروتکل Railway در یک ساب':'Only the three Railway protocols in one subscription';}}}
+
 function ensureProtocolPicker(){let bg=document.getElementById('protocolPickerBg');if(bg)return bg;bg=document.createElement('div');bg.id='protocolPickerBg';bg.className='protocol-picker-bg';bg.innerHTML=`<div class="protocol-picker" role="dialog" aria-modal="true"><div class="protocol-picker-head"><div class="protocol-picker-head-icon"><span>✦</span></div><div class="protocol-picker-head-text"><div class="protocol-picker-title">${lang==='fa'?'انتخاب پروتکل':'Select Protocol'}</div><div class="protocol-picker-subtitle">${lang==='fa'?'پروتکل موردنظر را انتخاب کنید':'Choose the protocol you want to use'}</div></div><button type="button" class="protocol-picker-close" id="protocolPickerClose">×</button></div><div class="protocol-picker-scroll" id="protocolPickerScroll"></div><div class="protocol-picker-foot"><div class="protocol-selected-info" id="protocolSelectedInfo">—</div><button type="button" class="protocol-picker-confirm" id="protocolPickerConfirm">${lang==='fa'?'تأیید و ادامه →':'Confirm & Continue →'}</button></div></div>`;document.body.appendChild(bg);bg.addEventListener('click',e=>{if(e.target===bg)closeProtocolPicker()});bg.querySelector('#protocolPickerClose').onclick=closeProtocolPicker;bg.querySelector('#protocolPickerConfirm').onclick=confirmProtocolPicker;return bg}
 function openProtocolPicker(targetId){const sel=document.getElementById(targetId);if(!sel)return;const bg=ensureProtocolPicker();__protocolPickerTarget=targetId;const current=sel.value||'vless-ws';const available=new Set([...sel.options].map(o=>o.value));const sections=PROTOCOL_PICKER_GROUPS.map(g=>{const ids=g.ids.filter(id=>available.has(id));if(!ids.length)return '';return `<section class="protocol-picker-section ${g.kind||''}"><div class="protocol-picker-section-head"><div><b>${esc(g.title)}</b><small>${esc(g.subtitle||'')}</small></div><span>${ids.length}</span></div><div class="protocol-grid protocol-grid-all">${ids.map(id=>`<button type="button" class="protocol-option ${id===current?'selected':''}" data-proto="${id}"><span class="protocol-option-radio"></span>${protocolIconMarkup(id)}<span class="protocol-option-name">${esc(protocolPickerShort(id))}</span><span class="protocol-option-desc">${id===current?(lang==='fa'?'انتخاب‌شده · ':'Selected · ')+(PROTOCOL_PICKER_DESCS[id]||''):(PROTOCOL_PICKER_DESCS[id]|| (lang==='fa'?'برای انتخاب کلیک کنید':'Tap to choose'))}</span></button>`).join('')}</div></section>`}).join('');const scroll=bg.querySelector('#protocolPickerScroll');scroll.innerHTML=sections;scroll.querySelectorAll('.protocol-option').forEach(btn=>btn.addEventListener('click',()=>chooseProtocol(btn.dataset.proto)));bg.querySelector('#protocolSelectedInfo').textContent=(lang==='fa'?'پروتکل انتخاب‌شده: ':'Selected: ')+protocolPickerShort(current);bg.classList.add('open');document.body.style.overflow='hidden'}
-function chooseProtocol(id){const sel=document.getElementById(__protocolPickerTarget),bg=document.getElementById('protocolPickerBg');if(!sel||!bg)return;sel.value=id;bg.querySelectorAll('.protocol-option').forEach(x=>x.classList.toggle('selected',x.dataset.proto===id));bg.querySelector('#protocolSelectedInfo').textContent=(lang==='fa'?'پروتکل انتخاب‌شده: ':'Selected: ')+protocolPickerShort(id);syncProtocolPicker(__protocolPickerTarget);sel.dispatchEvent(new Event('change',{bubbles:true}))}
+function chooseProtocol(id){const sel=document.getElementById(__protocolPickerTarget),bg=document.getElementById('protocolPickerBg');if(!sel||!bg)return;sel.value=id;bg.querySelectorAll('.protocol-option').forEach(x=>x.classList.toggle('selected',x.dataset.proto===id));bg.querySelector('#protocolSelectedInfo').textContent=(lang==='fa'?'پروتکل انتخاب‌شده: ':'Selected: ')+protocolPickerShort(id);syncProtocolPicker(__protocolPickerTarget);sel.dispatchEvent(new Event('change',{bubbles:true}));if(__protocolPickerTarget==='cProto')syncAllProtocolToggle()}
 function confirmProtocolPicker(){if(__protocolPickerTarget){const sel=document.getElementById(__protocolPickerTarget);if(sel)sel.dispatchEvent(new Event('change',{bubbles:true}))}closeProtocolPicker()}
 function closeProtocolPicker(){const bg=document.getElementById('protocolPickerBg');if(bg)bg.classList.remove('open');document.body.style.overflow=''}
 document.addEventListener('keydown',e=>{if(e.key==='Escape')closeProtocolPicker()});
-if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',setupProtocolPickers);else setupProtocolPickers();setTimeout(setupProtocolPickers,300);setTimeout(setupProtocolPickers,1000);
+if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',()=>{setupProtocolPickers();syncAllProtocolToggle()});else {setupProtocolPickers();syncAllProtocolToggle();}setTimeout(setupProtocolPickers,300);setTimeout(setupProtocolPickers,1000);
 
 applyLang();loadMe();loadProtocols();loadCategories();loadGroups();refreshAll();setTimeout(()=>{if(document.getElementById('advancedPorts')&&!getAdvancedPorts().length)fillAdvancedForm({ports:[443]});loadAdvancedCapabilities(document.getElementById('cProto')?.value||'vless-ws')},250);
 setTimeout(()=>{startUpdateNotificationPolling()},1200);
