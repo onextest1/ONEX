@@ -39,7 +39,7 @@ from fastapi.middleware.cors import CORSMiddleware
 # ============================================================
 
 APP_NAME = "ONEX"
-APP_VERSION = "1.3.4"
+APP_VERSION = "1.3.7"
 
 SUPPORT_USERNAME = "@V2rayTun0"
 SUPPORT_URL = "https://t.me/V2rayTun0"
@@ -151,10 +151,19 @@ app = FastAPI(
 
 @app.get("/api/onex-logo-3d.png", include_in_schema=False)
 async def onex_logo_3d():
-    """Serve the approved high-detail ONEX 3D brand mark."""
+    """Serve the legacy ONEX 3D brand mark."""
     path = BASE_DIR / "assets" / "branding" / "onex-logo-3d.png"
     if not path.is_file():
         raise HTTPException(status_code=404, detail="ONEX logo not found")
+    return FileResponse(path, media_type="image/png", headers={"Cache-Control": "no-cache, max-age=0, must-revalidate"})
+
+
+@app.get("/api/onex-panel-logo.png", include_in_schema=False)
+async def onex_panel_logo():
+    """Serve the approved ONEX PANEL 3D wordmark used by the panel chrome."""
+    path = BASE_DIR / "assets" / "branding" / "onex-panel-logo.png"
+    if not path.is_file():
+        raise HTTPException(status_code=404, detail="ONEX PANEL logo not found")
     return FileResponse(path, media_type="image/png", headers={"Cache-Control": "no-cache, max-age=0, must-revalidate"})
 
 
@@ -2481,6 +2490,23 @@ table th:first-child, table td:first-child{overflow:visible}
 @keyframes onexShadow{0%,100%{transform:scale(.88);opacity:.28}50%{transform:scale(1.12);opacity:.52}}
 @media (prefers-reduced-motion:reduce){.sb-logo-icon:before,.sb-logo-icon:after,.mob-brand-icon:before,.mob-brand-icon:after,.sb-logo-icon img,.mob-brand-icon img{animation:none!important}}
 </style>
+
+/* ============================================================
+   ONEX PANEL 3D WORDMARK — APPROVED PANEL BRANDING
+   ============================================================ */
+.sb-logo-icon,.mob-brand-icon{background:transparent!important;border:0!important;box-shadow:none!important;overflow:visible!important;}
+.sb-logo-icon:before,.sb-logo-icon:after,.mob-brand-icon:before,.mob-brand-icon:after{display:none!important;content:none!important;}
+.sb-logo-icon img,.mob-brand-icon img{display:block!important;object-fit:contain!important;object-position:center!important;width:100%!important;height:100%!important;border:0!important;background:transparent!important;filter:drop-shadow(0 5px 11px rgba(0,120,255,.34))!important;}
+.sb-logo-icon{width:118px!important;height:62px!important;border-radius:0!important;}
+.mob-brand-icon{width:96px!important;height:40px!important;border-radius:0!important;}
+.top-avatar{width:52px!important;height:42px!important;border-radius:0!important;background:transparent!important;box-shadow:none!important;display:grid!important;place-items:center!important;overflow:visible!important;}
+.top-avatar img{width:100%!important;height:100%!important;object-fit:contain!important;display:block!important;filter:drop-shadow(0 4px 9px rgba(0,120,255,.32))!important;}
+.sidebar.collapsed .sb-logo-icon{width:86px!important;height:46px!important;}
+@media(max-width:700px){
+  .sb-logo-icon{width:110px!important;height:58px!important;}
+  .mob-brand-icon{width:88px!important;height:37px!important;}
+  .top-avatar{width:46px!important;height:38px!important;}
+}
 
 </head>
 
@@ -9190,7 +9216,7 @@ html.light .protocol-picker-bg{background:rgba(15,23,42,.28)}html.light .protoco
   <button class="mob-menu-btn" id="mobMenuBtn" aria-label="منو">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
   </button>
-  <div class="mob-brand"><div class="mob-brand-icon" aria-label="ONEX 3D logo"><div class="onex-mark"><i class="onex-ring ring-a"></i><i class="onex-ring ring-b"></i><i class="onex-core"></i><b class="onex-n">N</b><i class="onex-glint"></i></div></div><div class="mob-brand-text"><span>پنل مدیریت</span></div></div>
+  <div class="mob-brand"><div class="mob-brand-icon" aria-label="ONEX PANEL"><img src="/api/onex-panel-logo.png?v=1.3.7" alt="ONEX PANEL"></div><div class="mob-brand-text"><span>پنل مدیریت</span></div></div>
   <div class="mob-status"><i></i><span>آنلاین</span></div>
 </div>
 <div class="overlay" id="overlay"></div>
@@ -9200,8 +9226,7 @@ html.light .protocol-picker-bg{background:rgba(15,23,42,.28)}html.light .protoco
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
   </button>
   <div class="sb-logo">
-    <div class="sb-logo-icon" aria-label="ONEX 3D logo"><div class="onex-mark"><i class="onex-ring ring-a"></i><i class="onex-ring ring-b"></i><i class="onex-core"></i><b class="onex-n">N</b><i class="onex-glint"></i></div></div>
-    <div class="sb-logo-caption" aria-label="ONEX PANEL"><span>ONEX</span><b>PANEL</b></div>
+    <div class="sb-logo-icon" aria-label="ONEX PANEL"><img src="/api/onex-panel-logo.png?v=1.3.7" alt="ONEX PANEL"></div>
   </div>
   <nav class="nav">
     <div class="nav-sec" data-i18n="sec_panel">پنــــل</div>
@@ -9275,7 +9300,7 @@ html.light .protocol-picker-bg{background:rgba(15,23,42,.28)}html.light .protoco
         <div id="notifyList" class="notify-list"><div class="notify-empty">اعلان جدیدی وجود ندارد.</div></div>
       </div>
     </div>
-    <div class="top-avatar">N</div>
+    <div class="top-avatar" aria-label="ONEX PANEL"><img src="/api/onex-panel-logo.png?v=1.3.7" alt="ONEX PANEL"></div>
   </div>
 </div>
 
@@ -9373,7 +9398,6 @@ html.light .protocol-picker-bg{background:rgba(15,23,42,.28)}html.light .protoco
 </section>
 
 <style>
-#cName::placeholder{opacity:.35}
 .create-edit-actions{display:flex;gap:8px;align-items:center}.config-edit-banner{display:flex;align-items:center;gap:10px;margin:0 0 12px;padding:11px 13px;border:1px solid rgba(255,71,120,.28);border-radius:15px;background:linear-gradient(135deg,rgba(255,31,92,.10),rgba(37,99,235,.08));color:#dcecff}.config-edit-banner-icon{width:34px;height:34px;display:grid;place-items:center;border-radius:10px;background:rgba(255,71,120,.12);border:1px solid rgba(255,71,120,.24);color:#ff7092;font-size:16px}.config-edit-banner div{min-width:0;display:flex;flex-direction:column;gap:2px}.config-edit-banner b{font-size:11px;color:#fff}.config-edit-banner small{font-size:9px;color:#ff9ab0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:48vw}.config-edit-banner-hint{margin-right:auto;color:var(--t3);font-size:8px}@media(max-width:560px){.config-edit-banner{align-items:flex-start}.config-edit-banner-hint{display:none}.create-edit-actions{margin-top:2px}.create-edit-actions .btn{font-size:9px;height:36px;padding:0 10px}}
 </style>
 <section class="page" id="page-create">
@@ -12105,7 +12129,6 @@ async function openConfigEditor(e,uid){
   setConfigEditMode(true,link);
   setConfigEditValue('cName',link.label||'');
   const proto=document.getElementById('cProto');if(proto){proto.value=link.protocol||'vless-ws';syncProtocolPicker('cProto')}
-  setConfigEditValue('cGroup',link.category_id||'0');
   setConfigEditValue('cSubGroup',link.sub_id||'');
   const limitBytes=Number(link.limit_bytes||0);let limitUnit='GB',limitValue=0;
   if(limitBytes){if(limitBytes%(1024**3)===0){limitUnit='GB';limitValue=limitBytes/(1024**3)}else if(limitBytes%(1024**2)===0){limitUnit='MB';limitValue=limitBytes/(1024**2)}else{limitUnit='KB';limitValue=limitBytes/1024}}
@@ -12123,7 +12146,7 @@ async function openConfigEditor(e,uid){
 }
 function collectConfigFormBody(){
   const advanced=advancedFormObject(),ports=advanced.ports.length?advanced.ports:[Number(configEditValue('cPort'))||443];
-  return {label:configEditValue('cName').trim()||undefined,protocol:configEditValue('cProto')||undefined,category_id:configEditValue('cGroup')||'0',sub_id:configEditValue('cSubGroup')||undefined,limit_value:Number(configEditValue('cLimit'))||0,limit_unit:configEditValue('cUnit')||'GB',expires_days:Number(configEditValue('cDays'))||0,ip_limit:Number(configEditValue('cIp'))||0,speed_limit_value:Number(configEditValue('cSpeed'))||0,speed_limit_unit:'MBIT',all_protocols:!!document.getElementById('cAllProtocols')?.checked,port:ports[0],fingerprint:advanced.fingerprint.value,alpn:advanced.tls.alpn,advanced};
+  return {label:configEditValue('cName').trim()||undefined,protocol:configEditValue('cProto')||undefined,category_id:'0',sub_id:configEditValue('cSubGroup')||undefined,limit_value:Number(configEditValue('cLimit'))||0,limit_unit:configEditValue('cUnit')||'GB',expires_days:Number(configEditValue('cDays'))||0,ip_limit:Number(configEditValue('cIp'))||0,speed_limit_value:Number(configEditValue('cSpeed'))||0,speed_limit_unit:'MBIT',all_protocols:!!document.getElementById('cAllProtocols')?.checked,port:ports[0],fingerprint:advanced.fingerprint.value,alpn:advanced.tls.alpn,advanced};
 }
 async function saveEditedConfig(){
   const uid=__configEditUid;if(!uid)return false;
