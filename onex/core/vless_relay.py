@@ -276,6 +276,115 @@ async def relay_tcp_to_ws(ws: WebSocket, reader: asyncio.StreamReader, conn_id: 
         pass
 
 
+async def trojan_ws_tunnel(ws: WebSocket):
+    """Dedicated Trojan-over-WebSocket endpoint (Lunel-compatible).
+
+    Unlike VLESS, Trojan WS has no UUID in the URL. The SHA-224 password hash
+    in the first frame identifies the link, so the endpoint stays stable at
+    /trojan-ws and works with standard Trojan WS clients.
+    """
+    await ws.accept()
+    try:
+        first_msg = await asyncio.wait_for(ws.receive(), timeout=15.0)
+    except (WebSocketDisconnect, asyncio.TimeoutError):
+        return
+    if first_msg.get("type") == "websocket.disconnect":
+        return
+    first_chunk = first_msg.get("bytes") or (first_msg.get("text") or "").encode()
+    if not first_chunk:
+        return
+
+    # Resolve the account from the Trojan password hash, as standard clients
+    # do not put the ONEX UUID in the WebSocket path.
+    pw_hash = first_chunk[:56].decode("ascii", errors="ignore").lower() if len(first_chunk) >= 56 else ""
+    link = None
+    uuid = None
+    async with LINKS_LOCK:
+        for candidate_uuid, candidate in LINKS.items():
+            if str((candidate or {}).get("protocol") or "") != "trojan-ws":
+                continue
+            if not is_link_allowed(candidate):
+                continue
+            expected = hashlib.sha224(str(candidate_uuid).encode()).hexdigest()
+            if pw_hash and secrets.compare_digest(pw_hash, expected):
+                link = candidate
+                uuid = candidate_uuid
+                break
+    if link is None or uuid is None:
+        await ws.close(code=1008, reason="not authorized")
+        return
+
+    try:
+        parsed_hash, command, address, port, payload = await parse_trojan_header(first_chunk)
+        expected = hashlib.sha224(str(uuid).encode()).hexdigest()
+        if not secrets.compare_digest(parsed_hash, expected):
+            await ws.close(code=1008, reason="auth failed")
+            return
+        if command != 1:
+            await ws.close(code=1008, reason="unsupported command")
+            return
+    except TrojanHeaderIncomplete:
+        # Standard Trojan clients normally send the whole request in one WS
+        # frame. Keep this endpoint strict and predictable rather than guessing
+        # across frames after the password has already identified the link.
+        await ws.close(code=1008, reason="incomplete request")
+        return
+    except Exception:
+        await ws.close(code=1008, reason="bad request")
+        return
+
+    ip = _ws_client_ip(ws)
+    if not is_ip_allowed(link, uuid, ip):
+        await ws.close(code=1008, reason="ip limit reached")
+        return
+
+    conn_id = secrets.token_urlsafe(6)
+    connections[conn_id] = {
+        "uuid": uuid, "ip": ip, "transport": "trojan-ws",
+        "connected_at": datetime.now().isoformat(), "bytes": 0,
+    }
+    gate = _QuotaGate(uuid)
+    writer = None
+    try:
+        if not await gate.add(len(first_chunk)):
+            await ws.close(code=1008, reason="quota/disabled")
+            return
+        stats["total_requests"] += 1
+        connections[conn_id]["bytes"] += len(first_chunk)
+        reader, writer = await asyncio.wait_for(asyncio.open_connection(address, port), timeout=10.0)
+        _tune_socket(writer)
+        if payload:
+            writer.write(payload)
+            await writer.drain()
+
+        done, pending = await asyncio.wait(
+            {
+                asyncio.create_task(relay_ws_to_tcp(ws, writer, conn_id, uuid, gate)),
+                asyncio.create_task(relay_tcp_to_ws(ws, reader, conn_id, uuid, gate, first_reply_prefix=b"")),
+            },
+            return_when=asyncio.FIRST_COMPLETED,
+        )
+        for task in pending:
+            task.cancel()
+            try:
+                await task
+            except asyncio.CancelledError:
+                pass
+        await gate.flush()
+    except (WebSocketDisconnect, asyncio.TimeoutError, OSError):
+        pass
+    except Exception as exc:
+        logger.warning(f"trojan-ws error [{conn_id}]: {exc}")
+    finally:
+        if writer is not None:
+            try:
+                writer.close()
+                await writer.wait_closed()
+            except Exception:
+                pass
+        connections.pop(conn_id, None)
+
+
 async def websocket_tunnel(ws: WebSocket, uuid: str):
     await ws.accept()
 
