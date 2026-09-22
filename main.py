@@ -11852,6 +11852,7 @@ function loadOnexTheme(){
 window.addEventListener('storage',e=>{if(e.key==='onex_theme_v2')loadOnexTheme()});
 renderOnexThemePresets();loadOnexTheme();
 
+</script>
 </body>
 </html>
 """
