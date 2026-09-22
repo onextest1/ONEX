@@ -2900,6 +2900,31 @@ body:after{background:radial-gradient(circle at 50% 55%,transparent 0,rgba(0,0,0
 .telegram-text b{color:var(--onex-red-bright) !important}
 .telegram-icon{background:linear-gradient(145deg,var(--onex-red-bright),var(--onex-red-2)) !important;box-shadow:0 0 28px rgba(255,31,92,.38) !important}
 .telegram{border-color:rgba(255,82,120,.30) !important}
+
+/* ============================================================
+   ONEX BRAND CLEANUP — HEADER / HAMBURGER BAR ONLY
+   No logo is rendered inside the dashboard content or sidebar.
+   ============================================================ */
+.sidebar > .sb-logo,
+.sidebar .sb-logo,
+.sidebar .sb-logo-icon,
+.dashboard-visual,
+.dashboard-orb{display:none!important;}
+.onex-topbar{position:relative;}
+.onex-topbar-brand{display:flex;align-items:center;justify-content:center;flex:0 0 auto;height:42px;min-width:150px;}
+.onex-nav-logo{display:block;width:150px;height:52px;object-fit:contain;object-position:center;
+  filter:drop-shadow(0 0 7px rgba(0,145,255,.68)) drop-shadow(0 0 15px rgba(105,60,255,.30)) brightness(1.08) saturate(1.12);
+  animation:onexNavLogoFloat 4.8s ease-in-out infinite;
+}
+@keyframes onexNavLogoFloat{0%,100%{transform:translateY(0) scale(1)}50%{transform:translateY(-2px) scale(1.018)}}
+.mob-brand{display:flex!important;align-items:center!important;justify-content:center!important;flex:1 1 auto!important;min-width:0!important;}
+.mob-brand .onex-nav-logo{width:116px;height:44px;}
+@media(max-width:700px){
+  .onex-topbar-brand{min-width:112px;height:38px;}
+  .onex-topbar-brand .onex-nav-logo{width:112px;height:42px;}
+  .mob-brand .onex-nav-logo{width:108px;height:42px;}
+}
+@media(prefers-reduced-motion:reduce){.onex-nav-logo{animation:none!important}}
 </style>
 </head>
 <body>
@@ -9299,7 +9324,9 @@ html.light .protocol-picker-bg{background:rgba(15,23,42,.28)}html.light .protoco
   <button class="mob-menu-btn" id="mobMenuBtn" aria-label="منو">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
   </button>
-  <div class="mob-brand"><div class="mob-brand-text"><span>پنل مدیریت</span></div></div>
+  <div class="mob-brand" aria-label="ONEX PANEL">
+    <img class="onex-nav-logo" src="/api/onex-panel-logo.png" alt="ONEX PANEL">
+  </div>
   <div class="mob-status"><i></i><span>آنلاین</span></div>
 </div>
 <div class="overlay" id="overlay"></div>
@@ -9367,6 +9394,9 @@ html.light .protocol-picker-bg{background:rgba(15,23,42,.28)}html.light .protoco
 <main class="main" id="main">
 
 <div class="onex-topbar">
+  <div class="onex-topbar-brand" aria-label="ONEX PANEL">
+    <img class="onex-nav-logo" src="/api/onex-panel-logo.png" alt="ONEX PANEL">
+  </div>
   <div class="top-server"><span class="top-dot"></span><b>سرور آنلاین</b><span class="top-sep"></span><small id="topHost">—</small><span class="top-sep"></span><small id="topUptime">Uptime: —</small></div>
   <div class="top-actions">
     <div class="top-setting-group" aria-label="Language controls">
@@ -9418,17 +9448,6 @@ html.light .protocol-picker-bg{background:rgba(15,23,42,.28)}html.light .protoco
     <div class="hero-actions">
       <button class="btn btn-p btn-sm" onclick="goPage('create')">＋ ساخت کانفیگ</button>
       <button class="btn btn-sm" onclick="refreshAll()">↻ بروزرسانی</button>
-    </div>
-  </div>
-
-  <div class="dashboard-visual" aria-hidden="true">
-    <div class="dashboard-orb">
-      <div class="dashboard-orb-glow"></div>
-      <div class="dashboard-orb-ring r3"></div>
-      <div class="dashboard-orb-ring r2"></div>
-      <div class="dashboard-orb-ring"></div>
-      <div class="dashboard-orb-core"></div>
-      <span class="dashboard-orb-particle p1"></span><span class="dashboard-orb-particle p2"></span><span class="dashboard-orb-particle p3"></span>
     </div>
   </div>
 
