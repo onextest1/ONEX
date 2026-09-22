@@ -1205,7 +1205,17 @@ def group_subscription_lines_for_link(
     link: dict, uid: str, host: str, protocols, used_names: set[str] | None = None,
 ):
     """Expand one group member into every protocol enabled for the group."""
-    selected = [normalize_protocol(str(p)) for p in (protocols or [])]
+    # A link has two distinct subscription modes:
+    #   * all_protocols=True  -> emit every protocol enabled for the group
+    #   * all_protocols=False -> emit ONLY the protocol explicitly selected
+    #
+    # Previously this function always used the group's protocol list, which
+    # meant a normal single-protocol link could unexpectedly appear as every
+    # protocol in its subscription.
+    if link.get("all_protocols"):
+        selected = [normalize_protocol(str(p)) for p in (protocols or PROTOCOLS)]
+    else:
+        selected = [normalize_protocol(str(link.get("protocol", DEFAULT_PROTOCOL)))]
     selected = [p for p in selected if p in PROTOCOLS]
     if not selected:
         return []
@@ -6261,7 +6271,14 @@ async def public_sub_data(
         if not link:
             continue
 
-        protocols = [p for p in (sub.get("protocols") or PROTOCOLS) if str(p) in PROTOCOLS]
+        # Keep the public preview identical to /sub-group: a normal link
+        # exposes only its selected protocol; an all-protocol link expands to
+        # the protocols enabled for this subscription group.
+        if link.get("all_protocols"):
+            protocols = [p for p in (sub.get("protocols") or PROTOCOLS) if str(p) in PROTOCOLS]
+        else:
+            selected = normalize_protocol(str(link.get("protocol", DEFAULT_PROTOCOL)))
+            protocols = [selected] if selected in PROTOCOLS else []
         allowed = is_link_allowed(
             link
         )
