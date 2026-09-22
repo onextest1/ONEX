@@ -28,17 +28,17 @@ from onex.core.traffic_limiter import throttle
 
 router = APIRouter()
 
-XHTTP_BUF = 1024 * 1024
-DOWNLINK_QUEUE_MAX = 512
+XHTTP_BUF = 512 * 1024
+DOWNLINK_QUEUE_MAX = 32
 SESSION_IDLE_TIMEOUT = 30
 REAPER_INTERVAL = 10
 TCP_CONNECT_TIMEOUT = 10.0
-SOCK_BUF_SIZE = 4 * 1024 * 1024
+SOCK_BUF_SIZE = 2 * 1024 * 1024
 TCP_USER_TIMEOUT_MS = 20_000
 FLOW_MIN_HW = 256 * 1024
-FLOW_MAX_HW = 16 * 1024 * 1024
-FLOW_START_HW = 1 * 1024 * 1024
-FLOW_FAST_DRAIN_MS = 4.0
+FLOW_MAX_HW = 8 * 1024 * 1024
+FLOW_START_HW = 2 * 1024 * 1024
+FLOW_FAST_DRAIN_MS = 2.0
 FLOW_SLOW_DRAIN_MS = 25.0  
 QUOTA_MIN_BATCH = 32 * 1024
 QUOTA_MAX_BATCH = 1 * 1024 * 1024
@@ -147,7 +147,7 @@ class _AdaptiveFlow:
         elapsed_ms = (time.monotonic() - t0) * 1000
         self.last_drain_ms = elapsed_ms
         if elapsed_ms < FLOW_FAST_DRAIN_MS:
-            self.high_water = min(FLOW_MAX_HW, int(self.high_water * 2.0) + 65536)
+            self.high_water = min(FLOW_MAX_HW, int(self.high_water * 1.5) + 65536)
         elif elapsed_ms > FLOW_SLOW_DRAIN_MS:
             self.high_water = max(FLOW_MIN_HW, self.high_water // 2)
 
@@ -516,69 +516,95 @@ def _stream_one_extract_uuid(buf: bytes) -> str:
         raise ValueError("invalid VLESS UUID") from exc
 
 
-async def _read_stream_one_preamble(request: Request):
-    """Read until the complete VLESS request header is available, then return
-    the same async iterator so no request-body bytes are lost."""
-    iterator = request.stream().__aiter__()
-    header_buf = bytearray()
+async def _stream_one_read_first(iterator):
+    """Read only enough of the first HTTP DATA chunk to authenticate UUID.
+
+    The response must not wait for the complete VLESS destination header.  Xray
+    opens/flushed the HTTP response first; the rest of the VLESS request can
+    continue arriving concurrently.
+    """
     while True:
         try:
             chunk = await iterator.__anext__()
         except StopAsyncIteration:
             raise ValueError("empty stream-one request")
-        if not chunk:
-            continue
-        header_buf.extend(chunk)
-        if len(header_buf) > STREAM_ONE_MAX_HEADER:
-            raise ValueError("VLESS header is too large")
-        if _vless_header_complete(header_buf):
-            break
-    return iterator, bytes(header_buf), _stream_one_extract_uuid(header_buf)
+        if chunk:
+            if len(chunk) < 17:
+                # Keep collecting only until UUID is available. This is still
+                # much smaller/earlier than waiting for the complete address.
+                buf = bytearray(chunk)
+                while len(buf) < 17:
+                    try:
+                        nxt = await iterator.__anext__()
+                    except StopAsyncIteration:
+                        raise ValueError("incomplete VLESS UUID")
+                    if nxt:
+                        buf.extend(nxt)
+                return iterator, bytes(buf)
+            return iterator, bytes(chunk)
 
 
 async def _stream_one_uplink_iter(session_id: str, uuid: str, sess: dict, iterator, first_chunk: bytes):
-    gate = sess.get("gate")
-    if gate is None:
-        gate = _QuotaGate(uuid)
-        sess["gate"] = gate
-    flow = sess.get("flow")
-    if flow is None:
-        flow = _AdaptiveFlow()
-        sess["flow"] = flow
+    gate = sess.get("gate") or _QuotaGate(uuid)
+    sess["gate"] = gate
+    flow = sess.get("flow") or _AdaptiveFlow()
+    sess["flow"] = flow
     conn = connections.get(sess["conn_id"])
-    writer = sess.get("writer")
+    writer = None
+    header_buf = bytearray()
+    header_done = False
 
-    async def handle_chunk(chunk: bytes):
+    async def write_payload(payload: bytes):
         nonlocal writer
-        if not chunk:
+        if not payload:
             return
         sess["last_seen"] = time.time()
-        if not await gate.add(len(chunk)):
+        if not await gate.add(len(payload)):
             raise HTTPException(status_code=403, detail="quota/disabled/unknown")
-        await throttle(uuid, len(chunk))
+        await throttle(uuid, len(payload))
         stats["total_requests"] += 1
         if conn:
-            conn["bytes"] += len(chunk)
+            conn["bytes"] += len(payload)
         if writer is None:
-            await _open_tcp_for_session(session_id, uuid, sess, chunk)
-            writer = sess["writer"]
-            return
+            raise RuntimeError("VLESS destination is not open")
         if writer.is_closing():
             raise ConnectionError("transport closing")
-        writer.write(chunk)
+        writer.write(payload)
         if flow.should_drain(writer.transport.get_write_buffer_size()):
             await flow.drain(writer)
 
     try:
-        # Includes the VLESS header plus any payload that arrived in the same
-        # HTTP DATA chunk. It must be written exactly once.
-        await handle_chunk(first_chunk)
+        # Parse the VLESS request header incrementally. Do not block HTTP
+        # response creation on destination/address bytes.
+        chunks = [first_chunk]
+        while not header_done:
+            chunk = chunks.pop(0) if chunks else await iterator.__anext__()
+            if not chunk:
+                continue
+            header_buf.extend(chunk)
+            if len(header_buf) > STREAM_ONE_MAX_HEADER:
+                raise ValueError("VLESS header is too large")
+            if not _vless_header_complete(header_buf):
+                continue
+            command, address, port, payload = await parse_vless_header(bytes(header_buf))
+            if command != 1:
+                raise ValueError(f"unsupported VLESS command: {command}")
+            reader, writer = await asyncio.wait_for(asyncio.open_connection(address, port), timeout=TCP_CONNECT_TIMEOUT)
+            _tune_socket(writer)
+            sess["writer"] = writer
+            sess["tcp_open"] = True
+            logger.info(f"connect XHTTP[stream-one] [{session_id[:8]}] -> {address}:{port}")
+            sess["downlink_task"] = asyncio.create_task(_pump_tcp_to_queue(session_id, uuid, reader, sess["down_q"]))
+            header_done = True
+            if payload:
+                await write_payload(payload)
+
         while True:
             try:
                 chunk = await iterator.__anext__()
             except StopAsyncIteration:
                 break
-            await handle_chunk(chunk)
+            await write_payload(chunk)
         await gate.flush()
     except ClientDisconnect:
         await gate.flush()
@@ -594,48 +620,59 @@ async def _stream_one_uplink_iter(session_id: str, uuid: str, sess: dict, iterat
         await _teardown(session_id)
 
 
-async def _stream_one_response(request: Request):
-    # Authenticate from the VLESS body because stream-one has no UUID/session
-    # metadata in the URL. This is the critical difference from packet-up and
-    # stream-up and was the root cause of the previous non-working link.
-    try:
-        iterator, first_chunk, uuid = await _read_stream_one_preamble(request)
-    except ValueError as exc:
-        raise HTTPException(status_code=400, detail=str(exc))
+def _stream_one_response(request: Request):
+    """Build the Stream-One response without waiting for the full VLESS header."""
+    async def gen():
+        iterator = request.stream().__aiter__()
+        try:
+            iterator, first_chunk = await _stream_one_read_first(iterator)
+            uuid = _stream_one_extract_uuid(first_chunk)
+            await _check_link(uuid)
+            session_id = "one-" + secrets.token_urlsafe(18)
+            sess = await _get_or_create_session(uuid, "stream-one", session_id, _req_client_ip(request))
+            if sess.get("closed"):
+                return
 
-    await _check_link(uuid)
-    session_id = "one-" + secrets.token_urlsafe(18)
-    sess = await _get_or_create_session(uuid, "stream-one", session_id, _req_client_ip(request))
-    if sess.get("closed"):
-        raise HTTPException(status_code=404, detail="session closed")
+            sess["uplink_task"] = asyncio.create_task(
+                _stream_one_uplink_iter(session_id, uuid, sess, iterator, first_chunk)
+            )
 
-    sess["uplink_task"] = asyncio.create_task(
-        _stream_one_uplink_iter(session_id, uuid, sess, iterator, first_chunk)
-    )
+            # Flush the VLESS response header immediately. The destination
+            # connection is opened by the uplink task concurrently.
+            yield VLESS_RESPONSE_HEADER
+
+            while True:
+                chunk = await sess["down_q"].get()
+                if chunk is None:
+                    break
+                sess["last_seen"] = time.time()
+                yield chunk
+        except (ClientDisconnect, asyncio.CancelledError):
+            return
+        except Exception as exc:
+            error_logs.append({"error": str(exc), "time": datetime.now().isoformat()})
+            return
+        finally:
+            sid = locals().get("session_id")
+            if sid:
+                await _teardown(sid)
 
     fp = request.query_params.get("fp", DEFAULT_FINGERPRINT)
     headers = _resp_headers(fp, stream_one=True)
     headers["cache-control"] = "no-store"
     headers["x-accel-buffering"] = "no"
-    return StreamingResponse(
-        _downstream_gen(sess, stream_one=True),
-        headers=headers,
-        media_type=headers["content-type"],
-    )
+    headers["content-type"] = "text/event-stream"
+    return StreamingResponse(gen(), headers=headers, media_type="text/event-stream")
 
 
-# Canonical Xray stream-one endpoint: configured path only, no UUID/session suffix.
 @router.post("/xhttp-siz10/stream-one")
 @router.post("/xhttp-siz10/stream-one/")
 async def stream_one(request: Request):
     ensure_reaper()
-    return await _stream_one_response(request)
+    return _stream_one_response(request)
 
 
-# Accept extra segments under the stream-one namespace for operator-defined
-# paths; generated ONEX links always use the canonical path above.
 @router.post("/xhttp-siz10/stream-one/{tail:path}")
 async def stream_one_custom_path(tail: str, request: Request):
     ensure_reaper()
-    return await _stream_one_response(request)
-
+    return _stream_one_response(request)
