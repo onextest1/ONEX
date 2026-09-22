@@ -1116,7 +1116,7 @@ def generate_vless_link(
         # HTTP path MUST NOT contain /{uuid}. packet-up/stream-up keep their
         # session-bearing paths unchanged.
         if mode == "stream-one":
-            path = "/xhttp-siz10/stream-one"
+            path = "/xhttp-siz10/stream-one/"
         else:
             path = adv_path or f"/xhttp-siz10/{mode}/{uuid}"
         q = {"encryption":"none","security":security,"type":"xhttp","mode":mode,"host":adv_host,"path":path,"sni":adv_sni,"fp":adv_fp,"alpn":adv_alpn}
