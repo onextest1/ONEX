@@ -2900,54 +2900,6 @@ body:after{background:radial-gradient(circle at 50% 55%,transparent 0,rgba(0,0,0
 .telegram-text b{color:var(--onex-red-bright) !important}
 .telegram-icon{background:linear-gradient(145deg,var(--onex-red-bright),var(--onex-red-2)) !important;box-shadow:0 0 28px rgba(255,31,92,.38) !important}
 .telegram{border-color:rgba(255,82,120,.30) !important}
-
-/* ============================================================
-   ONEX BRAND CLEANUP — HEADER / HAMBURGER BAR ONLY
-   No logo is rendered inside the dashboard content or sidebar.
-   ============================================================ */
-.sidebar > .sb-logo,
-.sidebar .sb-logo,
-.sidebar .sb-logo-icon,
-.dashboard-visual,
-.dashboard-orb{display:none!important;}
-.onex-topbar{position:relative;}
-.onex-topbar-brand{display:flex;align-items:center;justify-content:center;flex:0 0 auto;height:42px;min-width:150px;}
-.onex-nav-logo{display:block;width:150px;height:52px;object-fit:contain;object-position:center;
-  filter:drop-shadow(0 0 7px rgba(0,145,255,.68)) drop-shadow(0 0 15px rgba(105,60,255,.30)) brightness(1.08) saturate(1.12);
-  animation:onexNavLogoFloat 4.8s ease-in-out infinite;
-}
-@keyframes onexNavLogoFloat{0%,100%{transform:translateY(0) scale(1)}50%{transform:translateY(-2px) scale(1.018)}}
-.mob-brand{display:flex!important;align-items:center!important;justify-content:center!important;flex:1 1 auto!important;min-width:0!important;}
-.mob-brand .onex-nav-logo{width:116px;height:44px;}
-@media(max-width:700px){
-  .onex-topbar-brand{min-width:112px;height:38px;}
-  .onex-topbar-brand .onex-nav-logo{width:112px;height:42px;}
-  .mob-brand .onex-nav-logo{width:108px;height:42px;}
-}
-@media(prefers-reduced-motion:reduce){.onex-nav-logo{animation:none!important}}
-
-/* FINAL LOGO PLACEMENT — exactly one logo per chrome context. */
-.onex-topbar{position:relative!important;}
-.onex-topbar-brand{position:absolute!important;left:50%!important;top:50%!important;transform:translate(-50%,-50%)!important;min-width:132px!important;height:42px!important;z-index:2!important;}
-.onex-topbar-brand .onex-nav-logo{width:132px!important;height:42px!important;object-fit:contain!important;}
-.sb-mobile-brand{display:none!important;}
-
-/* Mobile/tablet: use ONLY the mobile bar logo. Hide the desktop topbar logo
-   at a wider breakpoint because Android browsers can report a large CSS viewport. */
-@media(max-width:900px){
-  .onex-topbar-brand{display:none!important;}
-  .mob-brand{display:flex!important;align-items:center!important;justify-content:center!important;flex:1 1 auto!important;min-width:0!important;}
-  .mob-brand .onex-nav-logo{width:104px!important;height:38px!important;object-fit:contain!important;}
-  .sb-mobile-brand{display:flex!important;align-items:center!important;justify-content:center!important;min-height:64px!important;height:64px!important;padding:7px 12px!important;box-sizing:border-box!important;border-bottom:1px solid rgba(88,180,255,.16)!important;}
-  .sb-mobile-brand-logo{display:block!important;width:124px!important;height:50px!important;object-fit:contain!important;filter:drop-shadow(0 0 7px rgba(0,132,255,.65)) drop-shadow(0 0 13px rgba(105,60,255,.26)) brightness(1.08) saturate(1.10)!important;animation:onexDrawerLogoFloat 4.8s ease-in-out infinite!important;}
-}
-@media(max-width:420px){
-  .mob-brand .onex-nav-logo{width:94px!important;height:35px!important;}
-  .sb-mobile-brand{min-height:58px!important;height:58px!important;}
-  .sb-mobile-brand-logo{width:112px!important;height:45px!important;}
-}
-@keyframes onexDrawerLogoFloat{0%,100%{transform:translateY(0) scale(1)}50%{transform:translateY(-2px) scale(1.012)}}
-@media(prefers-reduced-motion:reduce){.sb-mobile-brand-logo{animation:none!important}}
 </style>
 </head>
 <body>
@@ -8589,28 +8541,6 @@ html.light #page-logs .logs-detail-head>button{background:#fff}
 
 .top-server{display:flex;align-items:center;gap:12px;min-width:0}.top-dot{width:10px;height:10px;border-radius:50%;background:#22c55e;box-shadow:0 0 14px #22c55e;animation:pulseDot 1.8s ease-in-out infinite}.top-server b{font-size:13px}.top-server small{color:var(--t3);font-size:11px}.top-sep{width:1px;height:24px;background:var(--card-b)}
 .top-actions{display:flex;align-items:center;gap:8px}.top-chip{display:flex;align-items:center;gap:7px;padding:9px 12px;border:1px solid var(--card-b);border-radius:12px;background:rgba(255,255,255,.025);color:var(--t2);font-size:11px}.top-avatar{width:38px;height:38px;border-radius:12px;display:grid;place-items:center;background:linear-gradient(135deg,#3b82f6,#8b5cf6);font-weight:900;color:#fff;box-shadow:0 0 24px rgba(59,130,246,.3)}
-/* Lightweight animated 3D dashboard orb — CSS only, no image asset or external dependency. */
-.dashboard-visual{position:relative;height:210px;margin:0 0 16px;border:1px solid rgba(59,130,246,.18);border-radius:24px;overflow:hidden;background:radial-gradient(circle at 50% 48%,rgba(37,99,235,.16),transparent 31%),radial-gradient(circle at 50% 55%,rgba(124,58,237,.10),transparent 48%),linear-gradient(145deg,rgba(5,18,40,.86),rgba(3,9,22,.94));box-shadow:0 16px 40px rgba(0,0,0,.26),inset 0 1px rgba(255,255,255,.05)}
-.dashboard-visual:before{content:"";position:absolute;inset:0;background:radial-gradient(circle at 50% 50%,rgba(32,200,255,.08),transparent 42%),linear-gradient(90deg,transparent 0 49.7%,rgba(96,165,250,.05) 50%,transparent 50.3%),linear-gradient(0deg,transparent 0 49.7%,rgba(96,165,250,.04) 50%,transparent 50.3%);background-size:auto,90px 100%,100% 70px;pointer-events:none}
-.dashboard-visual:after{content:"";position:absolute;left:10%;right:10%;bottom:13px;height:1px;background:linear-gradient(90deg,transparent,rgba(32,200,255,.55),rgba(168,85,247,.45),transparent);box-shadow:0 0 18px rgba(32,200,255,.22);pointer-events:none}
-.dashboard-orb{position:absolute;left:50%;top:50%;width:142px;height:142px;transform:translate(-50%,-50%);transform-style:preserve-3d;animation:dashboardOrbFloat 4.8s ease-in-out infinite}
-.dashboard-orb-core{position:absolute;inset:20px;border-radius:50%;background:radial-gradient(circle at 32% 28%,rgba(170,240,255,.95) 0 5%,rgba(59,130,246,.78) 16%,rgba(8,25,65,.96) 55%,rgba(2,7,20,1) 78%);border:1px solid rgba(147,197,253,.5);box-shadow:inset -18px -15px 30px rgba(0,0,0,.6),inset 9px 7px 20px rgba(96,165,250,.22),0 0 28px rgba(37,99,235,.55),0 0 70px rgba(37,99,235,.20);overflow:hidden}
-.dashboard-orb-core:before{content:"";position:absolute;inset:-20%;background:repeating-linear-gradient(105deg,transparent 0 12px,rgba(96,165,250,.12) 13px 14px,transparent 15px 25px);transform:rotate(18deg);animation:orbSurface 8s linear infinite}
-.dashboard-orb-core:after{content:"";position:absolute;inset:10%;border-radius:50%;border:1px solid rgba(96,165,250,.18);box-shadow:inset 0 0 18px rgba(32,200,255,.08)}
-.dashboard-orb-ring{position:absolute;inset:7px;border:2px solid rgba(32,200,255,.62);border-radius:50%;transform:rotateX(68deg) rotateZ(-12deg);box-shadow:0 0 12px rgba(32,200,255,.48),inset 0 0 8px rgba(32,200,255,.18);animation:orbRingA 5.5s linear infinite}
-.dashboard-orb-ring.r2{inset:15px;border-color:rgba(168,85,247,.72);transform:rotateX(72deg) rotateY(18deg) rotateZ(22deg);animation:orbRingB 7s linear infinite reverse}
-.dashboard-orb-ring.r3{inset:2px;border-color:rgba(59,130,246,.28);transform:rotateY(72deg) rotateZ(8deg);animation:orbRingC 9s linear infinite}
-.dashboard-orb-glow{position:absolute;left:50%;top:50%;width:165px;height:165px;transform:translate(-50%,-50%);border-radius:50%;background:radial-gradient(circle,rgba(37,99,235,.18),transparent 64%);filter:blur(4px);animation:orbGlow 3s ease-in-out infinite}
-.dashboard-orb-particle{position:absolute;width:4px;height:4px;border-radius:50%;background:#67e8f9;box-shadow:0 0 10px #22d3ee;animation:orbParticle 3.8s ease-in-out infinite}
-.dashboard-orb-particle.p1{left:13%;top:31%}.dashboard-orb-particle.p2{right:12%;top:64%;width:3px;height:3px;animation-delay:1s;background:#c084fc;box-shadow:0 0 10px #a855f7}.dashboard-orb-particle.p3{left:25%;bottom:17%;width:3px;height:3px;animation-delay:2s}
-@keyframes dashboardOrbFloat{0%,100%{transform:translate(-50%,-50%) rotateX(3deg) rotateY(-5deg)}50%{transform:translate(-50%,-54%) rotateX(-3deg) rotateY(5deg)}}
-@keyframes orbRingA{to{transform:rotateX(68deg) rotateZ(348deg)}}
-@keyframes orbRingB{to{transform:rotateX(72deg) rotateY(378deg) rotateZ(382deg)}}
-@keyframes orbRingC{to{transform:rotateY(432deg) rotateZ(8deg)}}
-@keyframes orbSurface{to{transform:translateX(32px) rotate(18deg)}}
-@keyframes orbGlow{0%,100%{opacity:.65;transform:translate(-50%,-50%) scale(.92)}50%{opacity:1;transform:translate(-50%,-50%) scale(1.08)}}
-@keyframes orbParticle{0%,100%{transform:translate3d(0,0,0);opacity:.45}50%{transform:translate3d(7px,-12px,20px);opacity:1}}
-@media (prefers-reduced-motion:reduce){.dashboard-orb,.dashboard-orb-ring,.dashboard-orb-core:before,.dashboard-orb-glow,.dashboard-orb-particle{animation:none!important}}
 .dashboard-hero{display:grid;grid-template-columns:minmax(0,1fr) auto auto;align-items:end;gap:12px;margin:0 2px 18px}.hero-main{min-width:0}.hero-version-strip{display:flex;align-items:stretch;gap:8px}.version-mini-card{min-width:128px;min-height:58px;padding:8px 10px;border:1px solid rgba(96,165,250,.18);border-radius:15px;background:linear-gradient(145deg,rgba(12,29,56,.88),rgba(5,13,28,.78));display:flex;align-items:center;gap:8px;box-shadow:0 10px 24px rgba(0,0,0,.20),inset 0 1px rgba(255,255,255,.06)}.version-mini-icon{width:30px;height:30px;flex:0 0 30px;border-radius:10px;display:grid;place-items:center;color:#60a5fa;background:linear-gradient(145deg,rgba(37,99,235,.34),rgba(14,165,233,.14));border:1px solid rgba(96,165,250,.22);font-size:14px;font-weight:900}.version-mini-copy{display:flex;flex-direction:column;gap:2px;min-width:0}.version-mini-copy b{font-size:9px;color:var(--t3);font-weight:700;white-space:nowrap}.version-mini-copy strong{font-size:13px;color:var(--t1);font-weight:900;direction:ltr;text-align:left;white-space:nowrap}.version-live-dot{width:7px;height:7px;flex:0 0 7px;border-radius:50%;background:#22c55e;box-shadow:0 0 10px #22c55e}.dashboard-hero .hero-actions{display:flex;gap:8px;flex-wrap:wrap}.hero-kicker{font-size:10px;letter-spacing:.2em;color:#60a5fa;font-weight:800;text-transform:uppercase}.hero-title{font-size:27px;font-weight:900;line-height:1.25;margin-top:6px}.hero-title span{color:#60a5fa;text-shadow:0 0 22px rgba(96,165,250,.35)}.hero-sub{margin-top:6px;color:var(--t3);font-size:12px}.hero-actions{display:flex;gap:8px;flex-wrap:wrap}
 .onex-metrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;margin-bottom:16px}.onex-metric{position:relative;overflow:hidden;min-height:122px;padding:17px;border:1px solid rgba(96,165,250,.13);border-radius:20px;background:linear-gradient(145deg,rgba(15,25,45,.92),rgba(8,12,22,.92));box-shadow:0 12px 32px rgba(0,0,0,.28),inset 0 1px rgba(255,255,255,.035);transition:.25s}.onex-metric:hover{transform:translateY(-3px);border-color:rgba(96,165,250,.35);box-shadow:0 16px 40px rgba(37,99,235,.14)}.onex-metric:after{content:'';position:absolute;right:-40px;bottom:-55px;width:140px;height:140px;border-radius:50%;background:rgba(37,99,235,.14);filter:blur(18px)}.metric-icon{width:42px;height:42px;border-radius:14px;display:grid;place-items:center;background:rgba(37,99,235,.14);border:1px solid rgba(96,165,250,.24);color:#60a5fa;box-shadow:0 0 20px rgba(37,99,235,.15)}.metric-icon svg{width:21px;height:21px}.onex-metric .metric-label{margin:10px 0 3px}.onex-metric .metric-val{font-size:25px}.metric-trend{position:absolute;left:15px;bottom:16px;font-size:10px;color:#34d399;font-weight:800}
 .dashboard-grid{display:grid;grid-template-columns:minmax(0,1.55fr) minmax(260px,.72fr);gap:14px;align-items:stretch}.dashboard-grid-right{display:grid;grid-template-rows:auto 1fr;gap:14px}.onex-card{background:linear-gradient(145deg,rgba(14,20,34,.92),rgba(7,11,20,.92));border:1px solid rgba(96,165,250,.12);border-radius:20px;box-shadow:0 14px 38px rgba(0,0,0,.3),inset 0 1px rgba(255,255,255,.035);overflow:hidden}.onex-card-head{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:16px 18px;border-bottom:1px solid rgba(255,255,255,.055)}.onex-card-title{display:flex;align-items:center;gap:8px;font-size:13px;font-weight:800}.onex-card-title svg{color:#60a5fa}.onex-card-body{padding:16px 18px}
@@ -8694,7 +8624,6 @@ html.light #page-logs .logs-detail-head>button{background:#fff}
   .onex-3d-control .control-icon{width:25px;height:25px;flex:0 0 25px;border-radius:8px}
   .onex-3d-control svg{width:13px;height:13px}.onex-3d-control .control-copy{min-width:0}.onex-3d-control .control-title{font-size:7px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.onex-3d-control .control-sub{font-size:5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 
-  .dashboard-visual{height:135px;margin-bottom:10px;border-radius:15px}.dashboard-orb{width:92px;height:92px}.dashboard-orb-core{inset:14px}.dashboard-orb-ring{inset:5px}.dashboard-orb-ring.r2{inset:10px}.dashboard-orb-ring.r3{inset:2px}.dashboard-orb-glow{width:112px;height:112px}
   .dashboard-hero{display:flex;align-items:flex-end;justify-content:space-between;gap:5px;margin:0 1px 10px;min-width:0}
   .dashboard-hero>div:first-child{min-width:0}.hero-kicker{font-size:7px;letter-spacing:.14em}.hero-title{font-size:18px;margin-top:3px;line-height:1.25}.hero-sub{font-size:7px;margin-top:3px;white-space:nowrap}.hero-actions{gap:4px;flex:0 0 auto}
   .hero-actions .btn{padding:6px 7px;font-size:7px;border-radius:8px;white-space:nowrap}.hero-actions .btn svg{width:11px;height:11px}
@@ -9339,81 +9268,23 @@ html.light .protocol-picker-bg{background:rgba(15,23,42,.28)}html.light .protoco
 
 .all-proto-toggle{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:10px 0 14px;padding:12px 14px;border:1px solid rgba(34,197,94,.22);border-radius:14px;background:rgba(34,197,94,.035);cursor:pointer;user-select:none}
 .all-proto-toggle span{display:block;min-width:0}.all-proto-toggle b{display:block;font-size:12px}.all-proto-toggle small{display:block;color:var(--t3);font-size:10px;margin-top:4px;line-height:1.6}.all-proto-toggle input{position:absolute;opacity:0;pointer-events:none}.all-proto-toggle i{position:relative;flex:0 0 48px;width:48px;height:28px;border-radius:999px;background:#4b5563;transition:.2s;box-shadow:inset 0 0 0 1px rgba(255,255,255,.12)}.all-proto-toggle i:before{content:"";position:absolute;top:4px;right:24px;width:20px;height:20px;border-radius:50%;background:#fff;box-shadow:0 2px 6px rgba(0,0,0,.35);transition:.2s}.all-proto-toggle:has(input:checked) i{background:#22c55e;box-shadow:0 0 12px rgba(34,197,94,.28)}.all-proto-toggle:has(input:checked) i:before{right:4px}.all-proto-toggle:focus-within{outline:2px solid rgba(34,197,94,.35);outline-offset:2px}
-
-/* ONEX DASHBOARD REDESIGN — single brand, clean chrome, responsive 3D hero */
-.mob-bar{display:none!important}
-.sidebar>.sb-logo,.sidebar .sb-logo,.sidebar .sb-logo-icon{display:none!important}
-.onex-topbar{height:68px!important;min-height:68px!important;margin:0 0 18px!important;padding:8px 12px 8px 18px!important;border-radius:18px!important;display:flex!important;align-items:center!important;justify-content:space-between!important;gap:16px!important;position:sticky!important;top:10px!important;z-index:260!important;background:linear-gradient(180deg,rgba(7,20,43,.94),rgba(3,12,27,.88))!important;border:1px solid rgba(74,144,255,.22)!important;box-shadow:0 14px 36px rgba(0,0,0,.28),inset 0 1px rgba(255,255,255,.05)!important;backdrop-filter:blur(18px)!important}
-.onex-topbar-brand{display:none!important}
-.onex-brand{display:flex!important;align-items:center!important;gap:9px!important;min-width:180px!important}
-.onex-brand-mark{width:42px!important;height:42px!important;border-radius:13px!important;display:grid!important;place-items:center!important;position:relative!important;transform:perspective(220px) rotateY(-8deg) rotateX(5deg)!important;background:linear-gradient(145deg,#18d7ff,#1677ff 48%,#7b35ff)!important;border:1px solid rgba(150,225,255,.55)!important;box-shadow:0 8px 22px rgba(37,99,235,.38),inset 0 1px rgba(255,255,255,.42)!important;animation:onexBrandFloat 4s ease-in-out infinite!important}
-.onex-brand-mark:before{content:"";position:absolute;inset:4px;border-radius:10px;border:1px solid rgba(255,255,255,.22);box-shadow:inset 0 0 18px rgba(0,210,255,.18)}
-.onex-brand-mark span{position:relative;font:900 24px/1 Inter,sans-serif;color:#fff;text-shadow:2px 3px 0 #1648b8,0 0 15px rgba(255,255,255,.6)}
-.onex-brand-word{font:900 16px/1 Inter,sans-serif;letter-spacing:.08em;color:#eaf6ff;text-shadow:0 0 16px rgba(43,190,255,.22)}
-.onex-brand-word small{display:block;margin-top:3px;font-size:7px;letter-spacing:.35em;color:#65dfff}
-.onex-top-title{font-size:15px;font-weight:900;color:#dcecff;white-space:nowrap;opacity:.94}
-.onex-top-right{display:flex;align-items:center;gap:10px;min-width:0}
-.chrome-menu-btn{width:46px!important;height:46px!important;flex:0 0 46px!important;border:1px solid rgba(113,184,255,.34)!important;border-radius:14px!important;background:linear-gradient(145deg,#4b8cff,#7c3aed)!important;color:#fff!important;display:grid!important;place-items:center!important;cursor:pointer!important;box-shadow:0 8px 24px rgba(71,87,255,.30),inset 0 1px rgba(255,255,255,.22)!important;transition:.18s!important}
-.chrome-menu-btn:hover{transform:translateY(-1px) scale(1.02)!important;filter:brightness(1.08)!important}
-.chrome-menu-btn svg{width:24px!important;height:24px!important}
-.onex-topbar .top-server,.onex-topbar .top-actions{display:none!important}
-.dashboard-hero{position:relative!important;display:grid!important;grid-template-columns:minmax(0,1.05fr) minmax(280px,.95fr)!important;gap:24px!important;align-items:center!important;min-height:380px!important;margin:0 0 20px!important;padding:34px 36px!important;border:1px solid rgba(56,147,255,.28)!important;border-radius:28px!important;overflow:hidden!important;background:radial-gradient(circle at 78% 50%,rgba(30,106,255,.16),transparent 35%),linear-gradient(145deg,rgba(6,25,55,.90),rgba(3,12,29,.94))!important;box-shadow:0 24px 65px rgba(0,0,0,.30),inset 0 1px rgba(255,255,255,.06)!important}
-.dashboard-hero:before{content:"";position:absolute;inset:0;background:linear-gradient(90deg,transparent 0%,rgba(32,152,255,.04) 50%,transparent 100%);pointer-events:none}
-.hero-copy{position:relative;z-index:3;max-width:620px;text-align:right}
-.hero-kicker{font-size:10px!important;letter-spacing:.22em!important;color:#52cfff!important;font-weight:900!important;margin-bottom:10px!important}
-.hero-title{font-size:31px!important;font-weight:950!important;line-height:1.45!important;margin:0!important;color:#f4f9ff!important}
-.hero-title span{color:#42bfff!important;text-shadow:0 0 24px rgba(66,191,255,.38)!important}
-.hero-sub{margin-top:12px!important;color:#a9c4e5!important;font-size:14px!important;line-height:2.05!important;max-width:590px}
-.hero-hint{display:inline-flex;align-items:center;gap:9px;margin-top:22px;padding:11px 16px;border:1px dashed rgba(68,164,255,.42);border-radius:13px;color:#b9d7f6;font-size:11px;background:rgba(10,39,78,.25)}
-.hero-hint span{font-size:19px;color:#55c8ff;line-height:1}
-.hero-version-strip,.dashboard-hero .hero-actions{display:none!important}
-.hero-orb{position:relative;width:min(330px,100%);height:300px;margin:auto;transform-style:preserve-3d;animation:heroOrbFloat 6s ease-in-out infinite;filter:drop-shadow(0 22px 32px rgba(0,105,255,.20))}
-.orb-aura{position:absolute;inset:25px;border-radius:50%;background:radial-gradient(circle,rgba(47,150,255,.30),rgba(48,70,255,.12) 35%,transparent 68%);filter:blur(13px);animation:orbPulse 3.2s ease-in-out infinite}
-.orb-core{position:absolute;left:50%;top:50%;width:138px;height:138px;transform:translate(-50%,-50%) rotateX(7deg) rotateY(-10deg);border-radius:34% 48% 37% 50%;background:radial-gradient(circle at 30% 25%,#b9f5ff 0%,#2d9eff 17%,#123d9d 48%,#06132f 75%);border:1px solid rgba(104,211,255,.72);box-shadow:inset -18px -20px 35px rgba(0,0,0,.55),inset 16px 12px 26px rgba(112,230,255,.32),0 0 35px rgba(0,153,255,.48),0 0 85px rgba(76,52,255,.24);transform-style:preserve-3d}
-.orb-core:before{content:"";position:absolute;inset:10px;border-radius:30% 44% 35% 47%;border:1px solid rgba(125,224,255,.24);box-shadow:inset 0 0 20px rgba(255,255,255,.06)}
-.orb-core span{position:absolute;inset:0;display:grid;place-items:center;font:900 92px/1 Inter,sans-serif;color:#fff;text-shadow:0 4px 0 #1b57b5,0 0 24px rgba(113,231,255,.9);transform:translateZ(20px)}
-.orb-ring{position:absolute;left:50%;top:50%;width:270px;height:84px;border:2px solid rgba(39,214,255,.62);border-radius:50%;transform-style:preserve-3d;box-shadow:0 0 16px rgba(30,190,255,.24);margin-left:-135px;margin-top:-42px}
-.orb-ring-1{transform:rotateX(70deg) rotateZ(-12deg);animation:orbRing1 5s linear infinite}
-.orb-ring-2{width:225px;height:225px;margin:-112px 0 0 -112px;border-color:rgba(86,72,255,.34);transform:rotateY(72deg);animation:orbRing2 7s linear infinite}
-.orb-ring-3{width:285px;height:105px;margin:-52px 0 0 -142px;border-color:rgba(194,54,255,.45);transform:rotateX(70deg) rotateZ(55deg);animation:orbRing3 6s linear infinite reverse}
-.orb-floor{position:absolute;left:50%;bottom:13px;width:250px;height:28px;transform:translateX(-50%);border-radius:50%;background:radial-gradient(ellipse,rgba(0,172,255,.48),rgba(84,45,255,.18) 42%,transparent 72%);filter:blur(2px);box-shadow:0 0 35px rgba(0,143,255,.28)}
-.orb-particle{position:absolute;width:7px;height:7px;border-radius:50%;background:#55e8ff;box-shadow:0 0 14px #55e8ff;animation:particleFloat 4s ease-in-out infinite}
-.orb-particle.p1{left:22%;top:32%}.orb-particle.p2{right:15%;top:23%;background:#c55bff;box-shadow:0 0 14px #c55bff;animation-delay:1s}.orb-particle.p3{right:23%;bottom:25%;animation-delay:2s}
-@keyframes onexBrandFloat{0%,100%{transform:perspective(220px) rotateY(-8deg) rotateX(5deg) translateY(0)}50%{transform:perspective(220px) rotateY(-12deg) rotateX(8deg) translateY(-2px)}}
-@keyframes heroOrbFloat{0%,100%{transform:translateY(0) rotateZ(0)}50%{transform:translateY(-7px) rotateZ(.6deg)}}
-@keyframes orbPulse{0%,100%{opacity:.72;transform:scale(.94)}50%{opacity:1;transform:scale(1.04)}}
-@keyframes orbRing1{to{transform:rotateX(70deg) rotateZ(348deg)}}
-@keyframes orbRing2{to{transform:rotateY(432deg)}}
-@keyframes orbRing3{to{transform:rotateX(70deg) rotateZ(-305deg)}}
-@keyframes particleFloat{0%,100%{transform:translate3d(0,0,0);opacity:.65}50%{transform:translate3d(10px,-13px,0);opacity:1}}
-@media(max-width:900px){
-  .main,.main.expanded{margin:0!important;padding:78px 12px 40px!important}
-  .onex-topbar{position:fixed!important;top:0!important;left:0!important;right:0!important;margin:0!important;border-radius:0!important;height:64px!important;min-height:64px!important;padding:8px 12px!important}
-  .onex-brand{min-width:auto!important}.onex-brand-mark{width:38px!important;height:38px!important}.onex-brand-mark span{font-size:22px!important}.onex-brand-word{font-size:14px!important}.onex-top-title{font-size:12px!important}.onex-top-right{gap:0!important}.chrome-menu-btn{width:44px!important;height:44px!important;flex-basis:44px!important}
-  .dashboard-hero{grid-template-columns:1fr!important;min-height:unset!important;padding:28px 20px 18px!important;gap:8px!important}
-  .hero-copy{max-width:none!important;text-align:center!important}.hero-kicker{font-size:8px!important}.hero-title{font-size:24px!important}.hero-sub{font-size:12px!important;line-height:1.95!important;margin-left:auto!important;margin-right:auto!important}.hero-hint{font-size:10px!important;margin-top:16px!important}
-  .hero-orb{height:255px;width:290px;margin-top:0!important}.orb-core{width:118px;height:118px}.orb-core span{font-size:78px}.orb-ring-1{width:235px;height:74px;margin-left:-117px;margin-top:-37px}.orb-ring-2{width:195px;height:195px;margin-left:-97px;margin-top:-97px}.orb-ring-3{width:245px;height:92px;margin-left:-122px;margin-top:-46px}.orb-floor{width:210px}
-}
-@media(max-width:520px){
-  .onex-brand-word{font-size:12px!important}.onex-brand-word small{font-size:5px!important}.onex-top-title{display:none!important}.dashboard-hero{border-radius:22px!important;padding:24px 14px 10px!important}.hero-title{font-size:20px!important}.hero-sub{font-size:11px!important}.hero-hint{font-size:9px!important;padding:9px 11px!important}.hero-orb{height:225px;width:255px}.orb-core{width:102px;height:102px}.orb-core span{font-size:68px}.orb-ring-1{width:205px;height:66px;margin-left:-102px;margin-top:-33px}.orb-ring-2{width:175px;height:175px;margin-left:-87px;margin-top:-87px}.orb-ring-3{width:215px;height:82px;margin-left:-107px;margin-top:-41px}.orb-floor{width:185px}
-}
-@media(prefers-reduced-motion:reduce){.onex-brand-mark,.hero-orb,.orb-aura,.orb-ring,.orb-particle{animation:none!important}}
 </style>
 </head>
 <body>
 
-<div class="mob-bar" id="mobBar" aria-hidden="true"></div>
+<div class="mob-bar" id="mobBar">
+  <button class="mob-menu-btn" id="mobMenuBtn" aria-label="منو">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
+  </button>
+  <div class="mob-brand"><div class="mob-brand-text"><span>پنل مدیریت</span></div></div>
+  <div class="mob-status"><i></i><span>آنلاین</span></div>
+</div>
 <div class="overlay" id="overlay"></div>
 
 <aside class="sidebar" id="sidebar">
   <button class="sb-toggle" id="sbToggle" title="Toggle">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
   </button>
-  <div class="drawer-brand" aria-label="ONEX PANEL">
-    <span class="drawer-brand-mark"><i class="brand-orbit brand-orbit-a"></i><i class="brand-orbit brand-orbit-b"></i><span>N</span></span>
-    <span class="drawer-brand-text">ONEX <small>PANEL</small></span>
-  </div>
-
   <nav class="nav">
     <div class="nav-sec" data-i18n="sec_panel">پنــــل</div>
     <button class="nav-item on" data-page="dash" data-perm="dash">
@@ -9473,29 +9344,19 @@ html.light .protocol-picker-bg{background:rgba(15,23,42,.28)}html.light .protoco
 <main class="main" id="main">
 
 <div class="onex-topbar">
-  <div class="onex-brand" aria-label="ONEX PANEL">
-    <span class="onex-brand-mark"><i class="brand-orbit brand-orbit-a"></i><i class="brand-orbit brand-orbit-b"></i><span>N</span></span>
-    <span class="onex-brand-word">ONEX <small>PANEL</small></span>
-  </div>
-  <div class="onex-top-title">پنل مدیریت</div>
-  <div class="onex-top-right">
-    <div class="top-server"><span class="top-dot"></span><b>سرور آنلاین</b><span class="top-sep"></span><small id="topHost">—</small><span class="top-sep"></span><small id="topUptime">Uptime: —</small></div>
-    <div class="top-actions">
-      <div class="top-setting-group" aria-label="Language controls">
-        <button type="button" class="top-setting-btn" id="topLangFa" onclick="setLang('fa')">فارسی</button>
-        <button type="button" class="top-setting-btn" id="topLangEn" onclick="setLang('en')">EN</button>
-      </div>
-      <div class="top-notify-wrap">
-        <button type="button" class="top-notify-btn" id="topNotifyBtn" onclick="toggleNotifications()" aria-expanded="false"><span class="notify-bell">🔔</span><span class="notify-label">اعلان‌ها</span><span class="notify-badge" id="notifyBadge">0</span></button>
-        <div class="top-notify-panel" id="topNotifyPanel" hidden>
-          <div class="notify-panel-head"><b id="notifyPanelTitle">اعلان‌ها</b><button type="button" onclick="toggleNotifications(false)">×</button></div>
-          <div id="notifyList" class="notify-list"><div class="notify-empty">اعلان جدیدی وجود ندارد.</div></div>
-        </div>
+  <div class="top-server"><span class="top-dot"></span><b>سرور آنلاین</b><span class="top-sep"></span><small id="topHost">—</small><span class="top-sep"></span><small id="topUptime">Uptime: —</small></div>
+  <div class="top-actions">
+    <div class="top-setting-group" aria-label="Language controls">
+      <button type="button" class="top-setting-btn" id="topLangFa" onclick="setLang('fa')">فارسی</button>
+      <button type="button" class="top-setting-btn" id="topLangEn" onclick="setLang('en')">EN</button>
+    </div>
+    <div class="top-notify-wrap">
+      <button type="button" class="top-notify-btn" id="topNotifyBtn" onclick="toggleNotifications()" aria-expanded="false"><span class="notify-bell">🔔</span><span class="notify-label">اعلان‌ها</span><span class="notify-badge" id="notifyBadge">0</span></button>
+      <div class="top-notify-panel" id="topNotifyPanel" hidden>
+        <div class="notify-panel-head"><b id="notifyPanelTitle">اعلان‌ها</b><button type="button" onclick="toggleNotifications(false)">×</button></div>
+        <div id="notifyList" class="notify-list"><div class="notify-empty">اعلان جدیدی وجود ندارد.</div></div>
       </div>
     </div>
-    <button type="button" class="chrome-menu-btn" id="chromeMenuBtn" aria-label="منو">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
-    </button>
   </div>
 </div>
 
@@ -9515,16 +9376,25 @@ html.light .protocol-picker-bg{background:rgba(15,23,42,.28)}html.light .protoco
 </div>
 <section class="page on" id="page-dash">
   <div class="dashboard-hero">
-    <div class="hero-copy">
-      <div class="hero-kicker">ONEX MANAGEMENT SYSTEM</div>
-      <div class="hero-title">به پنل مدیریت <span>ONEX</span> خوش آمدید</div>
-      <div class="hero-sub">با این پنل می‌توانید سرور خود را به‌صورت کامل مدیریت کنید؛ از اتصال‌های امن گرفته تا مدیریت محتوا و پروتکل‌ها، همه‌چیز در اختیار شماست.</div>
-      <div class="hero-hint"><span>↑</span> برای شروع، از منوی بالا یا دکمه سه‌خط استفاده کنید</div>
+    <div class="hero-main">
+      <div class="hero-title">خوش آمدید به <span>ONEX</span></div>
+      <div class="hero-sub" id="lastUpd" data-i18n="loading">در حال بارگذاری...</div>
     </div>
-    <div class="hero-orb" aria-hidden="true">
-      <div class="orb-aura"></div><div class="orb-ring orb-ring-1"></div><div class="orb-ring orb-ring-2"></div><div class="orb-ring orb-ring-3"></div>
-      <div class="orb-core"><span>N</span></div><div class="orb-floor"></div>
-      <i class="orb-particle p1"></i><i class="orb-particle p2"></i><i class="orb-particle p3"></i>
+    <div class="hero-version-strip" aria-label="Panel version information">
+      <div class="version-mini-card">
+        <span class="version-mini-icon">▰</span>
+        <span class="version-mini-copy"><b data-i18n="panel_version">نسخه پنل</b><strong id="panelVersionValue">v__ONEX_VERSION__</strong></span>
+        <i class="version-live-dot"></i>
+      </div>
+      <div class="version-mini-card">
+        <span class="version-mini-icon">↻</span>
+        <span class="version-mini-copy"><b data-i18n="current_version">ورژن فعلی</b><strong id="currentVersionValue">v__ONEX_VERSION__</strong></span>
+        <i class="version-live-dot"></i>
+      </div>
+    </div>
+    <div class="hero-actions">
+      <button class="btn btn-p btn-sm" onclick="goPage('create')">＋ ساخت کانفیگ</button>
+      <button class="btn btn-sm" onclick="refreshAll()">↻ بروزرسانی</button>
     </div>
   </div>
 
@@ -12031,8 +11901,6 @@ const mobMenuBtn=document.getElementById('mobMenuBtn'),overlay=document.getEleme
 function closeMobileNav(){ if(sb) sb.classList.remove('mobile-open'); if(overlay) overlay.classList.remove('show'); }
 function openMobileNav(){ if(sb) sb.classList.add('mobile-open'); if(overlay) overlay.classList.add('show'); }
 if(mobMenuBtn) mobMenuBtn.onclick=()=>{ if(sb.classList.contains('mobile-open')) closeMobileNav(); else openMobileNav(); };
-const chromeMenuBtn=document.getElementById('chromeMenuBtn');
-if(chromeMenuBtn) chromeMenuBtn.onclick=()=>{ if(window.innerWidth<=900){ if(sb.classList.contains('mobile-open')) closeMobileNav(); else openMobileNav(); } else { sb.classList.toggle('collapsed'); main.classList.toggle('expanded',sb.classList.contains('collapsed')); localStorage.setItem('sb_c',sb.classList.contains('collapsed')?'1':'0'); } };
 if(overlay) overlay.onclick=closeMobileNav;
 
 document.getElementById('sbToggle').onclick=()=>{
@@ -13455,64 +13323,7 @@ async def global_exception_handler(
             <p>
             لطفاً لاگ Railway را بررسی کنید.
             </p>
-        
-<style id="onex-final-dashboard-fix">
-/* FINAL OVERRIDE: remove every legacy logo from sidebar/drawer and keep one chrome brand */
-.sidebar .sb-logo,.sidebar>.sb-logo,.sidebar .sb-logo-icon,.sidebar .sb-mobile-brand,.sidebar .sb-mobile-brand-logo{display:none!important}
-.mob-bar{display:none!important}
-.onex-topbar{height:68px!important;min-height:68px!important;margin:0 0 18px!important;padding:8px 12px 8px 18px!important;border-radius:18px!important;display:flex!important;align-items:center!important;justify-content:space-between!important;gap:16px!important;position:sticky!important;top:10px!important;z-index:260!important;background:linear-gradient(180deg,rgba(7,20,43,.94),rgba(3,12,27,.88))!important;border:1px solid rgba(74,144,255,.22)!important;box-shadow:0 14px 36px rgba(0,0,0,.28),inset 0 1px rgba(255,255,255,.05)!important;backdrop-filter:blur(18px)!important}
-.onex-topbar-brand,.onex-topbar .top-server,.onex-topbar .top-actions{display:none!important}
-.onex-brand{display:flex!important;align-items:center!important;gap:9px!important;min-width:180px!important}.onex-brand-mark{width:42px!important;height:42px!important;border-radius:13px!important;display:grid!important;place-items:center!important;position:relative!important;transform:perspective(220px) rotateY(-8deg) rotateX(5deg)!important;background:linear-gradient(145deg,#18d7ff,#1677ff 48%,#7b35ff)!important;border:1px solid rgba(150,225,255,.55)!important;box-shadow:0 8px 22px rgba(37,99,235,.38),inset 0 1px rgba(255,255,255,.42)!important;animation:onexBrandFloat 4s ease-in-out infinite!important}.onex-brand-mark:before{content:"";position:absolute;inset:4px;border-radius:10px;border:1px solid rgba(255,255,255,.22);box-shadow:inset 0 0 18px rgba(0,210,255,.18)}.onex-brand-mark span{position:relative;font:900 24px/1 Inter,sans-serif;color:#fff;text-shadow:2px 3px 0 #1648b8,0 0 15px rgba(255,255,255,.6)}.onex-brand-word{font:900 16px/1 Inter,sans-serif;letter-spacing:.08em;color:#eaf6ff;text-shadow:0 0 16px rgba(43,190,255,.22)}.onex-brand-word small{display:block;margin-top:3px;font-size:7px;letter-spacing:.35em;color:#65dfff}.onex-top-title{font-size:15px;font-weight:900;color:#dcecff;white-space:nowrap;opacity:.94}.onex-top-right{display:flex;align-items:center;gap:10px;min-width:0}.chrome-menu-btn{width:46px!important;height:46px!important;flex:0 0 46px!important;border:1px solid rgba(113,184,255,.34)!important;border-radius:14px!important;background:linear-gradient(145deg,#4b8cff,#7c3aed)!important;color:#fff!important;display:grid!important;place-items:center!important;cursor:pointer!important;box-shadow:0 8px 24px rgba(71,87,255,.30),inset 0 1px rgba(255,255,255,.22)!important}.chrome-menu-btn svg{width:24px!important;height:24px!important}
-.dashboard-hero{position:relative!important;display:grid!important;grid-template-columns:minmax(0,1.05fr) minmax(280px,.95fr)!important;gap:24px!important;align-items:center!important;min-height:380px!important;margin:0 0 20px!important;padding:34px 36px!important;border:1px solid rgba(56,147,255,.28)!important;border-radius:28px!important;overflow:hidden!important;background:radial-gradient(circle at 78% 50%,rgba(30,106,255,.16),transparent 35%),linear-gradient(145deg,rgba(6,25,55,.90),rgba(3,12,29,.94))!important;box-shadow:0 24px 65px rgba(0,0,0,.30),inset 0 1px rgba(255,255,255,.06)!important}.dashboard-hero:before{content:"";position:absolute;inset:0;background:linear-gradient(90deg,transparent 0%,rgba(32,152,255,.04) 50%,transparent 100%);pointer-events:none}.hero-copy{position:relative;z-index:3;max-width:620px;text-align:right}.hero-kicker{font-size:10px!important;letter-spacing:.22em!important;color:#52cfff!important;font-weight:900!important;margin-bottom:10px!important}.hero-title{font-size:31px!important;font-weight:950!important;line-height:1.45!important;margin:0!important;color:#f4f9ff!important}.hero-title span{color:#42bfff!important;text-shadow:0 0 24px rgba(66,191,255,.38)!important}.hero-sub{margin-top:12px!important;color:#a9c4e5!important;font-size:14px!important;line-height:2.05!important;max-width:590px}.hero-hint{display:inline-flex;align-items:center;gap:9px;margin-top:22px;padding:11px 16px;border:1px dashed rgba(68,164,255,.42);border-radius:13px;color:#b9d7f6;font-size:11px;background:rgba(10,39,78,.25)}.hero-hint span{font-size:19px;color:#55c8ff;line-height:1}.hero-version-strip,.dashboard-hero .hero-actions{display:none!important}.hero-orb{position:relative;width:min(330px,100%);height:300px;margin:auto;transform-style:preserve-3d;animation:heroOrbFloat 6s ease-in-out infinite;filter:drop-shadow(0 22px 32px rgba(0,105,255,.20))}.orb-aura{position:absolute;inset:25px;border-radius:50%;background:radial-gradient(circle,rgba(47,150,255,.30),rgba(48,70,255,.12) 35%,transparent 68%);filter:blur(13px);animation:orbPulse 3.2s ease-in-out infinite}.orb-core{position:absolute;left:50%;top:50%;width:138px;height:138px;transform:translate(-50%,-50%) rotateX(7deg) rotateY(-10deg);border-radius:34% 48% 37% 50%;background:radial-gradient(circle at 30% 25%,#b9f5ff 0%,#2d9eff 17%,#123d9d 48%,#06132f 75%);border:1px solid rgba(104,211,255,.72);box-shadow:inset -18px -20px 35px rgba(0,0,0,.55),inset 16px 12px 26px rgba(112,230,255,.32),0 0 35px rgba(0,153,255,.48),0 0 85px rgba(76,52,255,.24);transform-style:preserve-3d}.orb-core:before{content:"";position:absolute;inset:10px;border-radius:30% 44% 35% 47%;border:1px solid rgba(125,224,255,.24);box-shadow:inset 0 0 20px rgba(255,255,255,.06)}.orb-core span{position:absolute;inset:0;display:grid;place-items:center;font:900 92px/1 Inter,sans-serif;color:#fff;text-shadow:0 4px 0 #1b57b5,0 0 24px rgba(113,231,255,.9);transform:translateZ(20px)}.orb-ring{position:absolute;left:50%;top:50%;width:270px;height:84px;border:2px solid rgba(39,214,255,.62);border-radius:50%;transform-style:preserve-3d;box-shadow:0 0 16px rgba(30,190,255,.24);margin-left:-135px;margin-top:-42px}.orb-ring-1{transform:rotateX(70deg) rotateZ(-12deg);animation:orbRing1 5s linear infinite}.orb-ring-2{width:225px;height:225px;margin:-112px 0 0 -112px;border-color:rgba(86,72,255,.34);transform:rotateY(72deg);animation:orbRing2 7s linear infinite}.orb-ring-3{width:285px;height:105px;margin:-52px 0 0 -142px;border-color:rgba(194,54,255,.45);transform:rotateX(70deg) rotateZ(55deg);animation:orbRing3 6s linear infinite reverse}.orb-floor{position:absolute;left:50%;bottom:13px;width:250px;height:28px;transform:translateX(-50%);border-radius:50%;background:radial-gradient(ellipse,rgba(0,172,255,.48),rgba(84,45,255,.18) 42%,transparent 72%);filter:blur(2px);box-shadow:0 0 35px rgba(0,143,255,.28)}.orb-particle{position:absolute;width:7px;height:7px;border-radius:50%;background:#55e8ff;box-shadow:0 0 14px #55e8ff;animation:particleFloat 4s ease-in-out infinite}.orb-particle.p1{left:22%;top:32%}.orb-particle.p2{right:15%;top:23%;background:#c55bff;box-shadow:0 0 14px #c55bff;animation-delay:1s}.orb-particle.p3{right:23%;bottom:25%;animation-delay:2s}
-@keyframes onexBrandFloat{0%,100%{transform:perspective(220px) rotateY(-8deg) rotateX(5deg) translateY(0)}50%{transform:perspective(220px) rotateY(-12deg) rotateX(8deg) translateY(-2px)}}@keyframes heroOrbFloat{0%,100%{transform:translateY(0) rotateZ(0)}50%{transform:translateY(-7px) rotateZ(.6deg)}}@keyframes orbPulse{0%,100%{opacity:.72;transform:scale(.94)}50%{opacity:1;transform:scale(1.04)}}@keyframes orbRing1{to{transform:rotateX(70deg) rotateZ(348deg)}}@keyframes orbRing2{to{transform:rotateY(432deg)}}@keyframes orbRing3{to{transform:rotateX(70deg) rotateZ(-305deg)}}@keyframes particleFloat{0%,100%{transform:translate3d(0,0,0);opacity:.65}50%{transform:translate3d(10px,-13px,0);opacity:1}}
-@media(max-width:900px){.main,.main.expanded{margin:0!important;padding:78px 12px 40px!important}.onex-topbar{position:fixed!important;top:0!important;left:0!important;right:0!important;margin:0!important;border-radius:0!important;height:64px!important;min-height:64px!important;padding:8px 12px!important}.onex-brand{min-width:auto!important}.onex-brand-mark{width:38px!important;height:38px!important}.onex-brand-mark span{font-size:22px!important}.onex-brand-word{font-size:14px!important}.onex-top-title{font-size:12px!important}.onex-top-right{gap:0!important}.chrome-menu-btn{width:44px!important;height:44px!important;flex-basis:44px!important}.dashboard-hero{grid-template-columns:1fr!important;min-height:unset!important;padding:28px 20px 18px!important;gap:8px!important}.hero-copy{max-width:none!important;text-align:center!important}.hero-kicker{font-size:8px!important}.hero-title{font-size:24px!important}.hero-sub{font-size:12px!important;line-height:1.95!important;margin-left:auto!important;margin-right:auto!important}.hero-hint{font-size:10px!important;margin-top:16px!important}.hero-orb{height:255px;width:290px;margin-top:0!important}.orb-core{width:118px;height:118px}.orb-core span{font-size:78px}.orb-ring-1{width:235px;height:74px;margin-left:-117px;margin-top:-37px}.orb-ring-2{width:195px;height:195px;margin-left:-97px;margin-top:-97px}.orb-ring-3{width:245px;height:92px;margin-left:-122px;margin-top:-46px}.orb-floor{width:210px}}
-@media(max-width:520px){.onex-brand-word{font-size:12px!important}.onex-brand-word small{font-size:5px!important}.onex-top-title{display:none!important}.dashboard-hero{border-radius:22px!important;padding:24px 14px 10px!important}.hero-title{font-size:20px!important}.hero-sub{font-size:11px!important}.hero-hint{font-size:9px!important;padding:9px 11px!important}.hero-orb{height:225px;width:255px}.orb-core{width:102px;height:102px}.orb-core span{font-size:68px}.orb-ring-1{width:205px;height:66px;margin-left:-102px;margin-top:-33px}.orb-ring-2{width:175px;height:175px;margin-left:-87px;margin-top:-87px}.orb-ring-3{width:215px;height:82px;margin-left:-107px;margin-top:-41px}.orb-floor{width:185px}}
-@media(prefers-reduced-motion:reduce){.onex-brand-mark,.hero-orb,.orb-aura,.orb-ring,.orb-particle{animation:none!important}}
-
-/* FINAL MOBILE / CHROME CLEANUP — compact CSS-only ONEX branding */
-.drawer-brand{display:none}
-.onex-topbar{direction:ltr!important}
-.onex-brand{direction:ltr!important;order:1!important}
-.onex-top-title{order:2!important}
-.onex-top-right{order:3!important;margin-left:auto!important}
-.onex-brand-mark{overflow:visible!important}
-.brand-orbit{position:absolute;left:50%;top:50%;border:1px solid rgba(92,225,255,.78);border-radius:50%;pointer-events:none;transform-origin:center}
-.brand-orbit-a{width:48px;height:16px;margin:-8px 0 0 -24px;transform:rotate(-18deg);box-shadow:0 0 8px rgba(0,205,255,.35);animation:brandOrbitA 4s linear infinite}
-.brand-orbit-b{width:36px;height:36px;margin:-18px 0 0 -18px;border-color:rgba(184,83,255,.55);transform:rotateX(68deg) rotateZ(20deg);animation:brandOrbitB 5.5s linear infinite reverse}
-.onex-brand-mark span{z-index:2}
-@keyframes brandOrbitA{to{transform:rotate(342deg)}}
-@keyframes brandOrbitB{to{transform:rotateX(68deg) rotateZ(380deg)}}
-@media(max-width:900px){
-  .main,.main.expanded{padding:72px 10px 32px!important}
-  .onex-topbar{height:60px!important;min-height:60px!important;padding:7px 10px!important;gap:8px!important;direction:ltr!important}
-  .onex-brand{min-width:0!important;gap:6px!important;order:1!important}
-  .onex-brand-mark{width:40px!important;height:40px!important;border-radius:12px!important;flex:0 0 40px!important}
-  .onex-brand-mark span{font-size:21px!important}
-  .brand-orbit-a{width:46px;height:15px;margin:-7.5px 0 0 -23px}
-  .brand-orbit-b{width:34px;height:34px;margin:-17px 0 0 -17px}
-  .onex-brand-word{font-size:12px!important}.onex-brand-word small{font-size:5px!important}
-  .onex-top-title{display:none!important}
-  .onex-top-right{order:3!important;margin-left:auto!important}
-  .chrome-menu-btn{width:44px!important;height:44px!important;flex:0 0 44px!important;border-radius:13px!important}
-  .dashboard-hero{display:flex!important;flex-direction:column!important;align-items:stretch!important;justify-content:flex-start!important;gap:6px!important;min-height:0!important;height:auto!important;margin:0 0 12px!important;padding:16px 13px 12px!important;border-radius:20px!important}
-  .hero-copy{order:2!important;max-width:none!important;text-align:right!important;width:100%!important}
-  .hero-orb{order:1!important;width:100%!important;height:158px!important;min-height:158px!important;margin:0 auto!important;transform:none!important}
-  .orb-aura{inset:10px!important}.orb-core{width:82px!important;height:82px!important}.orb-core span{font-size:55px!important}
-  .orb-ring-1{width:180px!important;height:56px!important;margin-left:-90px!important;margin-top:-28px!important}.orb-ring-2{width:142px!important;height:142px!important;margin-left:-71px!important;margin-top:-71px!important}.orb-ring-3{width:190px!important;height:66px!important;margin-left:-95px!important;margin-top:-33px!important}.orb-floor{width:150px!important;height:18px!important;bottom:5px!important}
-  .orb-particle{width:5px!important;height:5px!important}
-  .hero-kicker{font-size:8px!important;letter-spacing:.16em!important;margin-bottom:5px!important}.hero-title{font-size:20px!important;line-height:1.55!important;text-align:right!important}.hero-sub{font-size:10.5px!important;line-height:1.9!important;margin-top:5px!important;text-align:right!important;max-width:none!important}.hero-hint{display:flex!important;width:100%!important;justify-content:center!important;margin-top:9px!important;padding:8px 10px!important;font-size:8.5px!important;line-height:1.6!important}
-  .sidebar{width:min(88vw,340px)!important;max-width:340px!important}
-  .drawer-brand{display:flex!important;align-items:center!important;justify-content:flex-start!important;gap:9px!important;height:62px!important;padding:8px 14px!important;border-bottom:1px solid rgba(88,180,255,.16)!important;direction:ltr!important}
-  .drawer-brand-mark{position:relative;width:42px;height:42px;flex:0 0 42px;border-radius:13px;display:grid;place-items:center;background:linear-gradient(145deg,#18d7ff,#1677ff 48%,#7b35ff);border:1px solid rgba(150,225,255,.5);box-shadow:0 8px 20px rgba(37,99,235,.3);overflow:visible}
-  .drawer-brand-mark span{position:relative;z-index:2;font:900 23px/1 Inter,sans-serif;color:#fff;text-shadow:2px 3px 0 #1648b8}.drawer-brand-text{font:900 14px/1 Inter,sans-serif;letter-spacing:.08em;color:#eaf6ff}.drawer-brand-text small{display:block;margin-top:3px;font-size:6px;letter-spacing:.3em;color:#65dfff}
-  .drawer-brand .brand-orbit-a{width:48px;height:16px;margin:-8px 0 0 -24px}.drawer-brand .brand-orbit-b{width:36px;height:36px;margin:-18px 0 0 -18px}
-}
-@media(max-width:420px){
-  .main,.main.expanded{padding-left:8px!important;padding-right:8px!important}.onex-topbar{height:58px!important;min-height:58px!important}.onex-brand-mark{width:38px!important;height:38px!important;flex-basis:38px!important}.onex-brand-word{font-size:11px!important}.chrome-menu-btn{width:42px!important;height:42px!important;flex-basis:42px!important}.dashboard-hero{padding:13px 11px 10px!important;border-radius:18px!important}.hero-orb{height:142px!important;min-height:142px!important}.orb-core{width:74px!important;height:74px!important}.orb-core span{font-size:50px!important}.orb-ring-1{width:164px!important;height:51px!important;margin-left:-82px!important;margin-top:-25.5px!important}.orb-ring-2{width:128px!important;height:128px!important;margin-left:-64px!important;margin-top:-64px!important}.orb-ring-3{width:174px!important;height:60px!important;margin-left:-87px!important;margin-top:-30px!important}.hero-title{font-size:18px!important}.hero-sub{font-size:10px!important}.hero-hint{font-size:8px!important}
-}
-
-</style>
-</body>
+        </body>
         </html>
         """,
         status_code=500,
