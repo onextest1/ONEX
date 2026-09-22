@@ -1115,7 +1115,7 @@ def generate_vless_link(
         # Trojan password is the UUID; the server validates its SHA-224 hash
         # inside the XHTTP relay.  Keep TLS mandatory and use stream-up for a
         # single long-lived request, which matches the ONEX XHTTP engine.
-        path = adv_path or f"/trojan-xhttp/stream-up/{uuid}"
+        path = adv_path or f"/txhttp-siz10/stream-up/{uuid}"
         q = {"security":"tls", "type":"xhttp", "mode":"stream-up", "host":adv_host, "path":path, "sni":adv_sni, "fp":adv_fp, "alpn":adv_alpn}
         if adv["tls"].get("allow_insecure"):
             q["allowInsecure"] = "1"
@@ -1133,9 +1133,9 @@ def generate_vless_link(
         # Keep Trojan+WS client transport settings aligned with VLESS+WS.
         # The password remains the UUID; the WS/TLS transport follows the
         # same advanced host/path/SNI/fingerprint/ALPN settings.
-        path = adv_path or f"/ws/{uuid}"
+        path = adv_path or "/trojan-ws"
         q = {
-            "security": security,
+            "security": "tls" if security == "none" else security,
             "type": "ws",
             "host": adv_host,
             "path": path,
@@ -6920,11 +6920,17 @@ try:
         relay_ws_to_tcp,
         relay_tcp_to_ws,
         websocket_tunnel,
+        trojan_ws_tunnel,
     )
 
     app.add_api_websocket_route(
         "/ws/{uuid}",
         websocket_tunnel,
+    )
+    # Standard Trojan WS endpoint: unlike VLESS, the UUID is not part of the path.
+    app.add_api_websocket_route(
+        "/trojan-ws",
+        trojan_ws_tunnel,
     )
 
     if "vless-ws" not in PROTOCOLS:
