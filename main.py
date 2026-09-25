@@ -9151,6 +9151,8 @@ html.light .onex-topbar-brand{background:#fff;border-color:rgba(37,99,235,.16);b
 </style>
 </head>
 <body>
+<canvas id="onexDashScene" aria-hidden="true"></canvas>
+
 
 <div class="mob-bar" id="mobBar">
   <button class="mob-menu-btn" id="mobMenuBtn" aria-label="منو">
@@ -11567,6 +11569,33 @@ html.light.onex-themed .usage-fill{
   background:linear-gradient(90deg,var(--accent),var(--purple))!important;
   box-shadow:0 0 8px color-mix(in srgb,var(--accent) 22%,transparent)!important;
 }
+
+/* ---------- ONEX glass / 3D login visual system ---------- */
+:root{
+  --bg:#05060d!important;--bg2:rgba(13,16,32,.76)!important;--bg3:rgba(22,27,48,.62)!important;
+  --card:rgba(18,22,40,.68)!important;--card-b:rgba(255,255,255,.13)!important;
+  --accent:#38d9ff!important;--accent2:#8b5cf6!important;--purple:#b57bff!important;
+  --t1:#eef2ff!important;--t2:rgba(238,242,255,.72)!important;--t3:rgba(163,171,198,.55)!important;
+  --input-bg:rgba(0,0,0,.28)!important;--hover:rgba(56,217,255,.12)!important;
+  --shadow:0 24px 70px rgba(0,0,0,.42)!important;--glow:0 0 50px rgba(56,217,255,.14)!important;--glass:blur(20px)!important;
+}
+html,body{background:transparent!important}
+body{position:relative;isolation:isolate;background:#05060d!important}
+body::before{background:radial-gradient(ellipse 70% 55% at 8% 8%,color-mix(in srgb,var(--accent) 17%,transparent),transparent 62%),radial-gradient(ellipse 65% 55% at 90% 88%,color-mix(in srgb,var(--accent2) 15%,transparent),transparent 64%),linear-gradient(180deg,#05060d,#090b16)!important;z-index:-2!important}
+#onexDashScene{position:fixed;inset:0;z-index:-1;pointer-events:none;opacity:.92}
+.sidebar,.main,.mob-bar{backdrop-filter:blur(22px) saturate(145%)!important;-webkit-backdrop-filter:blur(22px) saturate(145%)!important}
+.sidebar{background:linear-gradient(180deg,rgba(13,16,32,.82),rgba(7,9,18,.72))!important;border-left:1px solid rgba(255,255,255,.14)!important;box-shadow:24px 0 70px rgba(0,0,0,.24),inset 1px 0 rgba(255,255,255,.04)!important}
+.main{background:transparent!important}
+.card,.panel,.stat-card,.dash-card,.glass-card,.table-wrap,.chart-card,.quick-card,.activity-card,.config-card,.modal,.settings-card{background:linear-gradient(145deg,rgba(30,36,64,.64),rgba(10,13,27,.72))!important;border:1px solid rgba(255,255,255,.13)!important;box-shadow:0 22px 60px -32px rgba(0,0,0,.9),inset 0 1px rgba(255,255,255,.08)!important;backdrop-filter:blur(18px) saturate(140%)!important;-webkit-backdrop-filter:blur(18px) saturate(140%)!important}
+.card:hover,.panel:hover,.stat-card:hover,.dash-card:hover,.glass-card:hover{border-color:color-mix(in srgb,var(--accent) 42%,rgba(255,255,255,.13))!important;box-shadow:0 25px 65px -30px rgba(0,0,0,.95),0 0 32px color-mix(in srgb,var(--accent) 13%,transparent)!important}
+.btn,.button,.primary-btn,.save-btn,.create-btn,.nav-add{background:linear-gradient(135deg,var(--accent),var(--accent2))!important;color:#fff!important;border:0!important;box-shadow:0 12px 30px -12px color-mix(in srgb,var(--accent) 75%,transparent)!important}
+.nav-item.on,.nav-item:hover{background:linear-gradient(135deg,color-mix(in srgb,var(--accent) 22%,transparent),color-mix(in srgb,var(--accent2) 14%,transparent))!important;border-color:color-mix(in srgb,var(--accent) 36%,transparent)!important}
+.sb-toggle{background:linear-gradient(135deg,var(--accent),var(--accent2))!important;box-shadow:0 8px 22px color-mix(in srgb,var(--accent) 35%,transparent)!important}
+input,select,textarea{background:rgba(0,0,0,.25)!important;border-color:rgba(255,255,255,.14)!important}
+input:focus,select:focus,textarea:focus{border-color:var(--accent)!important;box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 16%,transparent)!important}
+.onex-approved-brand,.onex-approved-mobile{background:linear-gradient(135deg,rgba(255,255,255,.08),rgba(255,255,255,.02))!important;border-bottom-color:rgba(255,255,255,.12)!important}
+.page-title,.section-title{letter-spacing:-.02em;text-shadow:0 0 24px color-mix(in srgb,var(--accent) 18%,transparent)}
+@media(max-width:760px){.main{background:transparent!important}}
 </style>
 <section class="page" id="page-news">
   <div class="page-head">
@@ -13097,6 +13126,24 @@ function loadOnexTheme(){
 window.addEventListener('storage',e=>{if(e.key==='onex_theme_v2')loadOnexTheme()});
 renderOnexThemePresets();loadOnexTheme();
 
+</script>
+
+<script>
+(()=>{
+  const cv=document.getElementById('onexDashScene'),ctx=cv&&cv.getContext('2d');if(!cv||!ctx)return;
+  let W=0,H=0,dpr=1,tm=0,last=performance.now(),mouse={x:0,y:0,tx:0,ty:0};
+  const themes={aurora:['#38d9ff','#8b5cf6'],lime:['#d4f24a','#ffb84d'],rose:['#ff3d8b','#ff8a3d'],emerald:['#34f5a0','#22c1ee'],violet:['#b57bff','#ff5ecf'],gold:['#ffc94d','#ff7a45']};
+  function rgb(h){h=(h||'').replace('#','');let n=parseInt(h,16)||0;return[(n>>16)&255,(n>>8)&255,n&255]}
+  function colors(){let id=localStorage.getItem('onex_theme')||'aurora',c=themes[id]||themes.aurora;if(id==='custom'){let p=localStorage.getItem('onex_theme_custom')||'#38d9ff';c=[p,'#8b5cf6']}return[c.map(rgb)[0],c.map(rgb)[1]]}
+  let C=colors();
+  function resize(){W=innerWidth;H=innerHeight;dpr=Math.min(devicePixelRatio||1,1.5);cv.width=W*dpr;cv.height=H*dpr;cv.style.width=W+'px';cv.style.height=H+'px';ctx.setTransform(dpr,0,0,dpr,0,0)}
+  resize();addEventListener('resize',resize);addEventListener('pointermove',e=>{mouse.tx=e.clientX/W*2-1;mouse.ty=e.clientY/H*2-1});
+  const objs=Array.from({length:18},(_,i)=>({x:(Math.random()*2-1)*11,y:(Math.random()*2-1)*6,z:5+Math.random()*15,s:.35+Math.random()*1.1,a:Math.random()*6.28,v:.1+Math.random()*.3,k:i%3}));
+  function drawShape(o,t){let x=W/2+o.x*W/18-mouse.x*20,y=H/2+o.y*H/9-mouse.y*12+Math.sin(t*.6+o.a)*9;let r=o.s*W/16*(1.1-o.z/28),col=C[o.k%2],a=Math.max(0,.04*(1-o.z/24));ctx.save();ctx.translate(x,y);ctx.rotate(t*.12+o.a);ctx.strokeStyle=`rgba(${col[0]},${col[1]},${col[2]},${a})`;ctx.lineWidth=1.2;ctx.beginPath();for(let i=0;i<6;i++){let q=i*Math.PI/3;let xx=Math.cos(q)*r,yy=Math.sin(q)*r;i?ctx.lineTo(xx,yy):ctx.moveTo(xx,yy)}ctx.closePath();ctx.stroke();ctx.restore()}
+  function frame(now){let dt=Math.min(.05,(now-last)/1000);last=now;tm+=dt;mouse.x+=(mouse.tx-mouse.x)*.04;mouse.y+=(mouse.ty-mouse.y)*.04;let n=colors();C[0][0]+=(n[0][0]-C[0][0])*.03;C[0][1]+=(n[0][1]-C[0][1])*.03;C[0][2]+=(n[0][2]-C[0][2])*.03;C[1][0]+=(n[1][0]-C[1][0])*.03;C[1][1]+=(n[1][1]-C[1][1])*.03;C[1][2]+=(n[1][2]-C[1][2])*.03;
+    ctx.clearRect(0,0,W,H);let g=ctx.createRadialGradient(W*.18,H*.12,0,W*.18,H*.12,Math.max(W,H)*.65);g.addColorStop(0,`rgba(${C[0][0]|0},${C[0][1]|0},${C[0][2]|0},.10)`);g.addColorStop(1,'rgba(0,0,0,0)');ctx.fillStyle=g;ctx.fillRect(0,0,W,H);
+    for(const o of objs){o.y-=dt*.025;if(o.y<-7)o.y=7;drawShape(o,tm)}requestAnimationFrame(frame)}requestAnimationFrame(frame);
+})();
 </script>
 </body>
 </html>
