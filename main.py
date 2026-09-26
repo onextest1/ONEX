@@ -8319,6 +8319,41 @@ html.light #page-logs .logs-detail-head>button{background:#fff}
 .recent-card{margin-top:14px}.recent-table{width:100%;border-collapse:collapse;font-size:10px}.recent-table th{font-size:9px;padding:10px 12px;background:rgba(255,255,255,.025);color:var(--t3)}.recent-table td{padding:10px 12px;border-top:1px solid rgba(255,255,255,.045);color:var(--t2)}.recent-status{display:inline-flex;align-items:center;gap:5px;color:#34d399}.recent-status i{width:6px;height:6px;border-radius:50%;background:#22c55e;box-shadow:0 0 7px #22c55e}.recent-actions{display:flex;gap:5px}.mini-action{width:27px;height:27px;border:1px solid var(--card-b);border-radius:8px;background:rgba(255,255,255,.025);color:var(--t2);display:grid;place-items:center;cursor:pointer}.mini-action:hover{color:#60a5fa;border-color:rgba(96,165,250,.3)}
 .server-info{display:grid;gap:9px}.info-row{display:flex;align-items:center;justify-content:space-between;padding-bottom:9px;border-bottom:1px solid rgba(255,255,255,.045);font-size:10px}.info-row:last-child{border-bottom:0;padding-bottom:0}.info-row span:first-child{color:var(--t3)}.info-row span:last-child{color:var(--t2);font-weight:700}.onex-footer{display:flex;align-items:center;justify-content:space-between;margin-top:14px;padding:12px 4px;color:var(--t3);font-size:9px}.onex-footer b{color:#60a5fa}
 @keyframes pulseDot{0%,100%{transform:scale(1);opacity:1}50%{transform:scale(.72);opacity:.65}}@keyframes orbitSpin{to{transform:rotate(360deg)}}@keyframes floatY{0%,100%{transform:translateY(0)}50%{transform:translateY(-5px)}}@keyframes healthIn{from{width:0}}
+/* HEXA model applied to the real dashboard */
+:root{--hexa-cyan:#38d9ff;--hexa-violet:#8b5cf6}
+.sidebar{background:linear-gradient(180deg,rgba(17,24,39,.94),rgba(8,12,23,.96));border-left-color:rgba(56,217,255,.20);box-shadow:0 18px 55px rgba(0,0,0,.34),inset 0 1px rgba(255,255,255,.05)}
+.sidebar .sb-toggle{left:-20px;width:42px;height:42px;border-radius:50%;background:linear-gradient(145deg,var(--hexa-cyan),var(--hexa-violet));border:3px solid var(--bg);box-shadow:0 0 0 1px rgba(56,217,255,.45),0 10px 28px rgba(56,217,255,.30);overflow:visible}
+.sidebar .sb-toggle:before{content:"";position:absolute;inset:-6px;border:1px dashed rgba(56,217,255,.55);border-radius:50%;animation:hexaOrbit 8s linear infinite}
+.sidebar .sb-toggle .hexa-bars{position:relative;width:20px;height:20px;display:block;z-index:2}
+.sidebar .sb-toggle .hexa-bars i{position:absolute;left:1px;right:1px;height:2.5px;border-radius:3px;background:#081326;transition:transform .55s cubic-bezier(.16,1,.3,1),opacity .2s}
+.sidebar .sb-toggle .hexa-bars i:nth-child(1){top:4px}.sidebar .sb-toggle .hexa-bars i:nth-child(2){top:9px}.sidebar .sb-toggle .hexa-bars i:nth-child(3){top:14px}
+.sidebar .sb-toggle svg{display:none}
+.sidebar.collapsed .sb-toggle .hexa-bars i{background:#f7fbff}
+.sidebar.collapsed .sb-toggle .hexa-bars i:nth-child(1){transform:translateY(5px) rotate(45deg)}
+.sidebar.collapsed .sb-toggle .hexa-bars i:nth-child(2){opacity:0}
+.sidebar.collapsed .sb-toggle .hexa-bars i:nth-child(3){transform:translateY(-5px) rotate(-45deg)}
+@keyframes hexaOrbit{to{transform:rotate(360deg)}}
+.onex-topbar{background:linear-gradient(145deg,rgba(24,34,58,.88),rgba(8,12,23,.80));border-color:rgba(56,217,255,.20);box-shadow:0 16px 44px rgba(0,0,0,.28),inset 0 1px rgba(255,255,255,.07)}
+.dashboard-hero{padding:20px;border:1px solid rgba(56,217,255,.16);border-radius:22px;background:linear-gradient(145deg,rgba(18,29,50,.82),rgba(7,12,22,.72));box-shadow:0 16px 42px rgba(0,0,0,.25),inset 0 1px rgba(255,255,255,.05)}
+.dashboard-grid{grid-template-columns:minmax(0,1.72fr) minmax(280px,.82fr);gap:16px}
+.dashboard-grid-right{grid-template-rows:auto minmax(230px,1fr);gap:16px}
+.onex-card,.onex-metric,.telegram-card{border-color:rgba(56,217,255,.16);background:linear-gradient(145deg,rgba(18,29,50,.88),rgba(7,12,22,.92));box-shadow:0 16px 42px rgba(0,0,0,.30),inset 0 1px rgba(255,255,255,.05)}
+.onex-card:hover,.onex-metric:hover{border-color:rgba(56,217,255,.34)}
+.onex-control-dock{background:linear-gradient(145deg,rgba(24,34,58,.82),rgba(8,12,23,.72));border-color:rgba(56,217,255,.18)}
+.onex-3d-control .control-icon{background:linear-gradient(145deg,var(--hexa-cyan),var(--hexa-violet))}
+.quick-grid{grid-template-columns:repeat(3,minmax(0,1fr))}
+@media(min-width:901px){.main{transition:margin-right .35s cubic-bezier(.16,1,.3,1)}.main.expanded{margin-right:var(--sb-c)}}
+@media(max-width:900px){
+  .mob-menu-btn{position:relative;overflow:visible;background:linear-gradient(145deg,var(--hexa-cyan),var(--hexa-violet))!important;border-color:rgba(56,217,255,.55)!important}
+  .mob-menu-btn .mobile-bars{position:relative;width:22px;height:22px;display:block}
+  .mob-menu-btn .mobile-bars i{position:absolute;left:1px;right:1px;height:2.5px;border-radius:3px;background:#081326;transition:transform .5s cubic-bezier(.16,1,.3,1),opacity .2s}
+  .mob-menu-btn .mobile-bars i:nth-child(1){top:5px}.mob-menu-btn .mobile-bars i:nth-child(2){top:10px}.mob-menu-btn .mobile-bars i:nth-child(3){top:15px}
+  .mob-menu-btn.menu-open .mobile-bars i{background:#fff}
+  .mob-menu-btn.menu-open .mobile-bars i:nth-child(1){transform:translateY(5px) rotate(45deg)}
+  .mob-menu-btn.menu-open .mobile-bars i:nth-child(2){opacity:0}
+  .mob-menu-btn.menu-open .mobile-bars i:nth-child(3){transform:translateY(-5px) rotate(-45deg)}
+  .dashboard-grid{grid-template-columns:1fr}.quick-grid{grid-template-columns:1fr}
+}
 
 
 
@@ -9156,7 +9191,7 @@ html.light .onex-topbar-brand{background:#fff;border-color:rgba(37,99,235,.16);b
 
 <div class="mob-bar" id="mobBar">
   <button class="mob-menu-btn" id="mobMenuBtn" aria-label="منو">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
+    <span class="mobile-bars" aria-hidden="true"><i></i><i></i><i></i></span>
   </button>
   <div class="mob-brand onex-approved-mobile"><div class="onex-mobile-mark"><svg class="onex-x-svg onex-x-shadow" viewBox="0 0 100 100" role="img" aria-label="ONEX logo"><defs><linearGradient id="mxa" x1="8" y1="8" x2="90" y2="92" gradientUnits="userSpaceOnUse"><stop stop-color="#2ec9ff"/><stop offset=".48" stop-color="#2376ff"/><stop offset="1" stop-color="#7b42ff"/></linearGradient><linearGradient id="mxb" x1="88" y1="10" x2="22" y2="93" gradientUnits="userSpaceOnUse"><stop stop-color="#6b50ff"/><stop offset=".62" stop-color="#843fff"/><stop offset="1" stop-color="#a855f7"/></linearGradient></defs><path d="M10 12h20l27 29-14 14L10 20z" fill="url(#mxa)"/><path d="M10 88h20l28-30-14-14L10 80z" fill="url(#mxa)"/><path d="M90 12H70L43 41l14 14 33-35z" fill="url(#mxb)"/><path d="M90 88H70L42 58l14-14 34 36z" fill="url(#mxb)"/><path d="M42 42 58 58 50 67 34 50z" fill="#0f5ce7" opacity=".78"/><path d="M58 42 42 58 50 67 66 50z" fill="#7137f0" opacity=".78"/></svg></div><div class="onex-mobile-copy"><div class="onex-brand-word">ONE<span class="x">X</span></div></div></div>
   <div class="mob-status"><i></i><span>آنلاین</span></div>
@@ -9165,7 +9200,7 @@ html.light .onex-topbar-brand{background:#fff;border-color:rgba(37,99,235,.16);b
 
 <aside class="sidebar" id="sidebar">
   <button class="sb-toggle" id="sbToggle" title="Toggle">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+    <span class="hexa-bars" aria-hidden="true"><i></i><i></i><i></i></span>
   </button>
   <div class="sb-logo onex-approved-brand" aria-label="ONEX Panel">
     <div class="onex-sidebar-mark"><svg class="onex-x-svg onex-x-shadow" viewBox="0 0 100 100" role="img" aria-label="ONEX logo"><defs><linearGradient id="sxa" x1="8" y1="8" x2="90" y2="92" gradientUnits="userSpaceOnUse"><stop stop-color="#2ec9ff"/><stop offset=".48" stop-color="#2376ff"/><stop offset="1" stop-color="#7b42ff"/></linearGradient><linearGradient id="sxb" x1="88" y1="10" x2="22" y2="93" gradientUnits="userSpaceOnUse"><stop stop-color="#6b50ff"/><stop offset=".62" stop-color="#843fff"/><stop offset="1" stop-color="#a855f7"/></linearGradient></defs><path d="M10 12h20l27 29-14 14L10 20z" fill="url(#sxa)"/><path d="M10 88h20l28-30-14-14L10 80z" fill="url(#sxa)"/><path d="M90 12H70L43 41l14 14 33-35z" fill="url(#sxb)"/><path d="M90 88H70L42 58l14-14 34 36z" fill="url(#sxb)"/><path d="M42 42 58 58 50 67 34 50z" fill="#0f5ce7" opacity=".78"/><path d="M58 42 42 58 50 67 66 50z" fill="#7137f0" opacity=".78"/></svg></div>
@@ -11828,14 +11863,15 @@ function toggleTheme(){
 
 const sb=document.getElementById('sidebar'),main=document.getElementById('main');
 const mobMenuBtn=document.getElementById('mobMenuBtn'),overlay=document.getElementById('overlay');
-function closeMobileNav(){ if(sb) sb.classList.remove('mobile-open'); if(overlay) overlay.classList.remove('show'); }
-function openMobileNav(){ if(sb) sb.classList.add('mobile-open'); if(overlay) overlay.classList.add('show'); }
+function closeMobileNav(){ if(sb) sb.classList.remove('mobile-open'); if(overlay) overlay.classList.remove('show'); if(mobMenuBtn) mobMenuBtn.classList.remove('menu-open'); }
+function openMobileNav(){ if(sb) sb.classList.add('mobile-open'); if(overlay) overlay.classList.add('show'); if(mobMenuBtn) mobMenuBtn.classList.add('menu-open'); }
 if(mobMenuBtn) mobMenuBtn.onclick=()=>{ if(sb.classList.contains('mobile-open')) closeMobileNav(); else openMobileNav(); };
 if(overlay) overlay.onclick=closeMobileNav;
 
 document.getElementById('sbToggle').onclick=()=>{
   sb.classList.toggle('collapsed');
   main.classList.toggle('expanded',sb.classList.contains('collapsed'));
+  document.getElementById('sbToggle').setAttribute('aria-label',sb.classList.contains('collapsed')?'باز کردن منو':'جمع کردن منو');
   localStorage.setItem('sb_c',sb.classList.contains('collapsed')?'1':'0');
 };
 if(localStorage.getItem('sb_c')==='1'){sb.classList.add('collapsed');main.classList.add('expanded')}
