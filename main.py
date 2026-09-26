@@ -3646,6 +3646,82 @@ async def api_railway_status(request: Request, token=Depends(require_auth)):
     return {"ok": True, "protocol": protocol, "endpoint": railway_endpoint_info(protocol)}
 
 
+async def _probe_protocol_socket(host: str, port: int, timeout: float = 2.5) -> dict:
+    if not host or not port:
+        return {"tested": False, "ok": False, "detail": "endpoint is not configured"}
+    try:
+        _reader, writer = await asyncio.wait_for(asyncio.open_connection(host, port), timeout=timeout)
+        writer.close()
+        await writer.wait_closed()
+        return {"tested": True, "ok": True, "detail": "TCP endpoint accepted a connection"}
+    except Exception as exc:
+        return {"tested": True, "ok": False, "detail": str(exc)[:180]}
+
+
+def _protocol_test_advanced(protocol: str) -> dict:
+    advanced = normalize_advanced_config({"ports": [443]})
+    if protocol in RAILWAY_SUB_PROTOCOLS:
+        advanced["network"]["type"] = "xhttp" if protocol.startswith("xhttp-") else "ws"
+        advanced["network"]["mode"] = protocol.replace("xhttp-", "") if protocol.startswith("xhttp-") else ""
+        advanced["tls"]["mode"] = "tls"
+    elif NATIVE_CORE and protocol in getattr(NATIVE_CORE, "SUPPORTED", ()):
+        advanced["ports"] = [int(getattr(NATIVE_CORE, "DEFAULT_PORTS", {}).get(protocol, 443))]
+        advanced = NATIVE_CORE._effective_advanced({"advanced": advanced}, protocol)  # type: ignore[attr-defined]
+    return advanced
+
+
+@app.post("/api/protocols/test")
+async def test_all_protocols(request: Request, token=Depends(require_auth)):
+    """Generate a real link shape and probe the configured endpoint per protocol."""
+    host = get_host(request)
+    requested = []
+    try:
+        body = await request.json()
+        requested = body.get("protocols", []) if isinstance(body, dict) else []
+    except Exception:
+        pass
+    protocols = [normalize_protocol(str(p)) for p in requested if str(p) in PROTOCOLS] if requested else list(PROTOCOLS)
+    results = []
+    for index, protocol in enumerate(protocols, 1):
+        uid = generate_uuid()
+        advanced = _protocol_test_advanced(protocol)
+        record = {
+            "label": f"ONEX TEST {protocol}", "protocol": protocol, "active": True,
+            "advanced": advanced, "port": (advanced.get("ports") or [443])[0],
+            "fingerprint": "chrome", "alpn": DEFAULT_ALPN_BY_PROTOCOL.get(protocol, "http/1.1"),
+            "all_protocols": False, "config_count": 1, "limit_bytes": 0, "used_bytes": 0,
+            "ip_limit": 0, "connection_limit": 0, "speed_limit_bytes": 0,
+            "fragment": "off", "clean_ips": [], "category_id": "0",
+        }
+        native = bool(NATIVE_CORE and protocol in getattr(NATIVE_CORE, "SUPPORTED", ()))
+        item = {"index": index, "protocol": protocol, "label": PROTOCOL_LABELS.get(protocol, protocol), "backend": "native" if native else "relay"}
+        try:
+            link = vless_link_for_link(record, uid, host)
+            item["link"] = link
+            item["link_ok"] = bool(link and "://" in link)
+        except Exception as exc:
+            item["link_ok"] = False
+            item["link_error"] = str(exc)[:180]
+        if native:
+            try:
+                errors = NATIVE_CORE._validate_advanced_for_protocol(record, protocol)  # type: ignore[attr-defined]
+                item["config_ok"] = not errors
+                if errors: item["config_errors"] = errors
+            except Exception as exc:
+                item["config_ok"] = False
+                item["config_errors"] = [str(exc)[:180]]
+        else:
+            item["config_ok"] = True
+            item["endpoint"] = railway_endpoint_info(protocol)
+        endpoint = item.get("endpoint") or {}
+        probe_host = endpoint.get("domain") if not native else host
+        probe_port = 443 if not native else int(record["port"])
+        item["connection"] = await _probe_protocol_socket(probe_host, probe_port)
+        item["ok"] = bool(item.get("link_ok") and item.get("config_ok"))
+        results.append(item)
+    return {"ok": all(x["ok"] for x in results), "tested": len(results), "results": results, "host": host}
+
+
 def _advanced_validation_errors(advanced: dict, protocol: str) -> list[str]:
     errors = []
     a = normalize_advanced_config(advanced)
@@ -9805,10 +9881,12 @@ Cache-Control: no-cache"></textarea></div>
         <div class="advanced-preview" id="advancedPreviewBox" hidden><div class="advanced-preview-head"><b>Config Preview</b><button type="button" class="btn btn-sm" onclick="copyAdvancedPreview()">کپی</button></div><pre id="advancedPreviewCode"></pre></div>
         <div class="advanced-actions">
           <button type="button" class="btn btn-p" onclick="validateAdvancedConfig(true)">✓ اعتبارسنجی و پیش‌نمایش</button>
+          <button type="button" class="btn" onclick="testAllProtocols()">🧪 تست خودکار همه پروتکل‌ها</button>
           <button type="button" class="btn" onclick="saveAdvancedDraft()">💾 ذخیره تنظیمات</button>
           <button type="button" class="btn" onclick="resetAdvancedConfig()">↺ بازنشانی</button>
           <button type="button" class="btn" onclick="copyAdvancedJson()">{ } کپی JSON</button>
         </div>
+        <div id="protocolTestResults" class="advanced-preview" hidden><div class="advanced-preview-head"><b>Protocol Test Results</b><button type="button" class="btn btn-sm" onclick="copyProtocolTestResults()">کپی</button></div><pre id="protocolTestCode"></pre></div>
       </div>
     </div>
 
@@ -12665,6 +12743,22 @@ function resetAdvancedConfig(){fillAdvancedForm({ports:[Number(document.getEleme
 function saveAdvancedDraft(){try{localStorage.setItem('onex_advanced_draft',JSON.stringify(advancedFormObject()));toast(lang==='fa'?'تنظیمات ذخیره شد':'Settings saved')}catch(e){toast(lang==='fa'?'ذخیره انجام نشد':'Save failed')}}
 function loadAdvancedDraft(){try{const raw=localStorage.getItem('onex_advanced_draft');if(raw)fillAdvancedForm(JSON.parse(raw));else if(!getAdvancedPorts().length)fillAdvancedForm({ports:[Number(document.getElementById('cPort')?.value)||443]})}catch(e){fillAdvancedForm({ports:[443]})}}
 function copyAdvancedJson(){copyText(JSON.stringify(advancedFormObject(),null,2))}
+let __protocolTestResults = null;
+async function testAllProtocols(){
+  const box=document.getElementById('protocolTestResults'),pre=document.getElementById('protocolTestCode');
+  if(!box||!pre)return;
+  box.hidden=false;pre.textContent=lang==='fa'?'در حال ساخت لینک و تست اتصال همه پروتکل‌ها...':'Generating links and probing every protocol...';
+  const r=await api('/api/protocols/test',{method:'POST',headers:{'Content-Type':'application/json'},body:'{}'});
+  if(!r){pre.textContent=lang==='fa'?'تست اجرا نشد':'Test failed';return}
+  __protocolTestResults=r;
+  const rows=(r.results||[]).map(x=>{
+    const link=x.link?`\n  ${x.link}`:'';
+    const conn=x.connection?.tested?(x.connection.ok?'اتصال TCP موفق':'اتصال TCP ناموفق'): 'اتصال بررسی نشد';
+    return `${x.index}. ${x.label} [${x.backend}] · لینک ${x.link_ok?'OK':'FAIL'} · تنظیمات ${x.config_ok?'OK':'FAIL'} · ${conn}${link}`;
+  }).join('\n\n');
+  pre.textContent=`${r.ok?'✓':'⚠'} ${lang==='fa'?'تعداد تست':'Tests'}: ${r.tested}\n\n${rows}`;
+}
+function copyProtocolTestResults(){if(__protocolTestResults)copyText(JSON.stringify(__protocolTestResults,null,2))}
 let __advancedPreview = null;
 function setAdvancedValidation(kind, html){const el=document.getElementById('advancedValidationStatus');if(!el)return;el.className='advanced-validation-status '+kind;el.innerHTML=html;}
 async function validateAdvancedConfig(showPreview=false){const protocol=document.getElementById('cProto')?.value||'';const advanced=advancedFormObject();setAdvancedValidation('warn',lang==='fa'?'در حال اعتبارسنجی...':'Validating...');const r=await api('/api/advanced/validate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({protocol,advanced})});if(!r){setAdvancedValidation('err',lang==='fa'?'اعتبارسنجی انجام نشد':'Validation failed');return false}const parts=[];if(r.ok)parts.push('✓ '+(lang==='fa'?'تنظیمات معتبر است':'Configuration is valid'));if(r.native)parts.push('• '+(lang==='fa'?'Native sing-box فعال است':'Native sing-box is available'));(r.warnings||[]).forEach(x=>parts.push('⚠ '+esc(x)));(r.errors||[]).forEach(x=>parts.push('✕ '+esc(x)));setAdvancedValidation(r.ok?(r.warnings?.length?'warn':'ok'):'err',parts.join('<br>'));__advancedPreview=r.preview||null;const box=document.getElementById('advancedPreviewBox'),pre=document.getElementById('advancedPreviewCode');if(box&&pre){box.hidden=!showPreview||!__advancedPreview;if(__advancedPreview)pre.textContent=JSON.stringify(__advancedPreview,null,2)}await loadAdvancedCapabilities(protocol);return !!r.ok}
