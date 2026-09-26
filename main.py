@@ -9700,6 +9700,44 @@ html:not(.light) #htmlRoot .page .metric strong,html:not(.light) #htmlRoot .page
 .create-edit-actions{display:flex;gap:8px;align-items:center}.config-edit-banner{display:flex;align-items:center;gap:10px;margin:0 0 12px;padding:11px 13px;border:1px solid rgba(255,71,120,.28);border-radius:15px;background:linear-gradient(135deg,rgba(255,31,92,.10),rgba(37,99,235,.08));color:#dcecff}.config-edit-banner-icon{width:34px;height:34px;display:grid;place-items:center;border-radius:10px;background:rgba(255,71,120,.12);border:1px solid rgba(255,71,120,.24);color:#ff7092;font-size:16px}.config-edit-banner div{min-width:0;display:flex;flex-direction:column;gap:2px}.config-edit-banner b{font-size:11px;color:#fff}.config-edit-banner small{font-size:9px;color:#ff9ab0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:48vw}.config-edit-banner-hint{margin-right:auto;color:var(--t3);font-size:8px}@media(max-width:560px){.config-edit-banner{align-items:flex-start}.config-edit-banner-hint{display:none}.create-edit-actions{margin-top:2px}.create-edit-actions .btn{font-size:9px;height:36px;padding:0 10px}}
 .create-flow{display:grid;gap:14px;margin-bottom:16px}.create-target{display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:6px;background:rgba(37,99,235,.06);border:1px solid rgba(96,165,250,.16);border-radius:16px}.create-target button{min-height:54px;border:1px solid transparent;border-radius:12px;background:transparent;color:var(--t2);text-align:right;padding:8px 12px;cursor:pointer}.create-target button.active{background:rgba(37,99,235,.16);border-color:rgba(56,189,248,.42);color:var(--t1);box-shadow:0 5px 18px rgba(37,99,235,.12)}.create-target b,.create-target small{display:block}.create-target b{font-size:12px}.create-target small{font-size:9px;margin-top:4px;color:var(--t3)}.manual-lab{padding:13px;border:1px solid rgba(96,165,250,.15);border-radius:16px;background:rgba(5,17,38,.24)}.manual-lab-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px}.manual-lab-head b{font-size:11px}.manual-lab-head small{font-size:9px;color:var(--t3)}.manual-fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.manual-fields .field{margin:0}.manual-fields .wide{grid-column:1/-1}.manual-fields[hidden]{display:none}.protocol-specific-empty{font-size:10px;line-height:1.7;color:var(--t3);padding:10px 0}.create-status-line{display:flex;gap:8px;align-items:center;margin:10px 0 0;font-size:10px;color:var(--t3)}.create-status-dot{width:8px;height:8px;border-radius:50%;background:#22c55e;box-shadow:0 0 0 4px rgba(34,197,94,.12)}@media(max-width:700px){.manual-fields{grid-template-columns:1fr}.manual-fields .wide{grid-column:auto}}
 .matrix-builder .matrix-brand{font:900 18px/1 Inter,system-ui,sans-serif;letter-spacing:.04em;color:#f3f6fb;margin-bottom:14px}.matrix-builder .matrix-brand span{color:#ff4f8b;font-size:11px;margin-right:6px}
+/* Matrix Studio mobile/light-theme hardening: keep the approved preview readable
+   even when legacy global form rules load after the component styles. */
+html .matrix-builder,html .matrix-builder *{box-sizing:border-box}
+html .matrix-builder{display:block!important;width:100%!important;max-width:1240px!important;margin:0 auto!important;padding:14px 10px 44px!important;overflow:visible!important;color:#f3f6fb!important}
+html .matrix-builder .matrix-layout{display:grid!important;grid-template-columns:minmax(0,1fr) 320px!important;gap:15px!important;align-items:start!important}
+html .matrix-builder .matrix-panel{display:block!important;min-width:0!important;overflow:visible!important}
+html .matrix-builder .matrix-infra{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:7px!important}
+html .matrix-builder .matrix-infra button{display:block!important;width:100%!important;min-width:0!important;border:0!important;background:transparent!important;color:#9eabc0!important;line-height:1.35!important}
+html .matrix-builder .matrix-infra button.active{background:#2b3859!important;color:#fff!important}
+html .matrix-builder .matrix-protos{display:grid!important;grid-template-columns:repeat(3,minmax(0,1fr))!important;gap:8px!important}
+html .matrix-builder .matrix-proto{display:block!important;width:100%!important;min-width:0!important;overflow:hidden!important;line-height:1.35!important}
+html .matrix-builder .matrix-fields{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:10px!important}
+html .matrix-builder .matrix-field{display:block!important;min-width:0!important;width:100%!important;margin:0!important}
+html .matrix-builder .matrix-field label{display:block!important;width:100%!important;height:auto!important;margin:0 0 6px!important;color:#d0d9e7!important;font-size:10px!important;font-weight:900!important;line-height:1.6!important;white-space:normal!important}
+html .matrix-builder .matrix-input{display:block!important;width:100%!important;max-width:100%!important;height:41px!important;margin:0!important;padding:0 10px!important;border:1px solid #2d3b56!important;border-radius:10px!important;background:#0f1728!important;color:#f3f6fb!important;font:500 12px/41px Vazirmatn,system-ui,sans-serif!important;outline:0!important}
+html.light .matrix-builder{color:#0f172a!important}
+html.light .matrix-builder .matrix-panel{background:#fff!important;border-color:#d7deea!important;box-shadow:0 12px 35px rgba(15,23,42,.08)!important}
+html.light .matrix-builder .matrix-infra{background:#eef3fb!important;border-color:#d7deea!important}
+html.light .matrix-builder .matrix-infra button{color:#475569!important}
+html.light .matrix-builder .matrix-infra button.active{background:#cbdcf8!important;color:#0f172a!important}
+html.light .matrix-builder .matrix-proto{background:#f8fafc!important;color:#0f172a!important;border-color:#cbd5e1!important}
+html.light .matrix-builder .matrix-proto small,html.light .matrix-builder .matrix-head p,html.light .matrix-builder .matrix-manual-head small{color:#475569!important}
+html.light .matrix-builder .matrix-field label{color:#1e293b!important}
+html.light .matrix-builder .matrix-input{background:#fff!important;color:#0f172a!important;border-color:#cbd5e1!important}
+html.light .matrix-builder .matrix-manual{background:#f8fafc!important;border-color:#c7d2fe!important}
+@media(max-width:780px){
+  html .matrix-builder{padding:10px 8px 36px!important}
+  html .matrix-builder .matrix-layout{display:block!important}
+  html .matrix-builder .matrix-side{position:static!important;margin-top:13px!important}
+  html .matrix-builder .matrix-main{padding:14px!important}
+  html .matrix-builder .matrix-protos{grid-template-columns:repeat(2,minmax(0,1fr))!important}
+  html .matrix-builder .matrix-fields{grid-template-columns:1fr!important}
+  html .matrix-builder .matrix-brand{font-size:16px!important;text-align:center!important}
+  html .matrix-builder .matrix-head h2{font-size:20px!important;line-height:1.5!important}
+  html .matrix-builder .matrix-head p{font-size:11px!important;line-height:1.9!important}
+  html .matrix-builder .matrix-proto{min-height:92px!important}
+  html .matrix-builder .matrix-actions{display:grid!important;grid-template-columns:1fr!important}
+}
 </style>
 <section class="page" id="page-create">
         <div class="matrix-builder" aria-label="ONEX Config Matrix Studio">
