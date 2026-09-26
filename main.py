@@ -9358,10 +9358,16 @@ html.light .onex-topbar-brand{background:#fff;border-color:rgba(37,99,235,.16);b
 /* ONEX 1.3.9: static panel mode for smooth performance in both themes. */
 html,html *,html *::before,html *::after{animation:none!important;transition:none!important;scroll-behavior:auto!important}
 #onexDashScene,.onex-control-dock:before,.onex-3d-control:after{display:none!important}
-html.light .page,#page-dash{color:#0f172a}
+html.light .page,html.light #page-dash{color:#0f172a!important}
+html:not(.light) .page,html:not(.light) #page-dash{color:#eff7ff!important}
 html.light .page .page-title,html.light .page .card-title,html.light .page .metric-val,html.light .page .quick-name,html.light .page .onex-card-title,html.light .page .info-row span:last-child,html.light .page .recent-table td{color:#0f172a!important}
 html.light .page .page-sub,html.light .page .metric-label,html.light .page .quick-desc,html.light .page .health-name,html.light .page .health-pct,html.light .page .info-row span:first-child,html.light .page .recent-table th{color:#475569!important}
 html.light .page .hero,html.light .page .dock,html.light .page .metrics,html.light .page .onex-card,html.light .page .onex-metric,html.light .page .table-wrap,html.light .page .recent-table,html.light .page .onex-control-dock{background:#fff!important;color:#0f172a!important}
+html.light #page-dash .hero,html.light #page-dash .dock,html.light #page-dash .metrics,html.light #page-dash .metric,html.light #page-dash .chart,html.light #page-dash .health,html.light #page-dash .telegram,html.light #page-dash .info,html.light #page-dash .quick,html.light #page-dash .recent{background:#fff!important;color:#0f172a!important}
+html.light #page-dash .hero h1,html.light #page-dash .hero p,html.light #page-dash .hero .version,html.light #page-dash .head h2,html.light #page-dash .healthrow label,html.light #page-dash .metric label,html.light #page-dash .metric strong,html.light #page-dash .metric small,html.light #page-dash .quick-name,html.light #page-dash .quick-desc,html.light #page-dash .info-row,html.light #page-dash .recent-table td,html.light #page-dash .onex-3d-control .control-title{color:#0f172a!important}
+html.light #page-dash .hero .hero-sub,html.light #page-dash .onex-3d-control .control-sub,html.light #page-dash .healthrow label,html.light #page-dash .quick-desc,html.light #page-dash .info-row span:first-child,html.light #page-dash .recent-table th{color:#475569!important}
+html.light #page-dash .onex-3d-control{background:#fff!important;color:#0f172a!important;border-color:rgba(15,23,42,.12)!important;box-shadow:0 6px 16px rgba(15,23,42,.08)!important}
+html.light #page-dash .version{background:#f8fafc!important;color:#0f172a!important}
 html.light .page input,html.light .page select,html.light .page textarea{color:#0f172a!important;background:#fff!important}
 .update-error{padding:14px;border:1px solid rgba(239,68,68,.28);border-radius:12px;color:#b91c1c;background:rgba(239,68,68,.07);line-height:1.8}
 html:not(.light) .update-error{color:#fecaca;background:rgba(239,68,68,.10)}
