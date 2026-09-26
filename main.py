@@ -9193,6 +9193,42 @@ html.light .onex-topbar-brand{background:#fff;border-color:rgba(37,99,235,.16);b
   .onex-mobile-copy .onex-brand-word{font-size:16px!important}
 }
 
+
+/* Exact Hexa interactive preview styles */
+
+/* Credit line — bottom-right */
+.design-ui-credit {
+  position: fixed;
+  bottom: 12px;
+  right: 12px;
+  font: 11px/1 system-ui, sans-serif;
+  color: rgba(128,128,128,0.5);
+  pointer-events: none;
+  z-index: 2147483647;
+  transition: opacity 0.4s ease;
+  user-select: none;
+  letter-spacing: 0.02em;
+}
+
+/* Hide chrome on touch devices */
+@media (hover: none) {
+  .design-ui-credit { display: none; }
+}
+
+/* Print fixes */
+@media print {
+  * {
+    transition: none !important;
+    animation: none !important;
+    box-shadow: none !important;
+  }
+  body {
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+  }
+  .design-ui-credit { display: none !important; }
+}
+
 </style>
 </head>
 <body>
@@ -9317,74 +9353,17 @@ html.light .onex-topbar-brand{background:#fff;border-color:rgba(37,99,235,.16);b
   </button>
 </div>
 <section class="page on" id="page-dash">
-  <div class="dashboard-hero">
-    <div class="hero-main">
-      <div class="hero-title">خوش آمدید به <span>ONEX</span></div>
-      <div class="hero-sub" id="lastUpd" data-i18n="loading">در حال بارگذاری...</div>
-    </div>
-    <div class="hero-version-strip" aria-label="Panel version information">
-      <div class="version-mini-card">
-        <span class="version-mini-icon">▰</span>
-        <span class="version-mini-copy"><b data-i18n="panel_version">نسخه پنل</b><strong id="panelVersionValue">v__ONEX_VERSION__</strong></span>
-        <i class="version-live-dot"></i>
-      </div>
-      <div class="version-mini-card">
-        <span class="version-mini-icon">↻</span>
-        <span class="version-mini-copy"><b data-i18n="current_version">ورژن فعلی</b><strong id="currentVersionValue">v__ONEX_VERSION__</strong></span>
-        <i class="version-live-dot"></i>
-      </div>
-    </div>
-    <div class="hero-actions">
-      <button class="btn btn-p btn-sm" onclick="goPage('create')">＋ ساخت کانفیگ</button>
-      <button class="btn btn-sm" onclick="refreshAll()">↻ بروزرسانی</button>
-    </div>
-  </div>
-
-  <div class="onex-metrics">
-    <div class="onex-metric"><div class="metric-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg></div><div class="metric-label">اتصالات فعال</div><div class="metric-val" id="mConns">—</div><div class="metric-trend">LIVE</div></div>
-    <div class="onex-metric"><div class="metric-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 20V10M18 20V4M6 20v-4"/><path d="M3 20h18"/></svg></div><div class="metric-label">ترافیک مصرف‌شده</div><div class="metric-val" id="mTraffic">—</div><div class="metric-trend">↑ REALTIME</div></div>
-    <div class="onex-metric"><div class="metric-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M6 2h9l5 5v15H6z"/><path d="M14 2v6h6"/><path d="M9 13h6M9 17h6"/></svg></div><div class="metric-label">کانفیگ‌ها</div><div class="metric-val" id="mLinks">—</div><div class="metric-trend">ACTIVE</div></div>
-    <div class="onex-metric"><div class="metric-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></div><div class="metric-label">آپتایم سرور</div><div class="metric-val" id="mUptime" style="font-size:17px">—</div><div class="metric-trend">STABLE</div></div>
-  </div>
-
-  <div class="dashboard-grid">
-    <div>
-      <div class="onex-card">
-        <div class="onex-card-head"><div class="onex-card-title"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 3v18h18"/><path d="M7 16l4-8 4 4 5-6"/></svg>نمودار مصرف ترافیک</div><div class="range-mini"><button class="on">امروز</button><button>هفته</button><button>ماه</button><button>کل</button></div></div>
-        <div class="chart-wrap">
-          <div class="chart-badge">ترافیک زنده · <b id="chartTraffic">—</b></div>
-          <svg class="traffic-svg" viewBox="0 0 900 270" preserveAspectRatio="none" aria-label="Traffic chart">
-            <defs><linearGradient id="trafficFill" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#20c8ff" stop-opacity=".34"/><stop offset="1" stop-color="#2563eb" stop-opacity="0"/></linearGradient></defs>
-            <path class="chart-grid-line" d="M20 45H880M20 95H880M20 145H880M20 195H880M20 245H880"/>
-            <path class="chart-fill" d="M20 220 C80 190 105 215 155 175 S240 115 290 155 S375 105 420 132 S505 65 555 100 S630 150 680 108 S750 82 800 115 S845 65 880 90 L880 245 L20 245Z"/>
-            <path class="chart-line" d="M20 220 C80 190 105 215 155 175 S240 115 290 155 S375 105 420 132 S505 65 555 100 S630 150 680 108 S750 82 800 115 S845 65 880 90"/>
-            <circle class="chart-dot" cx="555" cy="100" r="5"/><circle class="chart-dot" cx="800" cy="115" r="5"/><circle class="chart-dot" cx="880" cy="90" r="5"/>
-          </svg>
-          <div class="chart-labels"><span>00:00</span><span>04:00</span><span>08:00</span><span>12:00</span><span>16:00</span><span>20:00</span><span>24:00</span></div>
-        </div>
-      </div>
-      <div class="onex-card" style="margin-top:14px"><div class="onex-card-head"><div class="onex-card-title">⚡ عملیات سریع</div></div><div class="onex-card-body"><div class="quick-grid">
-        <div class="quick-item" onclick="goPage('create')"><div class="quick-icon">＋</div><div><div class="quick-name">ساخت کانفیگ</div><div class="quick-desc">ایجاد کانفیگ جدید</div></div></div>
-        <div class="quick-item" onclick="goPage('configs')"><div class="quick-icon">☷</div><div><div class="quick-name">مدیریت کانفیگ‌ها</div><div class="quick-desc">مشاهده و ویرایش</div></div></div>
-        <div class="quick-item" onclick="goPage('telegram')"><div class="quick-icon">➤</div><div><div class="quick-name">ربات ONEX</div><div class="quick-desc">مدیریت ربات</div></div></div>
-      </div></div></div>
-      <div class="onex-card recent-card"><div class="onex-card-head"><div class="onex-card-title">▣ کانفیگ‌های اخیر</div><button class="btn btn-sm" onclick="goPage('configs')">مشاهده همه ←</button></div><div class="onex-card-body" style="padding:0"><div style="overflow-x:auto"><table class="recent-table"><thead><tr><th>نام کانفیگ</th><th>پروتکل</th><th>مصرف</th><th>وضعیت</th><th>عملیات</th></tr></thead><tbody id="onexRecentBody"><tr><td colspan="5" style="text-align:center;color:var(--t3);padding:24px">در حال بارگذاری...</td></tr></tbody></table></div></div></div>
-    </div>
-    <div class="dashboard-grid-right">
-      <div class="onex-card"><div class="onex-card-head"><div class="onex-card-title">◉ وضعیت سرور</div><span style="color:#34d399;font-size:10px;font-weight:800"><span class="xray-dot"></span>فعال</span></div><div class="onex-card-body"><div class="health-list">
-        <div class="health-row"><div class="health-icon">CPU</div><div><div class="health-name">CPU</div><div class="health-track"><div class="health-fill" style="--w:32%"></div></div></div><div class="health-pct">32%</div></div>
-        <div class="health-row"><div class="health-icon">RAM</div><div><div class="health-name">RAM</div><div class="health-track"><div class="health-fill" style="--w:56%"></div></div></div><div class="health-pct">56%</div></div>
-        <div class="health-row"><div class="health-icon">SSD</div><div><div class="health-name">Disk</div><div class="health-track"><div class="health-fill" style="--w:48%"></div></div></div><div class="health-pct">48%</div></div>
-        <div class="health-row"><div class="health-icon">NET</div><div><div class="health-name">Network</div><div class="health-track"><div class="health-fill" style="--w:72%"></div></div></div><div class="health-pct">72%</div></div>
-        <div class="xray-state"><span>Xray Core</span><span><span class="xray-dot"></span>Running</span></div>
-      </div></div></div>
-      <div class="telegram-card"><div><div class="tg-orbit"><div class="tg-logo"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M21.5 3.5 18.2 20c-.25 1.17-.9 1.45-1.83.9l-5.05-3.72-2.43 2.34c-.27.27-.5.5-1.02.5l.37-5.23 9.52-8.6c.41-.37-.09-.58-.64-.21L5.35 13.2.43 11.66c-1.07-.33-1.09-1.07.22-1.58L19.9 2.52c.91-.34 1.71.21 1.6.98Z"/></svg></div></div><div class="tg-title">کانال رسمی ONEX</div><div class="tg-handle">@V2rayTun0</div><div class="tg-desc">اطلاعیه‌ها، نسخه‌های جدید و پشتیبانی مستقیم</div></div><a class="tg-btn" href="https://t.me/V2rayTun0" target="_blank" rel="noopener">➤ عضویت در کانال</a></div>
-      <div class="onex-card"><div class="onex-card-head"><div class="onex-card-title">▤ اطلاعات سرور</div></div><div class="onex-card-body"><div class="server-info"><div class="info-row"><span>IP سرور</span><span id="serverIp">—</span></div><div class="info-row"><span>کشور</span><span>—</span></div><div class="info-row"><span>نوع سرور</span><span>VPS</span></div><div class="info-row"><span>شروع سرویس</span><span>ONEX</span></div><div class="info-row"><span>نسخه Xray</span><span>—</span></div></div></div></div>
-    </div>
-  </div>
+<div class="grid"><section class="hero glass area"><h1>خوش آمدی به <span>ONEX</span>، haj</h1><p>آخرین بروزرسانی <b class="mono" id="lastUpd">--:--:--</b></p><div class="versions"><div class="version">نسخه پنل <b>v1.3.1</b></div><div class="version">هسته <b>sing-box 1.11</b></div></div><div class="alert">⚠ <span><b>۲ کانفیگ</b> تا ۴۸ ساعت دیگه تموم می‌شن</span><button>تمدید همه</button></div><div class="actions"><button class="primary">＋ ساخت کانفیگ</button><button id="heroRefresh">↻ بروزرسانی</button></div></section>
+<section class="dock glass area"><button><span class="icon">◐</span><span><strong>تم روشن</strong><small>THEME CONTROL</small></span></button><button><span class="icon">↻</span><span><strong>بروزرسانی آمار</strong><small>LIVE STATISTICS</small></span></button><button><span class="icon">⇩</span><span><strong>بروزرسانی پنل</strong><small>PANEL UPDATE</small></span></button></section>
+<section class="metrics glass area"><div class="metric"><label>اتصالات فعال</label><strong id="metricConnections">128</strong><small>+12 نسبت به ساعت قبل</small></div><div class="metric"><label>ترافیک مصرف‌شده</label><strong>322.5 <small>GB</small></strong><small>امروز</small></div><div class="metric"><label>کانفیگ‌ها</label><strong>41 <small>/ 48</small></strong><small>۷ غیرفعال</small></div><div class="metric"><label>آپتایم سرور</label><strong>12d <small>04:17</small></strong><small>بدون قطعی</small></div></section>
+<section class="chart glass area"><div class="head"><h2>نمودار مصرف ترافیک</h2><div class="range"><button class="active">روز</button><button>هفته</button><button>ماه</button><button>کل</button></div></div><canvas id="traffic"></canvas></section>
+<section class="health glass area"><div class="head"><h2>وضعیت سرور</h2><span class="mono" style="font-size:10px;color:var(--ok)">NATIVE CORE</span></div><div class="rows"><div class="healthrow"><span class="tag">CPU</span><div><label>پردازنده</label><div class="track"><i style="--w:32%"></i></div></div><b>32%</b></div><div class="healthrow"><span class="tag">RAM</span><div><label>حافظه</label><div class="track"><i style="--w:56%"></i></div></div><b>56%</b></div><div class="healthrow"><span class="tag">SSD</span><div><label>دیسک</label><div class="track"><i style="--w:48%"></i></div></div><b>48%</b></div><div class="healthrow"><span class="tag">NET</span><div><label>شبکه</label><div class="track"><i style="--w:72%"></i></div></div><b>72%</b></div></div></section>
+<section class="telegram glass area"><div><div class="tgmark">➤</div><h3>کانال رسمی ONEX</h3><p>اطلاعیه‌ها، نسخه‌های جدید و پشتیبانی مستقیم</p></div><a href="https://t.me/V2rayTun0" target="_blank">عضویت در کانال · @V2rayTun0</a></section>
+<section class="recent glass area"><div class="head"><h2>کانفیگ‌های اخیر</h2><button>مشاهده همه ←</button></div><div class="table"><div class="tr headrow"><span>نام</span><span>پروتکل</span><span>مصرف</span><span>انقضا</span><span></span></div><div class="tr"><b>Ali-Home</b><span class="proto">VLESS Reality</span><div class="usage"><span class="mono">42.6 / 100 GB</span><div class="bar"><i style="--w:43%"></i></div></div><span>۱۸ روز</span><span class="dot"></span></div><div class="tr"><b>Mobile-Sara</b><span class="proto">Trojan</span><div class="usage"><span class="mono">49.1 / 50 GB</span><div class="bar"><i style="--w:98%;background:var(--warn)"></i></div></div><span style="color:var(--warn)">۲ روز</span><span class="dot" style="background:var(--warn);box-shadow:0 0 10px var(--warn)"></span></div><div class="tr"><b>Edge-XHTTP</b><span class="proto">ONEX XHTTP</span><div class="usage"><span class="mono">71.4 / 80 GB</span><div class="bar"><i style="--w:89%;background:var(--warn)"></i></div></div><span style="color:var(--warn)">۱ روز</span><span class="dot" style="background:var(--warn);box-shadow:0 0 10px var(--warn)"></span></div><div class="tr"><b>Stream-4K</b><span class="proto">ONEX Stream</span><div class="usage"><span class="mono">310 / 500 GB</span><div class="bar"><i style="--w:62%"></i></div></div><span>۲۴ روز</span><span class="dot"></span></div></div></section>
+<section class="quick glass area"><div class="head"><h2>عملیات سریع</h2></div><div class="quicklist"><button class="quickitem"><span class="icon">＋</span><span>ساخت کانفیگ<br><small style="color:var(--dim)">ایجاد کانفیگ جدید</small></span></button><button class="quickitem"><span class="icon">☷</span><span>مدیریت کانفیگ‌ها<br><small style="color:var(--dim)">مشاهده و ویرایش</small></span></button><button class="quickitem"><span class="icon">➤</span><span>ربات ONEX<br><small style="color:var(--dim)">مدیریت ربات</small></span></button></div></section>
+<section class="info glass area"><div class="head"><h2>اطلاعات سرور</h2></div><dl class="kv"><dt>IP سرور</dt><dd>185.231.xx.14</dd><dt>دامنه</dt><dd>onex-prod.up.railway.app</dd><dt>هسته</dt><dd>sing-box 1.11.4</dd><dt>منطقه</dt><dd>eu-west</dd></dl></section></div>
   <div class="onex-footer"><span><b>Fast · Secure · Stable</b></span><span>ساخته‌شده توسط <b>Mehtif</b> · کانال رسمی <b>@V2rayTun0</b></span></div>
 </section>
-
 <section class="page" id="page-configs">
   <div class="cfg-page-hero"><div><div class="page-title"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71 1.71"/></svg><span data-i18n="nav_configs">کانفیگ‌ها</span></div><div class="page-sub" data-i18n="configs_sub">مدیریت و مشاهده لیست کانفیگ‌های سرویس</div></div><div class="cfg-hero-actions"><button class="btn btn-sm" onclick="refreshAll()" title="بروزرسانی">↻</button><button class="cfg-primary-btn" onclick="goPage('create')">＋ ساخت کانفیگ</button></div></div>
   <div class="cfg-stat-grid"><div class="cfg-stat-card cyan"><span class="cfg-stat-icon">▱</span><div><small>کل کانفیگ‌ها</small><b id="cfgStatTotal">0</b></div></div><div class="cfg-stat-card purple"><span class="cfg-stat-icon">◉</span><div><small>مصرف شده</small><b id="cfgStatUsed">0 B</b></div></div><div class="cfg-stat-card blue"><span class="cfg-stat-icon">♧</span><div><small>فعال</small><b id="cfgStatActive">0</b></div></div><div class="cfg-stat-card pink"><span class="cfg-stat-icon">⌫</span><div><small>منقضی شده</small><b id="cfgStatExpired">0</b></div></div></div>
@@ -11877,6 +11856,18 @@ function toggleTheme(){
   setTheme(isLight?'dark':'light');
 }
 (function(){const th=localStorage.getItem('px_theme')||'dark';setTheme(th)})();
+
+
+/* Exact Hexa dashboard interactions */
+(function(){
+  const dash=document.getElementById('page-dash');
+  if(!dash)return;
+  const cv=dash.querySelector('#traffic'),ctx=cv&&cv.getContext('2d');
+  function resize(){if(!cv||!ctx)return;const r=cv.getBoundingClientRect(),d=devicePixelRatio||1;cv.width=r.width*d;cv.height=r.height*d;ctx.setTransform(d,0,0,d,0,0);draw()}
+  function draw(){if(!ctx)return;const r=cv.getBoundingClientRect(),w=r.width,h=r.height;ctx.clearRect(0,0,w,h);const p=getComputedStyle(document.documentElement).getPropertyValue('--accent')||'#38d9ff';ctx.strokeStyle='rgba(255,255,255,.08)';ctx.lineWidth=1;for(let y=20;y<h;y+=45){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(w,y);ctx.stroke()}const pts=[];for(let i=0;i<28;i++)pts.push([i/27*w,h-25-(35+Math.sin(i*.65)*20+Math.random()*45)*(h/220)]);let g=ctx.createLinearGradient(0,0,0,h);g.addColorStop(0,p+'80');g.addColorStop(1,p+'00');ctx.beginPath();pts.forEach((v,i)=>i?ctx.lineTo(v[0],v[1]):ctx.moveTo(v[0],v[1]));ctx.lineTo(w,h);ctx.lineTo(0,h);ctx.closePath();ctx.fillStyle=g;ctx.fill();ctx.beginPath();pts.forEach((v,i)=>i?ctx.lineTo(v[0],v[1]):ctx.moveTo(v[0],v[1]));ctx.strokeStyle=p;ctx.lineWidth=2.5;ctx.stroke()}
+  if(cv){addEventListener('resize',resize);setTimeout(resize,120)}
+  dash.querySelectorAll('.range button').forEach(b=>b.addEventListener('click',()=>{dash.querySelectorAll('.range button').forEach(x=>x.classList.remove('active'));b.classList.add('active');draw()}));
+})();
 
 const sb=document.getElementById('sidebar'),main=document.getElementById('main');
 const mobMenuBtn=document.getElementById('mobMenuBtn'),overlay=document.getElementById('overlay');
