@@ -8342,6 +8342,15 @@ html.light #page-logs .logs-detail-head>button{background:#fff}
 .onex-control-dock{background:linear-gradient(145deg,rgba(24,34,58,.82),rgba(8,12,23,.72));border-color:rgba(56,217,255,.18)}
 .onex-3d-control .control-icon{background:linear-gradient(145deg,var(--hexa-cyan),var(--hexa-violet))}
 .quick-grid{grid-template-columns:repeat(3,minmax(0,1fr))}
+.hexa-swatches{display:flex;align-items:center;gap:7px;padding:0 6px}
+.hexa-swatches button{width:18px;height:18px;border:0;border-radius:50%;padding:0;background:linear-gradient(135deg,var(--sw-p),var(--sw-s));box-shadow:none;transition:transform .2s,box-shadow .2s}
+.hexa-swatches button[data-p="#38d9ff"]{--sw-p:#38d9ff;--sw-s:#8b5cf6}
+.hexa-swatches button[data-p="#d4f24a"]{--sw-p:#d4f24a;--sw-s:#ffb84d}
+.hexa-swatches button[data-p="#ff3d8b"]{--sw-p:#ff3d8b;--sw-s:#ff8a3d}
+.hexa-swatches button[data-p="#34f5a0"]{--sw-p:#34f5a0;--sw-s:#22c1ee}
+.hexa-swatches button[data-p="#b57bff"]{--sw-p:#b57bff;--sw-s:#ff5ecf}
+.hexa-swatches button:hover{transform:scale(1.15)}
+.hexa-swatches button.active{box-shadow:0 0 0 2px var(--bg),0 0 0 4px var(--t1)}
 @media(min-width:901px){.main{transition:margin-right .35s cubic-bezier(.16,1,.3,1)}.main.expanded{margin-right:var(--sb-c)}}
 @media(max-width:900px){
   .mob-menu-btn{position:relative;overflow:visible;background:linear-gradient(145deg,var(--hexa-cyan),var(--hexa-violet))!important;border-color:rgba(56,217,255,.55)!important}
@@ -8353,6 +8362,7 @@ html.light #page-logs .logs-detail-head>button{background:#fff}
   .mob-menu-btn.menu-open .mobile-bars i:nth-child(2){opacity:0}
   .mob-menu-btn.menu-open .mobile-bars i:nth-child(3){transform:translateY(-5px) rotate(-45deg)}
   .dashboard-grid{grid-template-columns:1fr}.quick-grid{grid-template-columns:1fr}
+  .hexa-swatches{display:none}
 }
 
 
@@ -9271,6 +9281,13 @@ html.light .onex-topbar-brand{background:#fff;border-color:rgba(37,99,235,.16);b
   </div>
   <div class="top-server"><span class="top-dot"></span><b>سرور آنلاین</b><span class="top-sep"></span><small id="topHost">—</small><span class="top-sep"></span><small id="topUptime">Uptime: —</small></div>
   <div class="top-actions">
+    <div class="hexa-swatches" id="hexaSwatches" aria-label="رنگ‌بندی داشبورد">
+      <button type="button" data-p="#38d9ff" data-s="#8b5cf6" class="active" aria-label="Aurora"></button>
+      <button type="button" data-p="#d4f24a" data-s="#ffb84d" aria-label="Lime"></button>
+      <button type="button" data-p="#ff3d8b" data-s="#ff8a3d" aria-label="Rose"></button>
+      <button type="button" data-p="#34f5a0" data-s="#22c1ee" aria-label="Emerald"></button>
+      <button type="button" data-p="#b57bff" data-s="#ff5ecf" aria-label="Violet"></button>
+    </div>
     <div class="top-setting-group" aria-label="Language controls">
       <button type="button" class="top-setting-btn" id="topLangFa" onclick="setLang('fa')">فارسی</button>
       <button type="button" class="top-setting-btn" id="topLangEn" onclick="setLang('en')">EN</button>
@@ -9349,7 +9366,7 @@ html.light .onex-topbar-brand{background:#fff;border-color:rgba(37,99,235,.16);b
       <div class="onex-card" style="margin-top:14px"><div class="onex-card-head"><div class="onex-card-title">⚡ عملیات سریع</div></div><div class="onex-card-body"><div class="quick-grid">
         <div class="quick-item" onclick="goPage('create')"><div class="quick-icon">＋</div><div><div class="quick-name">ساخت کانفیگ</div><div class="quick-desc">ایجاد کانفیگ جدید</div></div></div>
         <div class="quick-item" onclick="goPage('configs')"><div class="quick-icon">☷</div><div><div class="quick-name">مدیریت کانفیگ‌ها</div><div class="quick-desc">مشاهده و ویرایش</div></div></div>
-        <div class="quick-item" onclick="goPage('telegram')"><div class="quick-icon">➤</div><div><div class="quick-name">ربات تلگرام</div><div class="quick-desc">مدیریت ربات</div></div></div>
+        <div class="quick-item" onclick="goPage('telegram')"><div class="quick-icon">➤</div><div><div class="quick-name">ربات ONEX</div><div class="quick-desc">مدیریت ربات</div></div></div>
       </div></div></div>
       <div class="onex-card recent-card"><div class="onex-card-head"><div class="onex-card-title">▣ کانفیگ‌های اخیر</div><button class="btn btn-sm" onclick="goPage('configs')">مشاهده همه ←</button></div><div class="onex-card-body" style="padding:0"><div style="overflow-x:auto"><table class="recent-table"><thead><tr><th>نام کانفیگ</th><th>پروتکل</th><th>مصرف</th><th>وضعیت</th><th>عملیات</th></tr></thead><tbody id="onexRecentBody"><tr><td colspan="5" style="text-align:center;color:var(--t3);padding:24px">در حال بارگذاری...</td></tr></tbody></table></div></div></div>
     </div>
@@ -11863,6 +11880,23 @@ function toggleTheme(){
 
 const sb=document.getElementById('sidebar'),main=document.getElementById('main');
 const mobMenuBtn=document.getElementById('mobMenuBtn'),overlay=document.getElementById('overlay');
+const hexaSwatches=document.getElementById('hexaSwatches');
+if(hexaSwatches){
+  hexaSwatches.querySelectorAll('button').forEach(btn=>btn.addEventListener('click',()=>{
+    document.documentElement.style.setProperty('--accent',btn.dataset.p);
+    document.documentElement.style.setProperty('--accent2',btn.dataset.s);
+    document.documentElement.style.setProperty('--purple',btn.dataset.s);
+    hexaSwatches.querySelectorAll('button').forEach(x=>x.classList.toggle('active',x===btn));
+    try{localStorage.setItem('onex_hexa_palette',btn.dataset.p+'|'+btn.dataset.s)}catch(e){}
+  }));
+  try{
+    const saved=localStorage.getItem('onex_hexa_palette');
+    if(saved){
+      const [p,s]=saved.split('|'),btn=[...hexaSwatches.querySelectorAll('button')].find(x=>x.dataset.p===p&&x.dataset.s===s);
+      if(btn)btn.click();
+    }
+  }catch(e){}
+}
 function closeMobileNav(){ if(sb) sb.classList.remove('mobile-open'); if(overlay) overlay.classList.remove('show'); if(mobMenuBtn) mobMenuBtn.classList.remove('menu-open'); }
 function openMobileNav(){ if(sb) sb.classList.add('mobile-open'); if(overlay) overlay.classList.add('show'); if(mobMenuBtn) mobMenuBtn.classList.add('menu-open'); }
 if(mobMenuBtn) mobMenuBtn.onclick=()=>{ if(sb.classList.contains('mobile-open')) closeMobileNav(); else openMobileNav(); };
@@ -11875,6 +11909,15 @@ document.getElementById('sbToggle').onclick=()=>{
   localStorage.setItem('sb_c',sb.classList.contains('collapsed')?'1':'0');
 };
 if(localStorage.getItem('sb_c')==='1'){sb.classList.add('collapsed');main.classList.add('expanded')}
+document.addEventListener('keydown',e=>{
+  if(e.target.closest('input,textarea,select,[contenteditable="true"]'))return;
+  if(e.key==='['||e.code==='BracketLeft'){
+    e.preventDefault();
+    if(window.matchMedia('(max-width:900px)').matches){
+      if(sb.classList.contains('mobile-open')) closeMobileNav(); else openMobileNav();
+    }else document.getElementById('sbToggle').click();
+  }
+});
 function goPage(name){
   closeMobileNav();
   document.querySelectorAll('.nav-item').forEach(n=>n.classList.toggle('on',n.dataset.page===name));
