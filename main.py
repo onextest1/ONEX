@@ -39,7 +39,7 @@ from fastapi.middleware.cors import CORSMiddleware
 # ============================================================
 
 APP_NAME = "ONEX"
-APP_VERSION = "1.3.8"
+APP_VERSION = "1.3.9"
 
 SUPPORT_USERNAME = "@V2rayTun0"
 SUPPORT_URL = "https://t.me/V2rayTun0"
@@ -2576,7 +2576,6 @@ html.light .update-prompt-modal{background:#fff;border-color:rgba(37,99,235,.16)
 @media(max-width:380px){
   .mob-brand-icon{width:118px!important;height:48px!important;flex-basis:118px!important;}
 }
-</style>
 </head>
 
 <body>
@@ -9355,6 +9354,18 @@ html.light .onex-topbar-brand{background:#fff;border-color:rgba(37,99,235,.16);b
 #page-dash{--bg:#070a12;--surface:#101827;--surface2:#16243b;--line:rgba(137,193,255,.16);--text:#eff7ff;--muted:#9fb2ca;--dim:#6d809b;--p:#38d9ff;--s:#8b5cf6;--ok:#48e39d;--warn:#ffc857;--bad:#ff6d86;--sb:272px;--ease:cubic-bezier(.16,1,.3,1)}
 #page-dash button{font:inherit;color:inherit;cursor:pointer}#page-dash canvas{display:block}#page-dash .mono{font-family:"JetBrains Mono",monospace;direction:ltr}#page-dash .glass{background:linear-gradient(145deg,rgba(24,39,65,.88),rgba(9,15,27,.9));border:1px solid var(--line);box-shadow:0 18px 50px rgba(0,0,0,.3),inset 0 1px rgba(255,255,255,.06);backdrop-filter:blur(18px);border-radius:22px}#page-dash .badge{margin-inline-start:auto;color:var(--p);font:700 11px "JetBrains Mono"}#page-dash .bars{position:relative;width:20px;height:20px;display:block;margin:auto}#page-dash .bars i{position:absolute;left:1px;right:1px;height:2.5px;border-radius:4px;background:#081326;transition:transform .5s var(--ease),opacity .2s}#page-dash .bars i:nth-child(1){top:4px}#page-dash .bars i:nth-child(2){top:9px}#page-dash .bars i:nth-child(3){top:14px}@keyframes spin{to{transform:rotate(360deg)}}#page-dash .dot{width:8px;height:8px;border-radius:50%;background:var(--ok);box-shadow:0 0 12px var(--ok);flex:none}#page-dash .grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));grid-template-areas:"hero hero chart chart" "dock dock chart chart" "metrics metrics metrics metrics" "health telegram recent recent" "info quick recent recent";gap:16px}#page-dash .area{min-width:0}#page-dash .hero{grid-area:hero;padding:24px;display:flex;flex-direction:column;gap:14px}#page-dash .hero h1{font-size:clamp(25px,3vw,37px);line-height:1.35;margin:0}#page-dash .hero h1 span{color:var(--p)}#page-dash .hero p{margin:0;color:var(--muted);font-size:13px}#page-dash .versions{display:flex;gap:9px;flex-wrap:wrap}#page-dash .version{padding:9px 12px;border:1px solid var(--line);background:rgba(0,0,0,.18);border-radius:11px;font-size:11px;color:var(--muted)}#page-dash .version b{color:var(--text);font:700 12px "JetBrains Mono";direction:ltr;margin-inline-start:5px}#page-dash .alert{display:flex;align-items:center;gap:10px;padding:10px 12px;border:1px solid rgba(255,200,87,.35);background:rgba(255,200,87,.08);border-radius:12px;color:var(--muted);font-size:12px}#page-dash .alert b{color:var(--warn)}#page-dash .alert button{margin-inline-start:auto;border:0;background:var(--warn);color:#17120a;border-radius:8px;padding:7px 10px;font-weight:800;font-size:11px}#page-dash .actions{display:flex;gap:9px}#page-dash .primary{border:0!important;background:linear-gradient(135deg,var(--p),var(--s))!important;color:#091321!important;font-weight:900}#page-dash .hero .actions button{padding:11px 15px;border-radius:12px}#page-dash .dock{grid-area:dock;display:grid;grid-template-columns:repeat(3,1fr);gap:10px;padding:10px}#page-dash .dock button{display:flex;align-items:center;gap:10px;text-align:start;padding:13px;border-radius:15px;border:1px solid var(--line);background:rgba(255,255,255,.035);transition:transform .25s var(--ease),border-color .2s}#page-dash .dock button:hover{transform:translateY(-3px);border-color:rgba(56,217,255,.5)}#page-dash .dock strong{display:block;font-size:12.5px}#page-dash .dock small{display:block;color:var(--dim);font:10px "JetBrains Mono";margin-top:3px}#page-dash .icon{width:36px;height:36px;border-radius:11px;display:grid;place-items:center;background:rgba(56,217,255,.13);color:var(--p);font-weight:900;flex:none}#page-dash .metrics{grid-area:metrics;display:grid;grid-template-columns:repeat(4,1fr);gap:1px;padding:1px}#page-dash .metric{padding:19px;border-inline-end:1px solid var(--line)}#page-dash .metric:last-child{border:0}#page-dash .metric label{display:block;color:var(--muted);font-size:12px}#page-dash .metric strong{display:block;font:700 25px "JetBrains Mono";direction:ltr;margin-top:8px}#page-dash .metric small{color:var(--dim);font-size:11px}#page-dash .chart{grid-area:chart;padding:20px}#page-dash .head{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:14px}#page-dash .head h2{font-size:15px;margin:0}#page-dash .range{display:flex;gap:3px;padding:3px;border-radius:9px;background:rgba(0,0,0,.2)}#page-dash .range button{border:0;background:transparent;color:var(--muted);border-radius:7px;padding:6px 8px;font-size:11px}#page-dash .range button.active{background:rgba(56,217,255,.18);color:var(--text)}#page-dash #traffic{width:100%;height:230px}#page-dash .health{grid-area:health;padding:20px}#page-dash .rows{display:grid;gap:13px}#page-dash .healthrow{display:grid;grid-template-columns:38px 1fr 40px;gap:10px;align-items:center}#page-dash .healthrow .tag{height:30px;border-radius:9px;background:rgba(56,217,255,.1);border:1px solid rgba(56,217,255,.25);display:grid;place-items:center;color:var(--p);font:700 10px "JetBrains Mono"}#page-dash .track{height:6px;background:rgba(255,255,255,.08);border-radius:9px;overflow:hidden}#page-dash .track i{display:block;height:100%;width:var(--w);background:linear-gradient(90deg,var(--p),var(--s));border-radius:inherit}#page-dash .healthrow label{font-size:12px;color:var(--muted);display:block;margin-bottom:5px}#page-dash .healthrow b{font:600 11px "JetBrains Mono";direction:ltr}#page-dash .telegram{grid-area:telegram;padding:20px;display:flex;flex-direction:column;justify-content:space-between;background:radial-gradient(circle at 50% 0,rgba(56,217,255,.18),transparent 44%),linear-gradient(145deg,rgba(15,53,79,.9),rgba(9,16,31,.95))}#page-dash .tgmark{width:82px;height:82px;border-radius:50%;margin:5px auto 16px;display:grid;place-items:center;background:linear-gradient(145deg,#39bdf8,#3965f6);box-shadow:0 0 35px rgba(56,189,248,.5);font-size:35px}#page-dash .telegram h3{text-align:center;font-size:14px;margin:0}#page-dash .telegram p{text-align:center;color:var(--muted);font-size:11px;margin:5px 0 17px}#page-dash .telegram a{display:block;text-align:center;text-decoration:none;color:#fff;background:#269ee0;border-radius:11px;padding:10px;font-size:12px;font-weight:800}#page-dash .recent{grid-area:recent;padding:20px}#page-dash .table{display:grid;gap:0}#page-dash .tr{display:grid;grid-template-columns:1.2fr 1fr 1.2fr 70px 42px;gap:12px;align-items:center;padding:13px 8px;border-bottom:1px solid var(--line);font-size:12px}#page-dash .tr.headrow{color:var(--dim);font-size:10px}#page-dash .tr:last-child{border:0}#page-dash .proto{color:var(--muted);font:11px "JetBrains Mono";direction:ltr}#page-dash .usage .bar{height:5px;background:rgba(255,255,255,.08);border-radius:8px;margin-top:6px;overflow:hidden}#page-dash .usage i{display:block;height:100%;background:var(--p);width:var(--w);border-radius:8px}#page-dash .quick{grid-area:quick;padding:20px}#page-dash .quicklist{display:grid;gap:9px}#page-dash .quickitem{display:flex;align-items:center;gap:10px;padding:12px;border:1px solid var(--line);border-radius:13px;background:rgba(255,255,255,.03);font-size:12px}#page-dash .quickitem:hover{border-color:rgba(56,217,255,.4)}#page-dash .info{grid-area:info;padding:20px}#page-dash .kv{display:grid;grid-template-columns:auto 1fr;gap:11px;font-size:11px}#page-dash .kv dt{color:var(--dim)}#page-dash .kv dd{margin:0;text-align:left;direction:ltr;color:var(--muted);font-family:"JetBrains Mono";overflow:hidden;text-overflow:ellipsis;white-space:nowrap}@media(max-width:1150px){#page-dash .grid{grid-template-columns:repeat(2,minmax(0,1fr));grid-template-areas:"hero hero" "dock dock" "metrics metrics" "chart chart" "health telegram" "recent recent" "quick info"}}@media(max-width:800px){#page-dash .open .sidebar{transform:none}#page-dash .grid{grid-template-columns:1fr;grid-template-areas:"hero" "dock" "metrics" "chart" "health" "telegram" "recent" "quick" "info"}#page-dash .metrics{grid-template-columns:1fr 1fr}#page-dash .metric{border-bottom:1px solid var(--line)}#page-dash .dock{grid-template-columns:1fr}#page-dash .picker{display:none}}
 
+<style>
+/* ONEX 1.3.9: static panel mode for smooth performance in both themes. */
+html,html *,html *::before,html *::after{animation:none!important;transition:none!important;scroll-behavior:auto!important}
+#onexDashScene,.onex-control-dock:before,.onex-3d-control:after{display:none!important}
+html.light .page,#page-dash{color:#0f172a}
+html.light .page .page-title,html.light .page .card-title,html.light .page .metric-val,html.light .page .quick-name,html.light .page .onex-card-title,html.light .page .info-row span:last-child,html.light .page .recent-table td{color:#0f172a!important}
+html.light .page .page-sub,html.light .page .metric-label,html.light .page .quick-desc,html.light .page .health-name,html.light .page .health-pct,html.light .page .info-row span:first-child,html.light .page .recent-table th{color:#475569!important}
+html.light .page .hero,html.light .page .dock,html.light .page .metrics,html.light .page .onex-card,html.light .page .onex-metric,html.light .page .table-wrap,html.light .page .recent-table,html.light .page .onex-control-dock{background:#fff!important;color:#0f172a!important}
+html.light .page input,html.light .page select,html.light .page textarea{color:#0f172a!important;background:#fff!important}
+.update-error{padding:14px;border:1px solid rgba(239,68,68,.28);border-radius:12px;color:#b91c1c;background:rgba(239,68,68,.07);line-height:1.8}
+html:not(.light) .update-error{color:#fecaca;background:rgba(239,68,68,.10)}
+</style>
 </style>
 </head>
 <body>
@@ -9493,11 +9504,6 @@ html.light .onex-topbar-brand{background:#fff;border-color:rgba(37,99,235,.16);b
     <button type="button" class="primary" onclick="goPage('create')">＋ <span data-i18n="nav_create">ساخت کانفیگ</span></button>
     <button type="button" id="heroRefresh" onclick="homeRefresh(true)">↻ <span data-i18n="home_refresh">بروزرسانی</span></button>
   </div>
-</section>
-<section class="dock glass area">
-  <button type="button" onclick="toggleTheme()"><span class="icon">◐</span><span><strong id="homeThemeLbl">تم روشن</strong><small>THEME CONTROL</small></span></button>
-  <button type="button" onclick="homeRefresh(true)"><span class="icon">↻</span><span><strong data-i18n="refresh_stats">بروزرسانی آمار</strong><small>LIVE STATISTICS</small></span></button>
-  <button type="button" onclick="panelUpdate()"><span class="icon">⇩</span><span><strong data-i18n="refresh_panel">بروزرسانی پنل</strong><small>PANEL UPDATE</small></span></button>
 </section>
 <section class="metrics glass area">
   <div class="metric"><label data-i18n="home_conns">اتصالات فعال</label><strong id="homeConns">—</strong><small data-i18n="home_live">لحظه‌ای</small></div>
@@ -12854,7 +12860,8 @@ async function panelUpdate(){
   const r=await checkPanelUpdate(false);
   if(!r||!r.ok){
     t.textContent=updateText('بررسی بروزرسانی','Update check');
-    b.innerHTML=`<p>${updateText('در حال حاضر امکان بررسی نسخه جدید وجود ندارد.','The update server could not be reached right now.')}</p>`;
+    const detail=r&&r.message||updateText('در حال حاضر امکان بررسی نسخه جدید وجود ندارد.','The update server could not be reached right now.');
+    b.innerHTML=`<div class="update-error"><strong>${esc(detail)}</strong><p>${updateText('اتصال GitHub یا تنظیمات استقرار Railway را بررسی کنید.','Check GitHub connectivity and the Railway deployment settings.')}</p></div>`;
     return;
   }
   if(!r.update_available){
@@ -13831,6 +13838,8 @@ window.addEventListener('storage',e=>{if(e.key==='onex_theme_v2')loadOnexTheme()
 <script>
 (()=>{
   const cv=document.getElementById('onexDashScene'),ctx=cv&&cv.getContext('2d');if(!cv||!ctx)return;
+  cv.style.display='none';
+  return;
   let W=0,H=0,dpr=1,tm=0,last=performance.now(),mouse={x:0,y:0,tx:0,ty:0};
   const themes={aurora:['#38d9ff','#8b5cf6'],lime:['#d4f24a','#ffb84d'],rose:['#ff3d8b','#ff8a3d'],emerald:['#34f5a0','#22c1ee'],violet:['#b57bff','#ff5ecf'],gold:['#ffc94d','#ff7a45']};
   function rgb(h){h=(h||'').replace('#','');let n=parseInt(h,16)||0;return[(n>>16)&255,(n>>8)&255,n&255]}
