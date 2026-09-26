@@ -5843,6 +5843,16 @@ PUBLIC_SUB_HTML = r"""
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>ONEX Panel</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;500;700;800;900&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<script>
+(function(){var T={aurora:['#38d9ff','#8b5cf6'],lime:['#d4f24a','#ffb84d'],rose:['#ff3d8b','#ff8a3d'],emerald:['#34f5a0','#22c1ee'],violet:['#b57bff','#ff5ecf'],gold:['#ffc94d','#ff7a45']};
+function rgb(h){h=String(h||'').replace('#','');if(h.length===3)h=h.split('').map(function(c){return c+c}).join('');var n=parseInt(h,16)||0;return[(n>>16)&255,(n>>8)&255,n&255]}
+var id='aurora',c;try{id=localStorage.getItem('onex_theme')||'aurora'}catch(e){}
+c=T[id]||T.aurora;if(id==='custom'){try{c=[localStorage.getItem('onex_theme_custom')||'#38d9ff','#8b5cf6']}catch(e){}}
+var P=rgb(c[0]),S=rgb(c[1]),st=document.documentElement.style,l=(P[0]*.299+P[1]*.587+P[2]*.114)/255;
+st.setProperty('--p',c[0]);st.setProperty('--s',c[1]);st.setProperty('--p-rgb',P.join(' '));st.setProperty('--s-rgb',S.join(' '));st.setProperty('--on',l>.62?'#0b0d14':'#ffffff');})();
+</script>
 <style>
 :root{
   --bg:#050a16;
@@ -6015,6 +6025,31 @@ body{
   .supportbar{align-items:flex-start}
   .supportbar a{align-self:center}
 }
+/* ---------- ONEX GLASS TEMPLATE (public subscription page) ---------- */
+:root{--p:#38d9ff;--s:#8b5cf6;--p-rgb:56 217 255;--s-rgb:139 92 246;--on:#0b0d14;--text:#eef2ff;--muted:#a3abc6;--mono:"JetBrains Mono",ui-monospace,monospace}
+body{font-family:Vazirmatn,system-ui,sans-serif;-webkit-font-smoothing:antialiased;
+  background:radial-gradient(ellipse 60% 50% at 8% 6%,rgb(var(--p-rgb) / .18),transparent 62%),radial-gradient(ellipse 55% 50% at 94% 96%,rgb(var(--s-rgb) / .16),transparent 64%),linear-gradient(180deg,#05060d,#080a14)}
+.card{background:linear-gradient(160deg,rgb(30 36 64 / .78),rgb(12 14 28 / .86));border:1px solid rgb(255 255 255 / .15);border-radius:26px;
+  backdrop-filter:blur(22px) saturate(150%);-webkit-backdrop-filter:blur(22px) saturate(150%);
+  box-shadow:0 1px 0 rgb(255 255 255 / .12) inset,0 50px 90px -30px rgb(0 0 0 / .9),0 0 60px -20px rgb(var(--p-rgb) / .4);animation:rise .9s cubic-bezier(.16,1,.3,1) both}
+@keyframes rise{from{opacity:0;transform:translateY(24px)}to{opacity:1;transform:none}}
+.card:before{background:linear-gradient(90deg,transparent,var(--p),var(--s),transparent)}
+.logo{background:linear-gradient(135deg,var(--p),var(--s));border:0;color:var(--on);box-shadow:0 10px 28px -8px rgb(var(--p-rgb) / .7);font-weight:900}
+.brand h1{font-weight:900;letter-spacing:.04em}
+.status{color:var(--p);background:rgb(var(--p-rgb) / .1);border-color:rgb(var(--p-rgb) / .35)}
+.status i{background:var(--p);box-shadow:0 0 10px var(--p)}
+.message{background:rgb(255 255 255 / .04);border-color:rgb(255 255 255 / .09)}
+.version{color:var(--p);font-family:var(--mono)}
+.label{color:var(--muted);font-weight:600}
+.urlbox{background:rgb(0 0 0 / .3);border-color:rgb(255 255 255 / .14)}
+.url{color:var(--text);font-family:var(--mono)}
+.copy{background:linear-gradient(135deg,var(--p),var(--s));border:0;color:var(--on);font:800 12.5px Vazirmatn,system-ui;box-shadow:0 12px 26px -12px rgb(var(--p-rgb) / .9);transition:transform .2s,filter .2s}
+.copy:hover{filter:saturate(1.15);transform:translateY(-1px)}
+.supportbar{background:linear-gradient(110deg,rgb(var(--p-rgb) / .1),rgb(var(--s-rgb) / .08));border-color:rgb(var(--p-rgb) / .28)}
+.supporticon{background:rgb(var(--p-rgb) / .12);border-color:rgb(var(--p-rgb) / .38);color:var(--p)}
+.supportbar a{color:var(--p);border-color:rgb(var(--p-rgb) / .35);background:rgb(var(--p-rgb) / .08)}
+.supportbar a:hover{background:rgb(var(--p-rgb) / .16)}
+.footer{border-top-color:rgb(255 255 255 / .08);color:#6d7594;font-family:var(--mono)}
 </style>
 </head>
 <body>
@@ -7968,6 +8003,128 @@ async def http_proxy(
 # DASHBOARD
 # ============================================================
 
+# ============================================================
+# SYSTEM METRICS (dashboard home: CPU / RAM / Disk / Network)
+# stdlib only — safe fallbacks on non-Linux hosts
+# ============================================================
+
+def _sysm_read_cpu():
+    with open("/proc/stat", "r", encoding="utf-8") as fh:
+        vals = [int(v) for v in fh.readline().split()[1:]]
+    idle = vals[3] + (vals[4] if len(vals) > 4 else 0)
+    return idle, sum(vals)
+
+
+def _sysm_read_net():
+    rx = tx = 0
+    with open("/proc/net/dev", "r", encoding="utf-8") as fh:
+        for line in fh.readlines()[2:]:
+            if ":" not in line:
+                continue
+            name, data = line.split(":", 1)
+            if name.strip() == "lo":
+                continue
+            cols = data.split()
+            rx += int(cols[0])
+            tx += int(cols[8])
+    return rx, tx
+
+
+def _sysm_read_mem():
+    total = used = None
+    # Containers (Railway/Docker): prefer the cgroup limit when one is set.
+    try:
+        raw_max = Path("/sys/fs/cgroup/memory.max").read_text().strip()
+        raw_cur = Path("/sys/fs/cgroup/memory.current").read_text().strip()
+        if raw_max.isdigit() and raw_cur.isdigit():
+            total, used = int(raw_max), int(raw_cur)
+    except Exception:
+        pass
+    if total is None:
+        info = {}
+        with open("/proc/meminfo", "r", encoding="utf-8") as fh:
+            for line in fh:
+                key, _, rest = line.partition(":")
+                info[key] = int(rest.strip().split()[0]) * 1024
+        total = info.get("MemTotal") or 0
+        used = total - info.get("MemAvailable", info.get("MemFree", 0))
+    return total, used
+
+
+@app.get("/api/system/metrics")
+async def api_system_metrics(_=Depends(require_auth)):
+    import platform
+    import shutil
+
+    out = {
+        "ok": True,
+        "cpu_percent": None,
+        "mem_percent": None,
+        "disk_percent": None,
+        "net_rx_rate": None,
+        "net_tx_rate": None,
+        "platform": f"{platform.system()} {platform.release()}".strip(),
+        "python": platform.python_version(),
+        "region": os.getenv("RAILWAY_REPLICA_REGION") or os.getenv("RAILWAY_REGION") or os.getenv("ONEX_REGION") or None,
+        "public_domain": os.getenv("RAILWAY_PUBLIC_DOMAIN") or None,
+        "singbox_version": None,
+        "native_running": None,
+    }
+    try:
+        from onex.core.native_core import VERSION as _SB_VERSION
+        out["singbox_version"] = _SB_VERSION
+    except Exception:
+        pass
+    try:
+        if NATIVE_CORE:
+            out["native_running"] = bool(NATIVE_CORE.status().get("running"))
+    except Exception:
+        pass
+
+    cpu1 = net1 = None
+    try:
+        cpu1 = _sysm_read_cpu()
+    except Exception:
+        pass
+    try:
+        net1 = _sysm_read_net()
+    except Exception:
+        pass
+    t1 = time.monotonic()
+    if cpu1 or net1:
+        await asyncio.sleep(0.25)
+    dt = max(time.monotonic() - t1, 1e-3)
+    try:
+        if cpu1:
+            idle2, total2 = _sysm_read_cpu()
+            d_total = max(total2 - cpu1[1], 1)
+            out["cpu_percent"] = round(100.0 * (1 - (idle2 - cpu1[0]) / d_total), 1)
+    except Exception:
+        pass
+    try:
+        if net1:
+            rx2, tx2 = _sysm_read_net()
+            out["net_rx_rate"] = max(0, round((rx2 - net1[0]) / dt))
+            out["net_tx_rate"] = max(0, round((tx2 - net1[1]) / dt))
+            out["net_rx_total"], out["net_tx_total"] = rx2, tx2
+    except Exception:
+        pass
+    try:
+        total, used = _sysm_read_mem()
+        if total:
+            out["mem_total_bytes"], out["mem_used_bytes"] = total, used
+            out["mem_percent"] = round(100.0 * used / total, 1)
+    except Exception:
+        pass
+    try:
+        du = shutil.disk_usage(str(DATA_DIR))
+        out["disk_total_bytes"], out["disk_used_bytes"] = du.total, du.used
+        out["disk_percent"] = round(100.0 * du.used / max(du.total, 1), 1)
+    except Exception:
+        pass
+    return out
+
+
 DASHBOARD_HTML = r"""
 <!DOCTYPE html>
 <html lang="fa" dir="rtl" id="htmlRoot">
@@ -7976,7 +8133,7 @@ DASHBOARD_HTML = r"""
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
 <title>پنل مدیریت</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
 <style>
 /* ---------- Delete-all configs glass action ---------- */
 .delete-all-configs-glass{
@@ -9322,15 +9479,78 @@ html.light .onex-topbar-brand{background:#fff;border-color:rgba(37,99,235,.16);b
   </button>
 </div>
 <section class="page on" id="page-dash">
-<div class="grid"><section class="hero glass area"><h1>خوش آمدی به <span>ONEX</span>، haj</h1><p>آخرین بروزرسانی <b class="mono" id="lastUpd">--:--:--</b></p><div class="versions"><div class="version">نسخه پنل <b>v1.3.1</b></div><div class="version">هسته <b>sing-box 1.11</b></div></div><div class="alert">⚠ <span><b>۲ کانفیگ</b> تا ۴۸ ساعت دیگه تموم می‌شن</span><button>تمدید همه</button></div><div class="actions"><button class="primary">＋ ساخت کانفیگ</button><button id="heroRefresh">↻ بروزرسانی</button></div></section>
-<section class="dock glass area"><button><span class="icon">◐</span><span><strong>تم روشن</strong><small>THEME CONTROL</small></span></button><button><span class="icon">↻</span><span><strong>بروزرسانی آمار</strong><small>LIVE STATISTICS</small></span></button><button><span class="icon">⇩</span><span><strong>بروزرسانی پنل</strong><small>PANEL UPDATE</small></span></button></section>
-<section class="metrics glass area"><div class="metric"><label>اتصالات فعال</label><strong id="metricConnections">128</strong><small>+12 نسبت به ساعت قبل</small></div><div class="metric"><label>ترافیک مصرف‌شده</label><strong>322.5 <small>GB</small></strong><small>امروز</small></div><div class="metric"><label>کانفیگ‌ها</label><strong>41 <small>/ 48</small></strong><small>۷ غیرفعال</small></div><div class="metric"><label>آپتایم سرور</label><strong>12d <small>04:17</small></strong><small>بدون قطعی</small></div></section>
-<section class="chart glass area"><div class="head"><h2>نمودار مصرف ترافیک</h2><div class="range"><button class="active">روز</button><button>هفته</button><button>ماه</button><button>کل</button></div></div><canvas id="traffic"></canvas></section>
-<section class="health glass area"><div class="head"><h2>وضعیت سرور</h2><span class="mono" style="font-size:10px;color:var(--ok)">NATIVE CORE</span></div><div class="rows"><div class="healthrow"><span class="tag">CPU</span><div><label>پردازنده</label><div class="track"><i style="--w:32%"></i></div></div><b>32%</b></div><div class="healthrow"><span class="tag">RAM</span><div><label>حافظه</label><div class="track"><i style="--w:56%"></i></div></div><b>56%</b></div><div class="healthrow"><span class="tag">SSD</span><div><label>دیسک</label><div class="track"><i style="--w:48%"></i></div></div><b>48%</b></div><div class="healthrow"><span class="tag">NET</span><div><label>شبکه</label><div class="track"><i style="--w:72%"></i></div></div><b>72%</b></div></div></section>
-<section class="telegram glass area"><div><div class="tgmark">➤</div><h3>کانال رسمی ONEX</h3><p>اطلاعیه‌ها، نسخه‌های جدید و پشتیبانی مستقیم</p></div><a href="https://t.me/V2rayTun0" target="_blank">عضویت در کانال · @V2rayTun0</a></section>
-<section class="recent glass area"><div class="head"><h2>کانفیگ‌های اخیر</h2><button>مشاهده همه ←</button></div><div class="table"><div class="tr headrow"><span>نام</span><span>پروتکل</span><span>مصرف</span><span>انقضا</span><span></span></div><div class="tr"><b>Ali-Home</b><span class="proto">VLESS Reality</span><div class="usage"><span class="mono">42.6 / 100 GB</span><div class="bar"><i style="--w:43%"></i></div></div><span>۱۸ روز</span><span class="dot"></span></div><div class="tr"><b>Mobile-Sara</b><span class="proto">Trojan</span><div class="usage"><span class="mono">49.1 / 50 GB</span><div class="bar"><i style="--w:98%;background:var(--warn)"></i></div></div><span style="color:var(--warn)">۲ روز</span><span class="dot" style="background:var(--warn);box-shadow:0 0 10px var(--warn)"></span></div><div class="tr"><b>Edge-XHTTP</b><span class="proto">ONEX XHTTP</span><div class="usage"><span class="mono">71.4 / 80 GB</span><div class="bar"><i style="--w:89%;background:var(--warn)"></i></div></div><span style="color:var(--warn)">۱ روز</span><span class="dot" style="background:var(--warn);box-shadow:0 0 10px var(--warn)"></span></div><div class="tr"><b>Stream-4K</b><span class="proto">ONEX Stream</span><div class="usage"><span class="mono">310 / 500 GB</span><div class="bar"><i style="--w:62%"></i></div></div><span>۲۴ روز</span><span class="dot"></span></div></div></section>
-<section class="quick glass area"><div class="head"><h2>عملیات سریع</h2></div><div class="quicklist"><button class="quickitem"><span class="icon">＋</span><span>ساخت کانفیگ<br><small style="color:var(--dim)">ایجاد کانفیگ جدید</small></span></button><button class="quickitem"><span class="icon">☷</span><span>مدیریت کانفیگ‌ها<br><small style="color:var(--dim)">مشاهده و ویرایش</small></span></button><button class="quickitem"><span class="icon">➤</span><span>ربات ONEX<br><small style="color:var(--dim)">مدیریت ربات</small></span></button></div></section>
-<section class="info glass area"><div class="head"><h2>اطلاعات سرور</h2></div><dl class="kv"><dt>IP سرور</dt><dd>185.231.xx.14</dd><dt>دامنه</dt><dd>onex-prod.up.railway.app</dd><dt>هسته</dt><dd>sing-box 1.11.4</dd><dt>منطقه</dt><dd>eu-west</dd></dl></section></div>
+<div class="grid" id="onexHome">
+<section class="hero glass area">
+  <h1><span data-i18n="home_welcome">خوش آمدی به</span> <span class="home-brand">ONEX</span><em class="home-user" id="homeUser"></em></h1>
+  <p><span data-i18n="home_last">آخرین بروزرسانی</span> <b class="mono" id="lastUpd">--:--:--</b></p>
+  <div class="versions">
+    <div class="version"><span data-i18n="home_ver_panel">نسخه پنل</span> <b id="homePanelVer">v__ONEX_VERSION__</b></div>
+    <div class="version"><span data-i18n="home_ver_core">هسته</span> <b id="homeCoreVer">sing-box</b></div>
+    <div class="version"><span data-i18n="home_core_state">وضعیت هسته</span> <b id="homeCoreState">—</b></div>
+  </div>
+  <div class="alert" id="homeAlert" hidden>⚠ <span id="homeAlertText"></span><button type="button" onclick="homeShowExpiring()" data-i18n="home_alert_btn">مشاهده</button></div>
+  <div class="actions">
+    <button type="button" class="primary" onclick="goPage('create')">＋ <span data-i18n="nav_create">ساخت کانفیگ</span></button>
+    <button type="button" id="heroRefresh" onclick="homeRefresh(true)">↻ <span data-i18n="home_refresh">بروزرسانی</span></button>
+  </div>
+</section>
+<section class="dock glass area">
+  <button type="button" onclick="toggleTheme()"><span class="icon">◐</span><span><strong id="homeThemeLbl">تم روشن</strong><small>THEME CONTROL</small></span></button>
+  <button type="button" onclick="homeRefresh(true)"><span class="icon">↻</span><span><strong data-i18n="refresh_stats">بروزرسانی آمار</strong><small>LIVE STATISTICS</small></span></button>
+  <button type="button" onclick="panelUpdate()"><span class="icon">⇩</span><span><strong data-i18n="refresh_panel">بروزرسانی پنل</strong><small>PANEL UPDATE</small></span></button>
+</section>
+<section class="metrics glass area">
+  <div class="metric"><label data-i18n="home_conns">اتصالات فعال</label><strong id="homeConns">—</strong><small data-i18n="home_live">لحظه‌ای</small></div>
+  <div class="metric"><label data-i18n="home_traffic">ترافیک کل</label><strong id="homeTraffic">—</strong><small id="homeTrafficSub">—</small></div>
+  <div class="metric"><label data-i18n="home_links">کانفیگ‌ها</label><strong id="homeLinks">—</strong><small id="homeLinksSub">—</small></div>
+  <div class="metric"><label data-i18n="home_uptime">آپتایم سرور</label><strong id="homeUptime">—</strong><small data-i18n="home_since">از آخرین راه‌اندازی</small></div>
+</section>
+<section class="chart glass area">
+  <div class="head"><h2 data-i18n="home_chart">توزیع ساعتی ترافیک</h2>
+    <div class="home-legend"><span><i class="lg-d"></i><em data-i18n="home_down">دانلود</em></span><span><i class="lg-u"></i><em data-i18n="home_up">آپلود</em></span><button type="button" class="home-link-btn" onclick="goPage('stats')"><span data-i18n="home_full_stats">آمار کامل</span> ←</button></div>
+  </div>
+  <div class="home-chart-wrap"><canvas id="traffic"></canvas><div class="home-chart-tip" id="homeChartTip" hidden></div></div>
+</section>
+<section class="health glass area">
+  <div class="head"><h2 data-i18n="home_health">وضعیت سرور</h2><span class="mono home-core-pill" id="homeCorePill">NATIVE CORE</span></div>
+  <div class="rows">
+    <div class="healthrow"><span class="tag">CPU</span><div><label data-i18n="home_cpu">پردازنده</label><div class="track"><i id="homeCpuBar" style="--w:0%"></i></div></div><b id="homeCpu">—</b></div>
+    <div class="healthrow"><span class="tag">RAM</span><div><label data-i18n="home_ram">حافظه</label><div class="track"><i id="homeRamBar" style="--w:0%"></i></div></div><b id="homeRam">—</b></div>
+    <div class="healthrow"><span class="tag">SSD</span><div><label data-i18n="home_disk">دیسک</label><div class="track"><i id="homeDiskBar" style="--w:0%"></i></div></div><b id="homeDisk">—</b></div>
+    <div class="healthrow"><span class="tag">NET</span><div><label data-i18n="home_net">شبکه</label><div class="track"><i id="homeNetBar" style="--w:0%"></i></div></div><b id="homeNet">—</b></div>
+  </div>
+</section>
+<section class="telegram glass area">
+  <div><div class="tgmark">➤</div><h3 data-i18n="home_tg_title">کانال رسمی ONEX</h3><p data-i18n="home_tg_sub">اطلاعیه‌ها، نسخه‌های جدید و پشتیبانی مستقیم</p></div>
+  <a href="https://t.me/V2rayTun0" target="_blank" rel="noopener" data-i18n="home_tg_join">عضویت در کانال · @V2rayTun0</a>
+</section>
+<section class="recent glass area">
+  <div class="head"><h2 data-i18n="home_recent">کانفیگ‌های اخیر</h2><button type="button" class="home-link-btn" onclick="goPage('configs')"><span data-i18n="home_view_all">مشاهده همه</span> ←</button></div>
+  <div class="table">
+    <div class="tr headrow"><span data-i18n="home_col_name">نام</span><span data-i18n="home_col_proto">پروتکل</span><span data-i18n="home_col_usage">مصرف</span><span data-i18n="home_col_exp">انقضا</span><span></span></div>
+    <div id="homeRecent"><div class="home-empty">…</div></div>
+  </div>
+</section>
+<section class="quick glass area">
+  <div class="head"><h2 data-i18n="home_quick">عملیات سریع</h2></div>
+  <div class="quicklist">
+    <button type="button" class="quickitem" onclick="goPage('create')"><span class="icon">＋</span><span><span data-i18n="nav_create">ساخت کانفیگ</span><br><small data-i18n="home_q_create_sub">ایجاد کانفیگ جدید</small></span></button>
+    <button type="button" class="quickitem" onclick="goPage('configs')"><span class="icon">☷</span><span><span data-i18n="home_q_configs">مدیریت کانفیگ‌ها</span><br><small data-i18n="home_q_configs_sub">مشاهده و ویرایش</small></span></button>
+    <button type="button" class="quickitem" onclick="goPage('groups')"><span class="icon">◉</span><span><span data-i18n="nav_groups">گروه‌ها</span><br><small data-i18n="home_q_groups_sub">گروه‌های اشتراک</small></span></button>
+    <button type="button" class="quickitem" onclick="goPage('telegram')"><span class="icon">➤</span><span><span data-i18n="nav_telegram">ربات ONEX</span><br><small data-i18n="home_q_bot_sub">مدیریت ربات</small></span></button>
+  </div>
+</section>
+<section class="info glass area">
+  <div class="head"><h2 data-i18n="home_info">اطلاعات سرور</h2></div>
+  <dl class="kv">
+    <dt data-i18n="home_host">میزبان</dt><dd id="homeHost">—</dd>
+    <dt data-i18n="home_domain">دامنه</dt><dd id="homeDomain">—</dd>
+    <dt data-i18n="home_core">هسته</dt><dd id="homeCore">—</dd>
+    <dt data-i18n="home_region">منطقه</dt><dd id="homeRegion">—</dd>
+    <dt data-i18n="home_os">سیستم</dt><dd id="homeOs">—</dd>
+  </dl>
+</section>
+</div>
   <div class="onex-footer"><span><b>Fast · Secure · Stable</b></span><span>ساخته‌شده توسط <b>Mehtif</b> · کانال رسمی <b>@V2rayTun0</b></span></div>
 </section>
 <section class="page" id="page-configs">
@@ -11572,30 +11792,252 @@ html.light.onex-themed .usage-fill{
 
 /* ---------- ONEX glass / 3D login visual system ---------- */
 :root{
-  --bg:#05060d!important;--bg2:rgba(13,16,32,.76)!important;--bg3:rgba(22,27,48,.62)!important;
-  --card:rgba(18,22,40,.68)!important;--card-b:rgba(255,255,255,.13)!important;
-  --accent:#38d9ff!important;--accent2:#8b5cf6!important;--purple:#b57bff!important;
-  --t1:#eef2ff!important;--t2:rgba(238,242,255,.72)!important;--t3:rgba(163,171,198,.55)!important;
-  --input-bg:rgba(0,0,0,.28)!important;--hover:rgba(56,217,255,.12)!important;
-  --shadow:0 24px 70px rgba(0,0,0,.42)!important;--glow:0 0 50px rgba(56,217,255,.14)!important;--glass:blur(20px)!important;
+  --bg:#05060d;--bg2:rgba(13,16,32,.76);--bg3:rgba(22,27,48,.62);
+  --card:rgba(18,22,40,.68);--card-b:rgba(255,255,255,.13);
+  --accent:#38d9ff;--accent2:#8b5cf6;--purple:#b57bff;
+  --t1:#eef2ff;--t2:rgba(238,242,255,.72);--t3:rgba(163,171,198,.55);
+  --input-bg:rgba(0,0,0,.28);--hover:rgba(56,217,255,.12);
+  --shadow:0 24px 70px rgba(0,0,0,.42);--glow:0 0 50px rgba(56,217,255,.14);--glass:blur(20px);
 }
 html,body{background:transparent!important}
-body{position:relative;isolation:isolate;background:#05060d!important}
-body::before{background:radial-gradient(ellipse 70% 55% at 8% 8%,color-mix(in srgb,var(--accent) 17%,transparent),transparent 62%),radial-gradient(ellipse 65% 55% at 90% 88%,color-mix(in srgb,var(--accent2) 15%,transparent),transparent 64%),linear-gradient(180deg,#05060d,#090b16)!important;z-index:-2!important}
+body{position:relative;isolation:isolate}
+html:not(.light) body{background:#05060d!important}
+html:not(.light) body::before{background:radial-gradient(ellipse 70% 55% at 8% 8%,color-mix(in srgb,var(--accent) 17%,transparent),transparent 62%),radial-gradient(ellipse 65% 55% at 90% 88%,color-mix(in srgb,var(--accent2) 15%,transparent),transparent 64%),linear-gradient(180deg,#05060d,#090b16)!important;z-index:-2!important}
 #onexDashScene{position:fixed;inset:0;z-index:-1;pointer-events:none;opacity:.92}
 .sidebar,.main,.mob-bar{backdrop-filter:blur(22px) saturate(145%)!important;-webkit-backdrop-filter:blur(22px) saturate(145%)!important}
-.sidebar{background:linear-gradient(180deg,rgba(13,16,32,.82),rgba(7,9,18,.72))!important;border-left:1px solid rgba(255,255,255,.14)!important;box-shadow:24px 0 70px rgba(0,0,0,.24),inset 1px 0 rgba(255,255,255,.04)!important}
+html:not(.light) .sidebar{background:linear-gradient(180deg,rgba(13,16,32,.82),rgba(7,9,18,.72))!important;border-left:1px solid rgba(255,255,255,.14)!important;box-shadow:24px 0 70px rgba(0,0,0,.24),inset 1px 0 rgba(255,255,255,.04)!important}
 .main{background:transparent!important}
-.card,.panel,.stat-card,.dash-card,.glass-card,.table-wrap,.chart-card,.quick-card,.activity-card,.config-card,.modal,.settings-card{background:linear-gradient(145deg,rgba(30,36,64,.64),rgba(10,13,27,.72))!important;border:1px solid rgba(255,255,255,.13)!important;box-shadow:0 22px 60px -32px rgba(0,0,0,.9),inset 0 1px rgba(255,255,255,.08)!important;backdrop-filter:blur(18px) saturate(140%)!important;-webkit-backdrop-filter:blur(18px) saturate(140%)!important}
-.card:hover,.panel:hover,.stat-card:hover,.dash-card:hover,.glass-card:hover{border-color:color-mix(in srgb,var(--accent) 42%,rgba(255,255,255,.13))!important;box-shadow:0 25px 65px -30px rgba(0,0,0,.95),0 0 32px color-mix(in srgb,var(--accent) 13%,transparent)!important}
-.btn,.button,.primary-btn,.save-btn,.create-btn,.nav-add{background:linear-gradient(135deg,var(--accent),var(--accent2))!important;color:#fff!important;border:0!important;box-shadow:0 12px 30px -12px color-mix(in srgb,var(--accent) 75%,transparent)!important}
+html:not(.light) .card,html:not(.light) .panel,html:not(.light) .stat-card,html:not(.light) .dash-card,html:not(.light) .glass-card,html:not(.light) .table-wrap,html:not(.light) .chart-card,html:not(.light) .quick-card,html:not(.light) .activity-card,html:not(.light) .config-card,html:not(.light) .modal,html:not(.light) .settings-card{background:linear-gradient(145deg,rgba(30,36,64,.64),rgba(10,13,27,.72))!important;border:1px solid rgba(255,255,255,.13)!important;box-shadow:0 22px 60px -32px rgba(0,0,0,.9),inset 0 1px rgba(255,255,255,.08)!important;backdrop-filter:blur(18px) saturate(140%)!important;-webkit-backdrop-filter:blur(18px) saturate(140%)!important}
+html:not(.light) .card:hover,html:not(.light) .panel:hover,html:not(.light) .stat-card:hover,html:not(.light) .dash-card:hover,html:not(.light) .glass-card:hover{border-color:color-mix(in srgb,var(--accent) 42%,rgba(255,255,255,.13))!important;box-shadow:0 25px 65px -30px rgba(0,0,0,.95),0 0 32px color-mix(in srgb,var(--accent) 13%,transparent)!important}
+html:not(.light) .btn,html:not(.light) .button,html:not(.light) .primary-btn,html:not(.light) .save-btn,html:not(.light) .create-btn,html:not(.light) .nav-add{background:linear-gradient(135deg,var(--accent),var(--accent2))!important;color:#fff!important;border:0!important;box-shadow:0 12px 30px -12px color-mix(in srgb,var(--accent) 75%,transparent)!important}
 .nav-item.on,.nav-item:hover{background:linear-gradient(135deg,color-mix(in srgb,var(--accent) 22%,transparent),color-mix(in srgb,var(--accent2) 14%,transparent))!important;border-color:color-mix(in srgb,var(--accent) 36%,transparent)!important}
 .sb-toggle{background:linear-gradient(135deg,var(--accent),var(--accent2))!important;box-shadow:0 8px 22px color-mix(in srgb,var(--accent) 35%,transparent)!important}
-input,select,textarea{background:rgba(0,0,0,.25)!important;border-color:rgba(255,255,255,.14)!important}
+html:not(.light) input,html:not(.light) select,html:not(.light) textarea{background:rgba(0,0,0,.25)!important;border-color:rgba(255,255,255,.14)!important}
 input:focus,select:focus,textarea:focus{border-color:var(--accent)!important;box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 16%,transparent)!important}
-.onex-approved-brand,.onex-approved-mobile{background:linear-gradient(135deg,rgba(255,255,255,.08),rgba(255,255,255,.02))!important;border-bottom-color:rgba(255,255,255,.12)!important}
+html:not(.light) .onex-approved-brand,html:not(.light) .onex-approved-mobile{background:linear-gradient(135deg,rgba(255,255,255,.08),rgba(255,255,255,.02))!important;border-bottom-color:rgba(255,255,255,.12)!important}
 .page-title,.section-title{letter-spacing:-.02em;text-shadow:0 0 24px color-mix(in srgb,var(--accent) 18%,transparent)}
 @media(max-width:760px){.main{background:transparent!important}}
+
+/* ============================================================
+   ONEX GLASS TEMPLATE — unified design system (matches login)
+   Visual layer only: colors, surfaces, borders, radius, type.
+   No layout / behaviour is changed here.
+   ============================================================ */
+:root{
+  --p:#38d9ff;--s:#8b5cf6;--p-rgb:56 217 255;--s-rgb:139 92 246;--on:#0b0d14;
+  --g-bg:#05060d;--g-tx:#eef2ff;--g-mut:#a3abc6;--g-dim:#6d7594;
+  --g-line:rgb(255 255 255 / .09);--g-line2:rgb(255 255 255 / .15);
+  --g-surf:linear-gradient(160deg,rgb(30 36 64 / .62),rgb(12 14 28 / .78));
+  --g-surf2:linear-gradient(160deg,rgb(255 255 255 / .05),rgb(255 255 255 / .018));
+  --g-shadow:0 1px 0 rgb(255 255 255 / .09) inset,0 30px 70px -40px rgb(0 0 0 / .95);
+  --g-r:22px;--g-r2:16px;--g-r3:13px;
+  --g-ease:cubic-bezier(.16,1,.3,1);
+  --mono:"JetBrains Mono",ui-monospace,monospace;
+}
+#page-dash{--p:var(--accent);--s:var(--purple);--line:var(--g-line);--text:var(--t1);--muted:var(--t2);--dim:var(--t3)}
+html.onex-glass body{font-family:Vazirmatn,system-ui,sans-serif!important;-webkit-font-smoothing:antialiased}
+html.onex-glass body.en{font-family:Inter,Vazirmatn,system-ui,sans-serif!important}
+html.onex-glass:not(.light) body{background:var(--g-bg)!important;color:var(--g-tx)}
+html.onex-glass:not(.light) body::before{background:
+  radial-gradient(ellipse 60% 50% at 6% 4%,rgb(var(--p-rgb) / .16),transparent 62%),
+  radial-gradient(ellipse 55% 50% at 96% 96%,rgb(var(--s-rgb) / .14),transparent 64%),
+  linear-gradient(180deg,#05060d,#080a14)!important}
+html.onex-glass ::selection{background:rgb(var(--p-rgb) / .35);color:#fff}
+html.onex-glass *{scrollbar-width:thin;scrollbar-color:rgb(var(--p-rgb) / .35) transparent}
+html.onex-glass ::-webkit-scrollbar{width:9px;height:9px}
+html.onex-glass ::-webkit-scrollbar-thumb{background:rgb(var(--p-rgb) / .3);border-radius:99px;border:2px solid transparent;background-clip:padding-box}
+html.onex-glass ::-webkit-scrollbar-track{background:transparent}
+
+/* ---------- shell: sidebar / top bar / mobile bar ---------- */
+html.onex-glass:not(.light) .sidebar{background:linear-gradient(180deg,rgb(16 19 38 / .82),rgb(7 9 18 / .78))!important;border-left-color:var(--g-line2)!important}
+html.onex-glass .nav-item{border-radius:14px!important;transition:background .25s var(--g-ease),color .2s,box-shadow .25s,transform .25s var(--g-ease)!important}
+html.onex-glass:not(.light) .nav-item:hover{background:rgb(255 255 255 / .05)!important;border-color:var(--g-line2)!important}
+html.onex-glass .nav-item.on{background:linear-gradient(135deg,rgb(var(--p-rgb) / .24),rgb(var(--s-rgb) / .14))!important;box-shadow:0 0 0 1px rgb(var(--p-rgb) / .45) inset,0 10px 26px -14px rgb(var(--p-rgb) / .8)!important}
+html.onex-glass .nav-item.on .nav-ico{color:var(--accent)!important;filter:drop-shadow(0 0 8px rgb(var(--p-rgb) / .55))}
+html.onex-glass .nav-sec{font-family:var(--mono);letter-spacing:.14em!important;opacity:.75}
+html.onex-glass .nav-new-badge{background:linear-gradient(135deg,var(--accent),var(--purple))!important;color:var(--on)!important}
+html.onex-glass:not(.light) .onex-topbar,html.onex-glass:not(.light) .mob-bar{background:linear-gradient(135deg,rgb(255 255 255 / .07),rgb(255 255 255 / .02))!important;border:1px solid var(--g-line2)!important;box-shadow:0 1px 0 rgb(255 255 255 / .1) inset,0 18px 40px -24px rgb(0 0 0 / .85)!important;backdrop-filter:blur(18px) saturate(160%)!important;-webkit-backdrop-filter:blur(18px) saturate(160%)!important}
+html.onex-glass .onex-topbar{border-radius:20px!important}
+html.onex-glass .top-dot,html.onex-glass .mob-status i{background:var(--accent)!important;box-shadow:0 0 10px var(--accent)!important}
+html.onex-glass .onex-brand-word .x{background:linear-gradient(135deg,var(--accent),var(--purple));-webkit-background-clip:text;background-clip:text;color:transparent!important}
+html.onex-glass .hexa-swatches{display:flex;gap:8px;align-items:center;padding:5px 8px;border-radius:99px;background:rgb(0 0 0 / .22);border:1px solid var(--g-line)}
+html.onex-glass .hexa-swatches button{width:22px!important;height:22px!important;border-radius:50%!important;border:0!important;cursor:pointer;background:linear-gradient(135deg,var(--sw-p,var(--accent)),var(--sw-s,var(--purple)))!important;transition:transform .25s var(--g-ease),box-shadow .25s!important}
+html.onex-glass .hexa-swatches button:hover{transform:scale(1.15)}
+html.onex-glass .hexa-swatches button.active{box-shadow:0 0 0 2px var(--g-bg),0 0 0 4px #fff,0 0 14px 2px rgb(var(--p-rgb) / .7)!important}
+html.onex-glass .top-setting-group{border-radius:12px!important;overflow:hidden}
+html.onex-glass .top-setting-btn{font-family:var(--mono)!important;font-weight:700!important}
+html.onex-glass .top-setting-btn.active{background:linear-gradient(135deg,rgb(var(--p-rgb) / .3),rgb(var(--s-rgb) / .2))!important;color:#fff!important;box-shadow:0 0 0 1px rgb(var(--p-rgb) / .55) inset!important}
+html.light.onex-glass .top-setting-btn.active{color:#0f172a!important}
+html.onex-glass .onex-3d-control{border-radius:18px!important}
+html.onex-glass:not(.light) .onex-3d-control{background:var(--g-surf)!important;border:1px solid var(--g-line2)!important;box-shadow:var(--g-shadow)!important}
+html.onex-glass .onex-3d-control .control-icon{color:var(--accent)!important;background:rgb(var(--p-rgb) / .12)!important;border:1px solid rgb(var(--p-rgb) / .35)!important}
+html.onex-glass .onex-3d-control:hover{border-color:rgb(var(--p-rgb) / .5)!important;transform:translateY(-2px)}
+
+/* ---------- surfaces: tier 1 (page level) ---------- */
+html.onex-glass:not(.light) .page .card,
+html.onex-glass:not(.light) #page-dash .glass,
+html.onex-glass:not(.light) .page .cfg-page-hero,html.onex-glass:not(.light) .page .cfg-stat-card,html.onex-glass:not(.light) .page .cfg-tools,html.onex-glass:not(.light) .page .cfg-list-shell,
+html.onex-glass:not(.light) .page .group-hero,html.onex-glass:not(.light) .page .group-list-pane,html.onex-glass:not(.light) .page .group-detail-pane,
+html.onex-glass:not(.light) .page .stats-kpi,html.onex-glass:not(.light) .page .stats-panel,html.onex-glass:not(.light) .page .traffic-panel,html.onex-glass:not(.light) .page .uptime-panel,html.onex-glass:not(.light) .page .server-panel,
+html.onex-glass:not(.light) .page .admin-card,html.onex-glass:not(.light) .page .admin-create-card,html.onex-glass:not(.light) .page .admin-list-card,html.onex-glass:not(.light) .page .admin-perm-card,
+html.onex-glass:not(.light) .page .onex-security-card,html.onex-glass:not(.light) .page .tg-hero,html.onex-glass:not(.light) .page .tg-page-card,html.onex-glass:not(.light) .page .tg-settings-card,
+html.onex-glass:not(.light) .page .logs-list-card,html.onex-glass:not(.light) .page .onex-theme-panel,html.onex-glass:not(.light) .page .onex-theme-preview{
+  background:var(--g-surf)!important;border:1px solid var(--g-line2)!important;border-radius:var(--g-r)!important;
+  box-shadow:var(--g-shadow)!important;backdrop-filter:blur(20px) saturate(150%)!important;-webkit-backdrop-filter:blur(20px) saturate(150%)!important;
+  transition:border-color .3s,box-shadow .3s,transform .3s var(--g-ease)}
+html.onex-glass:not(.light) .page .card:hover,html.onex-glass:not(.light) #page-dash .glass:hover,
+html.onex-glass:not(.light) .page .cfg-stat-card:hover,html.onex-glass:not(.light) .page .stats-kpi:hover{
+  border-color:rgb(var(--p-rgb) / .38)!important;box-shadow:var(--g-shadow),0 0 40px -18px rgb(var(--p-rgb) / .6)!important}
+
+/* ---------- surfaces: tier 2 (nested) ---------- */
+html.onex-glass:not(.light) .page .cfg-card,html.onex-glass:not(.light) .page .group-card,html.onex-glass:not(.light) .page .group-info-card,html.onex-glass:not(.light) .page .group-link-card,
+html.onex-glass:not(.light) .page .group-proto-card,html.onex-glass:not(.light) .page .group-manage-card,html.onex-glass:not(.light) .page .group-configs-card,html.onex-glass:not(.light) .page .group-stat,
+html.onex-glass:not(.light) .page .tg-stat,html.onex-glass:not(.light) .page .tg-user-card,html.onex-glass:not(.light) .page .advanced-section,html.onex-glass:not(.light) .page .advanced-subcard,
+html.onex-glass:not(.light) .page .theme-custom-box,html.onex-glass:not(.light) .page .theme-mode-box,html.onex-glass:not(.light) .page .security-login-box,html.onex-glass:not(.light) .page .security-log-box,
+html.onex-glass:not(.light) #page-dash .version,html.onex-glass:not(.light) #page-dash .quickitem,html.onex-glass:not(.light) #page-dash .dock button{
+  background:var(--g-surf2)!important;border:1px solid var(--g-line)!important;border-radius:var(--g-r2)!important;box-shadow:0 1px 0 rgb(255 255 255 / .05) inset!important}
+html.onex-glass:not(.light) .page .cfg-card:hover,html.onex-glass:not(.light) .page .group-card:hover,html.onex-glass:not(.light) #page-dash .quickitem:hover,html.onex-glass:not(.light) #page-dash .dock button:hover{
+  border-color:rgb(var(--p-rgb) / .4)!important;background:linear-gradient(160deg,rgb(var(--p-rgb) / .08),rgb(255 255 255 / .02))!important}
+html.onex-glass .page .group-card.on,html.onex-glass .page .group-card.active,html.onex-glass .page .cfg-card.selected{border-color:rgb(var(--p-rgb) / .6)!important;box-shadow:0 0 0 1px rgb(var(--p-rgb) / .35) inset,0 12px 30px -18px rgb(var(--p-rgb) / .7)!important}
+
+/* ---------- headings & text ---------- */
+html.onex-glass .page-title{font-weight:900!important;letter-spacing:-.01em}
+html.onex-glass .page-title svg{color:var(--accent)!important;filter:drop-shadow(0 0 10px rgb(var(--p-rgb) / .5))}
+html.onex-glass .card-title{font-weight:800!important}
+html.onex-glass .page-sub,html.onex-glass .stats-subtitle{color:var(--t2)!important}
+html.onex-glass .theme-kicker,html.onex-glass .group-hero-kicker{font-family:var(--mono)!important;color:var(--accent)!important;letter-spacing:.12em}
+html.onex-glass .mono,html.onex-glass code,html.onex-glass kbd{font-family:var(--mono)!important}
+
+/* ---------- form controls ---------- */
+html.onex-glass:not(.light) .main input:not([type=checkbox]):not([type=radio]):not([type=color]):not([type=range]):not([type=file]),
+html.onex-glass:not(.light) .main select,html.onex-glass:not(.light) .main textarea,
+html.onex-glass:not(.light) .modal input:not([type=checkbox]):not([type=radio]):not([type=color]),html.onex-glass:not(.light) .modal select,html.onex-glass:not(.light) .modal textarea{
+  background:rgb(0 0 0 / .28)!important;border:1px solid var(--g-line2)!important;border-radius:var(--g-r3)!important;color:var(--g-tx)!important;
+  transition:border-color .2s,box-shadow .25s,background-color .2s!important}
+html.onex-glass .main input:not([type=checkbox]):not([type=radio]):not([type=color]):hover,html.onex-glass .main select:hover,html.onex-glass .main textarea:hover{border-color:rgb(255 255 255 / .26)!important}
+html.onex-glass .main input:focus,html.onex-glass .main select:focus,html.onex-glass .main textarea:focus,
+html.onex-glass .modal input:focus,html.onex-glass .modal select:focus,html.onex-glass .modal textarea:focus{
+  outline:none!important;border-color:var(--accent)!important;box-shadow:0 0 0 4px rgb(var(--p-rgb) / .14)!important}
+html.onex-glass:not(.light) .main input:focus,html.onex-glass:not(.light) .main textarea:focus{background:rgb(var(--p-rgb) / .05)!important}
+html.onex-glass:not(.light) .main select option{background:#10131f;color:var(--g-tx)}
+html.onex-glass .main input::placeholder,html.onex-glass .main textarea::placeholder{color:var(--g-dim)!important}
+html.onex-glass .main input[type=checkbox],html.onex-glass .main input[type=radio]{accent-color:var(--accent)}
+html.onex-glass .main input[type=color]{border-radius:10px;border:1px solid var(--g-line2);background:transparent;cursor:pointer}
+/* search boxes that wrap an input: the wrapper is the control */
+html.onex-glass:not(.light) .cfg-search-box,html.onex-glass:not(.light) .group-search,html.onex-glass:not(.light) .logs-search-wrap,html.onex-glass:not(.light) .tg-input-wrap{
+  background:rgb(0 0 0 / .28)!important;border:1px solid var(--g-line2)!important;border-radius:var(--g-r3)!important}
+html.onex-glass .cfg-search-box:focus-within,html.onex-glass .group-search:focus-within,html.onex-glass .logs-search-wrap:focus-within,html.onex-glass .tg-input-wrap:focus-within{border-color:var(--accent)!important;box-shadow:0 0 0 4px rgb(var(--p-rgb) / .14)!important}
+html.onex-glass .main .cfg-search-box input,html.onex-glass .main .group-search input,html.onex-glass .main .logs-search-wrap input,html.onex-glass .main .tg-input-wrap input{
+  background:transparent!important;border:0!important;box-shadow:none!important}
+html.onex-glass .field label{font-weight:600}
+
+/* ---------- buttons ---------- */
+html.onex-glass:not(.light) .btn:not(.btn-p):not(.btn-primary):not(.btn-d):not(.danger):not(.delete-all-confirm){
+  background:rgb(255 255 255 / .06)!important;color:var(--g-tx)!important;border:1px solid var(--g-line2)!important;box-shadow:0 1px 0 rgb(255 255 255 / .06) inset!important}
+html.onex-glass:not(.light) .btn:not(.btn-p):not(.btn-primary):not(.btn-d):not(.danger):not(.delete-all-confirm):hover{border-color:rgb(var(--p-rgb) / .55)!important;color:#fff!important;background:rgb(var(--p-rgb) / .1)!important}
+html.onex-glass .btn{border-radius:var(--g-r3)!important;font-weight:700!important;transition:transform .2s var(--g-ease),box-shadow .25s,background .2s,border-color .2s,filter .2s!important}
+html.onex-glass .btn:active{transform:scale(.98)}
+html.onex-glass .btn.btn-p,html.onex-glass .btn.btn-primary,html.onex-glass #page-dash .primary,html.onex-glass .group-create-btn,html.onex-glass .theme-apply-custom,
+html.onex-glass .cfg-primary-btn,html.onex-glass .tg-btn.primary{
+  background:linear-gradient(135deg,var(--accent),var(--purple))!important;color:var(--on)!important;border:0!important;
+  box-shadow:0 14px 30px -14px rgb(var(--p-rgb) / .85)!important;font-weight:800!important;position:relative;overflow:hidden}
+html.onex-glass .btn.btn-p:hover,html.onex-glass .btn.btn-primary:hover,html.onex-glass #page-dash .primary:hover,html.onex-glass .group-create-btn:hover,html.onex-glass .theme-apply-custom:hover,
+html.onex-glass .cfg-primary-btn:hover,html.onex-glass .tg-btn.primary:hover{transform:translateY(-2px);filter:saturate(1.15);box-shadow:0 20px 40px -16px rgb(var(--p-rgb) / .95)!important}
+html.onex-glass .btn.btn-d,html.onex-glass .btn.danger,html.onex-glass .logs-clear-btn{
+  background:rgb(255 80 110 / .1)!important;color:#ff9aab!important;border:1px solid rgb(255 107 129 / .38)!important;box-shadow:none!important}
+html.onex-glass .btn.btn-d:hover,html.onex-glass .btn.danger:hover,html.onex-glass .logs-clear-btn:hover{background:rgb(255 80 110 / .18)!important;border-color:rgb(255 107 129 / .7)!important;color:#ffc2cc!important}
+html.light.onex-glass .btn.btn-d,html.light.onex-glass .btn.danger{color:#be123c!important}
+html.onex-glass:not(.light) .stats-refresh-btn,html.onex-glass:not(.light) .cfg-filter-btn,html.onex-glass:not(.light) .theme-reset-btn,html.onex-glass:not(.light) .logs-advanced-btn,
+html.onex-glass:not(.light) .group-copy-btn,html.onex-glass:not(.light) .tg-btn.secondary,html.onex-glass:not(.light) .tg-link-btn,html.onex-glass:not(.light) .top-notify-btn,html.onex-glass:not(.light) .cfg-menu-btn{
+  background:rgb(255 255 255 / .06)!important;border:1px solid var(--g-line2)!important;color:var(--g-tx)!important;border-radius:var(--g-r3)!important}
+html.onex-glass .stats-refresh-btn:hover,html.onex-glass .cfg-filter-btn:hover,html.onex-glass .theme-reset-btn:hover,html.onex-glass .logs-advanced-btn:hover,
+html.onex-glass .group-copy-btn:hover,html.onex-glass .tg-btn.secondary:hover,html.onex-glass .tg-link-btn:hover,html.onex-glass .top-notify-btn:hover{border-color:rgb(var(--p-rgb) / .55)!important;color:var(--accent)!important}
+html.onex-glass .main button:focus-visible,html.onex-glass .main a:focus-visible,html.onex-glass .sidebar button:focus-visible{outline:2px solid var(--accent)!important;outline-offset:2px}
+
+/* segmented controls / tabs / chips */
+html.onex-glass .range-tab,html.onex-glass .group-filter,html.onex-glass .cfg-select,html.onex-glass #page-dash .range button,html.onex-glass .theme-mode-buttons button{border-radius:10px!important}
+html.onex-glass .range-tab.on,html.onex-glass .group-filter.on,html.onex-glass .cfg-select.on,html.onex-glass #page-dash .range button.active,html.onex-glass .theme-mode-buttons button.on,html.onex-glass .tg-tab.on,html.onex-glass .tg-tab.active{
+  background:linear-gradient(135deg,rgb(var(--p-rgb) / .28),rgb(var(--s-rgb) / .18))!important;color:var(--t1)!important;box-shadow:0 0 0 1px rgb(var(--p-rgb) / .5) inset,0 6px 16px -8px rgb(var(--p-rgb) / .7)!important}
+html.onex-glass .theme-preset{border-radius:var(--g-r2)!important}
+html.onex-glass .theme-preset.on{box-shadow:0 0 0 1px var(--accent) inset,0 12px 30px -16px rgb(var(--p-rgb) / .8)!important;border-color:var(--accent)!important}
+
+/* ---------- progress / meters ---------- */
+html.onex-glass .health-fill,html.onex-glass .progress-fill,html.onex-glass .progress-bar-fill,html.onex-glass .meter-fill,html.onex-glass .usage-fill,html.onex-glass .speed-fill,html.onex-glass #page-dash .track i{
+  background:linear-gradient(90deg,var(--accent),var(--purple))!important;box-shadow:0 0 10px rgb(var(--p-rgb) / .45)!important}
+
+/* ---------- modals / overlays / menus ---------- */
+html.onex-glass .modal-bg,html.onex-glass .logs-modal-bg{background:rgb(3 4 9 / .62)!important;backdrop-filter:blur(10px) saturate(120%)!important;-webkit-backdrop-filter:blur(10px) saturate(120%)!important}
+html.onex-glass:not(.light) .modal,html.onex-glass:not(.light) .delete-all-modal,html.onex-glass:not(.light) .update-prompt-modal,html.onex-glass:not(.light) .logs-detail-modal,
+html.onex-glass:not(.light) .cfg-menu,html.onex-glass:not(.light) .top-notify-panel,html.onex-glass:not(.light) .group-card-menu{
+  background:linear-gradient(160deg,rgb(30 36 64 / .94),rgb(10 12 24 / .97))!important;border:1px solid var(--g-line2)!important;border-radius:24px!important;
+  box-shadow:0 1px 0 rgb(255 255 255 / .1) inset,0 50px 100px -30px rgb(0 0 0 / .95),0 0 60px -24px rgb(var(--p-rgb) / .45)!important;
+  backdrop-filter:blur(24px) saturate(150%)!important;-webkit-backdrop-filter:blur(24px) saturate(150%)!important}
+html.onex-glass .cfg-menu,html.onex-glass .group-card-menu,html.onex-glass .top-notify-panel{border-radius:18px!important}
+html.onex-glass .modal-x,html.onex-glass .delete-all-modal-close{border-radius:11px!important}
+html.onex-glass .modal-x:hover,html.onex-glass .delete-all-modal-close:hover{background:rgb(255 255 255 / .08)!important;color:#fff!important}
+html.onex-glass:not(.light) .overlay.show{background:rgb(3 4 9 / .55)!important;backdrop-filter:blur(6px)}
+
+/* ---------- toast ---------- */
+html.onex-glass #toast{background:linear-gradient(135deg,rgb(30 36 64 / .92),rgb(12 14 28 / .95))!important;color:var(--g-tx)!important;border:1px solid rgb(var(--p-rgb) / .45)!important;border-radius:16px!important;
+  box-shadow:0 20px 50px -20px rgb(0 0 0 / .9),0 0 30px -10px rgb(var(--p-rgb) / .55)!important;backdrop-filter:blur(18px)!important;-webkit-backdrop-filter:blur(18px)!important;font-weight:700}
+html.light.onex-glass #toast{background:#fff!important;color:#0f172a!important}
+
+/* ---------- tables ---------- */
+html.onex-glass .page table{border-collapse:separate;border-spacing:0}
+html.onex-glass .page th{font-family:var(--mono);font-size:11px!important;letter-spacing:.06em;color:var(--t3)!important;font-weight:600!important}
+html.onex-glass:not(.light) .page td{border-color:var(--g-line)!important}
+html.onex-glass:not(.light) .page tbody tr:hover td{background:rgb(var(--p-rgb) / .05)!important}
+
+/* ---------- dashboard home (live) ---------- */
+#page-dash .grid{animation:onexRise .7s var(--g-ease) both}
+@keyframes onexRise{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
+#page-dash .hero h1 .home-brand{background:linear-gradient(135deg,var(--accent),var(--purple));-webkit-background-clip:text;background-clip:text;color:transparent;direction:ltr;display:inline-block}
+#page-dash .hero h1 .home-user{font-style:normal;color:var(--t2);font-weight:700}
+#page-dash .version b[data-state="ok"],#page-dash .home-core-pill[data-state="ok"]{color:#48e39d!important}
+#page-dash .version b[data-state="warn"],#page-dash .home-core-pill[data-state="warn"]{color:#ffc857!important}
+#page-dash .version b[data-state="bad"],#page-dash .home-core-pill[data-state="bad"]{color:#ff6d86!important}
+#page-dash .home-core-pill{font-size:10px;color:var(--t3);padding:4px 9px;border-radius:99px;border:1px solid var(--g-line2);background:rgb(0 0 0 / .18)}
+#page-dash .alert[hidden]{display:none!important}
+#page-dash .alert[data-mode="expired"]{border-color:rgb(255 109 134 / .4);background:rgb(255 109 134 / .08)}
+#page-dash .alert[data-mode="expired"] b{color:#ff8da1}
+#page-dash #heroRefresh{border:1px solid var(--g-line2);background:rgb(255 255 255 / .05)}
+#page-dash #heroRefresh:hover{border-color:rgb(var(--p-rgb) / .55)}
+#page-dash #heroRefresh.spinning{opacity:.75;pointer-events:none}
+#page-dash .icon{background:rgb(var(--p-rgb) / .13)!important;color:var(--accent)!important;border:1px solid rgb(var(--p-rgb) / .3)}
+#page-dash .healthrow .tag{background:rgb(var(--p-rgb) / .1)!important;border-color:rgb(var(--p-rgb) / .28)!important;color:var(--accent)!important}
+#page-dash .metric strong{background:linear-gradient(180deg,var(--t1),color-mix(in srgb,var(--t1) 70%,var(--accent)));-webkit-background-clip:text;background-clip:text;color:transparent}
+#page-dash .metric strong small{-webkit-text-fill-color:var(--t3);font-size:.6em}
+#page-dash .home-legend{display:flex;align-items:center;gap:12px;font-size:11px;color:var(--t2)}
+#page-dash .home-legend span{display:flex;align-items:center;gap:6px}
+#page-dash .home-legend em{font-style:normal}
+#page-dash i.lg-d,#page-dash i.lg-u{width:9px;height:9px;border-radius:3px;display:inline-block;background:var(--accent);box-shadow:0 0 8px var(--accent)}
+#page-dash i.lg-u{background:var(--purple);box-shadow:0 0 8px var(--purple)}
+#page-dash .home-link-btn{border:1px solid var(--g-line2)!important;background:rgb(255 255 255 / .04)!important;border-radius:10px!important;padding:6px 11px!important;font-size:11px!important;color:var(--t2)!important;cursor:pointer}
+#page-dash .home-link-btn:hover{color:var(--accent)!important;border-color:rgb(var(--p-rgb) / .5)!important}
+#page-dash .home-chart-wrap{position:relative}
+#page-dash .home-chart-tip{position:absolute;top:6px;transform:translateX(-50%);display:flex;gap:10px;align-items:center;padding:6px 10px;border-radius:10px;font:500 11px var(--mono);direction:ltr;white-space:nowrap;pointer-events:none;
+  background:rgb(10 12 24 / .92);border:1px solid var(--g-line2);box-shadow:0 10px 26px -12px #000;color:var(--g-tx)}
+#page-dash .home-chart-tip[hidden]{display:none}
+#page-dash .home-chart-tip span{display:flex;align-items:center;gap:5px}
+#page-dash .home-row{cursor:pointer;border-radius:12px;transition:background .2s}
+#page-dash .home-row:hover{background:rgb(var(--p-rgb) / .06)}
+#page-dash .home-row b{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#page-dash .home-row .usage i{background:linear-gradient(90deg,var(--accent),var(--purple))!important}
+#page-dash .home-row[data-state="warn"] .home-exp{color:#ffc857}
+#page-dash .home-row[data-state="warn"] .dot{background:#ffc857;box-shadow:0 0 10px #ffc857}
+#page-dash .home-row[data-state="bad"] .home-exp{color:#ff6d86}
+#page-dash .home-row[data-state="bad"] .dot{background:#ff6d86;box-shadow:0 0 10px #ff6d86}
+#page-dash .home-row[data-state="off"] .dot{background:var(--t3);box-shadow:none}
+#page-dash .home-row[data-state="off"]{opacity:.65}
+#page-dash .home-empty{padding:26px 8px;text-align:center;color:var(--t3);font-size:12px;display:flex;gap:10px;justify-content:center;align-items:center;flex-wrap:wrap}
+#page-dash .telegram{background:radial-gradient(circle at 50% 0,rgb(55 174 226 / .22),transparent 50%),var(--g-surf)!important}
+#page-dash .telegram a{background:linear-gradient(135deg,#37aee2,#1e96c8)!important;box-shadow:0 10px 24px -10px #37aee2;transition:transform .25s var(--g-ease)}
+#page-dash .telegram a:hover{transform:translateY(-2px)}
+html.light #page-dash .home-chart-tip{background:#fff;color:#0f172a;border-color:rgba(15,23,42,.12)}
+html.light #page-dash .metric strong{-webkit-text-fill-color:#0f172a;background:none}
+@media (max-width:800px){#page-dash .home-legend span{display:none}}
+@media (prefers-reduced-motion:reduce){html.onex-glass *,html.onex-glass *::before,html.onex-glass *::after{animation-duration:.01ms!important;transition-duration:.01ms!important}}
+
 </style>
 <section class="page" id="page-news">
   <div class="page-head">
@@ -11827,16 +12269,7 @@ function toggleTheme(){
 (function(){const th=localStorage.getItem('px_theme')||'dark';setTheme(th)})();
 
 
-/* Exact Hexa dashboard interactions */
-(function(){
-  const dash=document.getElementById('page-dash');
-  if(!dash)return;
-  const cv=dash.querySelector('#traffic'),ctx=cv&&cv.getContext('2d');
-  function resize(){if(!cv||!ctx)return;const r=cv.getBoundingClientRect(),d=devicePixelRatio||1;cv.width=r.width*d;cv.height=r.height*d;ctx.setTransform(d,0,0,d,0,0);draw()}
-  function draw(){if(!ctx)return;const r=cv.getBoundingClientRect(),w=r.width,h=r.height;ctx.clearRect(0,0,w,h);const p=getComputedStyle(document.documentElement).getPropertyValue('--accent')||'#38d9ff';ctx.strokeStyle='rgba(255,255,255,.08)';ctx.lineWidth=1;for(let y=20;y<h;y+=45){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(w,y);ctx.stroke()}const pts=[];for(let i=0;i<28;i++)pts.push([i/27*w,h-25-(35+Math.sin(i*.65)*20+Math.random()*45)*(h/220)]);let g=ctx.createLinearGradient(0,0,0,h);g.addColorStop(0,p+'80');g.addColorStop(1,p+'00');ctx.beginPath();pts.forEach((v,i)=>i?ctx.lineTo(v[0],v[1]):ctx.moveTo(v[0],v[1]));ctx.lineTo(w,h);ctx.lineTo(0,h);ctx.closePath();ctx.fillStyle=g;ctx.fill();ctx.beginPath();pts.forEach((v,i)=>i?ctx.lineTo(v[0],v[1]):ctx.moveTo(v[0],v[1]));ctx.strokeStyle=p;ctx.lineWidth=2.5;ctx.stroke()}
-  if(cv){addEventListener('resize',resize);setTimeout(resize,120)}
-  dash.querySelectorAll('.range button').forEach(b=>b.addEventListener('click',()=>{dash.querySelectorAll('.range button').forEach(x=>x.classList.remove('active'));b.classList.add('active');draw()}));
-})();
+/* Dashboard home chart & live data: see "ONEX HOME" module below (real /stats data, no demo values). */
 
 const sb=document.getElementById('sidebar'),main=document.getElementById('main');
 const mobMenuBtn=document.getElementById('mobMenuBtn'),overlay=document.getElementById('overlay');
@@ -11948,7 +12381,7 @@ async function refreshAll(){
   try{
     const h=await fetch('/health',{cache:'no-store'}).then(r=>r.json());
     if(h&&h.uptime){
-      document.getElementById('mUptime').textContent=h.uptime;
+      const mu0=document.getElementById('mUptime');if(mu0)mu0.textContent=h.uptime;
       const su=document.getElementById('sUptime');if(su)su.textContent=h.uptime;
     }
   }catch(e){}
@@ -12712,7 +13145,7 @@ function toggleConfigFilters(){document.getElementById('cfgFilterRow')?.classLis
 function setCfgStatus(v,el){cfgStatusFilter=v;document.querySelectorAll('#cfgFilterRow [data-status]').forEach(x=>x.classList.toggle('on',x===el));renderConfigCards(getFilteredConfigs())}
 function setCfgSort(v,el){cfgSortMode=v;document.querySelectorAll('#cfgFilterRow [data-sort]').forEach(x=>x.classList.toggle('on',x===el));renderConfigCards(getFilteredConfigs())}
 function configExpired(l){return !!l.expired||(l.expires_at&&new Date(l.expires_at).getTime()<=Date.now())||(Number(l.limit_bytes)>0&&Number(l.used_bytes||0)>=Number(l.limit_bytes))}
-function getFilteredConfigs(){const q=(document.getElementById('cfgSearch')?.value||'').trim().toLowerCase();let a=__allLinks.filter(l=>{const dead=configExpired(l),active=l.active!==false&&!dead;if(cfgStatusFilter==='active'&&!active)return false;if(cfgStatusFilter==='expired'&&!dead)return false;if(!q)return true;return [l.label,l.name,l.protocol,l.protocol_label,l.uuid,l.id,l.sub,l.sub_url,l.vless,l.vless_full].map(x=>String(x||'').toLowerCase()).some(x=>x.includes(q))});a.sort((x,y)=>cfgSortMode==='name'?String(x.label||x.name||'').localeCompare(String(y.label||y.name||'')):cfgSortMode==='usage'?Number(y.used_bytes||0)-Number(x.used_bytes||0):String(y.created_at||'').localeCompare(String(x.created_at||'')));return a}
+function getFilteredConfigs(){const q=(document.getElementById('cfgSearch')?.value||'').trim().toLowerCase();let a=__allLinks.filter(l=>{const dead=configExpired(l),active=l.active!==false&&!dead;if(cfgStatusFilter==='active'&&!active)return false;if(cfgStatusFilter==='expired'&&!dead)return false;if(cfgStatusFilter==='expiring'&&!(window.homeIsExpiring&&homeIsExpiring(l)&&!dead))return false;if(!q)return true;return [l.label,l.name,l.protocol,l.protocol_label,l.uuid,l.id,l.sub,l.sub_url,l.vless,l.vless_full].map(x=>String(x||'').toLowerCase()).some(x=>x.includes(q))});a.sort((x,y)=>cfgSortMode==='name'?String(x.label||x.name||'').localeCompare(String(y.label||y.name||'')):cfgSortMode==='usage'?Number(y.used_bytes||0)-Number(x.used_bytes||0):String(y.created_at||'').localeCompare(String(x.created_at||'')));return a}
 function filterConfigs(){renderConfigCards(getFilteredConfigs())}
 function protocolUi(id){const m={'vless-ws':['ONEX WB','/api/protocol-icon/vless-ws.png?v=1.3.5'],'xhttp-packet-up':['ONEX Xhttp','/api/protocol-icon/xhttp-packet-up.png?v=1.3.5'],'xhttp-stream-up':['ONEX GAMING','/api/protocol-icon/xhttp-stream-up.png?v=1.3.5'],'trojan':['Trojan','/api/protocol-icon/trojan.png?v=1.3.5'],'shadowsocks':['Shadowsocks','/api/protocol-icon/shadowsocks.png?v=1.3.5'],'socks5':['SOCKS5','/api/protocol-icon/socks5.png?v=1.3.5'],'http':['HTTP Proxy','/api/protocol-icon/http.png?v=1.3.5'],'hysteria2':['Hysteria2','/api/protocol-icon/hysteria2.png?v=1.3.5'],'vless-reality':['VLESS Reality','/api/protocol-icon/vless-reality.png?v=1.3.5'],'vless-grpc-reality':['VLESS gRPC Reality','/api/protocol-icon/vless-grpc-reality.png?v=1.3.5'],'vmess':['VMess','/api/protocol-icon/vmess.png?v=1.3.5'],'tuic':['TUIC','/api/protocol-icon/tuic.png?v=1.3.5'],'anytls':['AnyTLS','/api/protocol-icon/anytls.png?v=1.3.5'],'naive':['NaiveProxy','/api/protocol-icon/naive.png?v=1.3.5'],'shadowtls':['ShadowTLS','/api/protocol-icon/shadowtls.png?v=1.3.5'],'snell':['Snell','/api/protocol-icon/snell.png?v=1.3.5'],'hysteria':['Hysteria','/api/protocol-icon/hysteria.png?v=1.3.5']};return m[id]||[String(id||'').toUpperCase(),'/api/protocol-icon/vless-ws.png?v=1.3.5']}
 function cfgDate(v){if(!v)return 'بدون انقضا';try{return new Date(v).toLocaleDateString('fa-IR',{year:'numeric',month:'2-digit',day:'2-digit'})}catch(e){return String(v).slice(0,10)}}
@@ -13135,7 +13568,7 @@ function applyCustomOnexTheme(){
 }
 function setOnexThemeMode(mode){
   let saved;try{saved=JSON.parse(localStorage.getItem('onex_theme_v2')||'{}')}catch(e){saved={}}
-  const key=saved.key&&ONEX_THEMES[saved.key]?saved.key:'blue';
+  const key=saved.key&&ONEX_THEMES[saved.key]?saved.key:'aurora';
   if(mode==='system'){const light=window.matchMedia&&window.matchMedia('(prefers-color-scheme: light)').matches;mode=light?'light':'dark'}
   applyOnexTheme(key,{...saved,mode});
   updateThemeModeButtons(mode);
@@ -13163,7 +13596,235 @@ function loadOnexTheme(){
   applyOnexTheme('blue',ONEX_THEMES.blue);
 }
 window.addEventListener('storage',e=>{if(e.key==='onex_theme_v2')loadOnexTheme()});
-renderOnexThemePresets();loadOnexTheme();
+/* initial theme load happens in the ONEX THEME BRIDGE below */
+
+
+/* ============================================================
+   ONEX THEME BRIDGE — one theme for login, panel & public pages
+   (login presets + panel presets share the same storage keys)
+   ============================================================ */
+(function(){
+  const LOGIN={aurora:{name:'Aurora',fa:'شفق',p:'#38d9ff',s:'#8b5cf6'},lime:{name:'Lime',fa:'لیمویی',p:'#d4f24a',s:'#ffb84d'},rose:{name:'Rose',fa:'سرخابی',p:'#ff3d8b',s:'#ff8a3d'},emerald:{name:'Emerald',fa:'زمردی',p:'#34f5a0',s:'#22c1ee'},violet:{name:'Violet',fa:'بنفش',p:'#b57bff',s:'#ff5ecf'},gold:{name:'Gold',fa:'طلایی',p:'#ffc94d',s:'#ff7a45'}};
+  // Put the login presets first, keep every existing panel preset.
+  const old=Object.assign({},ONEX_THEMES);Object.keys(ONEX_THEMES).forEach(k=>delete ONEX_THEMES[k]);
+  Object.entries(LOGIN).forEach(([k,v])=>{ONEX_THEMES[k]={name:v.name,p:v.p,s:v.s,bg:'#05060d',card:'#12162a',mode:'dark'};ONEX_THEME_LABELS[k]=v.fa});
+  Object.entries(old).forEach(([k,v])=>{if(!ONEX_THEMES[k])ONEX_THEMES[k]=v});
+
+  const rgb=h=>hexRgb(h).join(' ');
+  function syncTokens(key,t){
+    const root=document.documentElement,st=root.style,[r,g,b]=hexRgb(t.p);
+    st.setProperty('--p',t.p);st.setProperty('--s',t.s);st.setProperty('--p-rgb',rgb(t.p));st.setProperty('--s-rgb',rgb(t.s));
+    st.setProperty('--accent2',t.s);
+    st.setProperty('--on',(r*.299+g*.587+b*.114)/255>.62?'#0b0d14':'#ffffff');
+    root.dataset.theme=key;
+    try{
+      if(LOGIN[key]&&LOGIN[key].p.toLowerCase()===String(t.p).toLowerCase())localStorage.setItem('onex_theme',key);
+      else{localStorage.setItem('onex_theme','custom');localStorage.setItem('onex_theme_custom',t.p)}
+      localStorage.removeItem('onex_hexa_palette');
+    }catch(e){}
+    const sw=document.getElementById('hexaSwatches');
+    if(sw)sw.querySelectorAll('button').forEach(x=>x.classList.toggle('active',x.dataset.theme===key));
+  }
+  const _apply=applyOnexTheme;
+  applyOnexTheme=function(key,opts){_apply.apply(this,arguments);let t;try{t=JSON.parse(localStorage.getItem('onex_theme_v2')||'{}')}catch(e){t={}}if(t&&t.p)syncTokens(t.key||key||'custom',t)};
+
+  // Default = Aurora (same as login); honour a theme chosen on the login screen.
+  resetOnexTheme=function(){applyOnexTheme('aurora',ONEX_THEMES.aurora);toast(lang==='fa'?'تم به حالت پیش‌فرض برگشت':'Theme reset to default')};
+  loadOnexTheme=function(){
+    let saved=null;try{saved=JSON.parse(localStorage.getItem('onex_theme_v2')||'null')}catch(e){}
+    let loginKey=null;try{loginKey=localStorage.getItem('onex_theme')}catch(e){}
+    if(loginKey&&LOGIN[loginKey]&&(!saved||!saved.p||saved.key!==loginKey)){applyOnexTheme(loginKey,{...ONEX_THEMES[loginKey],mode:(saved&&saved.mode)||'dark'});return}
+    if(loginKey==='custom'&&(!saved||!saved.p)){const c=localStorage.getItem('onex_theme_custom')||'#38d9ff';applyOnexTheme('custom',{name:'Custom',p:c,s:'#8b5cf6',bg:'#05060d',card:'#12162a',mode:'dark'});return}
+    if(saved&&saved.p){applyOnexTheme(saved.key||'custom',saved);return}
+    applyOnexTheme('aurora',ONEX_THEMES.aurora);
+  };
+
+  // Top-bar swatches → the same preset system (replaces the old unsaved palette).
+  const sw=document.getElementById('hexaSwatches');
+  if(sw){
+    sw.innerHTML=Object.entries(LOGIN).map(([k,v])=>`<button type="button" data-theme="${k}" data-p="${v.p}" data-s="${v.s}" style="--sw-p:${v.p};--sw-s:${v.s}" aria-label="${v.name}" title="${v.name}"></button>`).join('');
+    sw.querySelectorAll('button').forEach(b=>b.addEventListener('click',()=>selectOnexTheme(b.dataset.theme)));
+  }
+
+  // Language: share the login's key so FA/EN follows you everywhere.
+  try{const L=localStorage.getItem('onex_lang');if(L&&L!==lang&&(L==='fa'||L==='en')){lang=L;localStorage.setItem('px_lang',L)}}catch(e){}
+  const _setLang=setLang;setLang=function(l){try{localStorage.setItem('onex_lang',l)}catch(e){}return _setLang.apply(this,arguments)};
+
+  document.documentElement.classList.add('onex-glass');
+  window.addEventListener('storage',e=>{if(e.key==='onex_theme')loadOnexTheme()});
+  renderOnexThemePresets();loadOnexTheme();applyLang();
+})();
+
+/* ============================================================
+   ONEX HOME — live dashboard (replaces static demo data)
+   ============================================================ */
+(function(){
+  Object.assign(I18N.fa,{home_welcome:'خوش آمدی به',home_last:'آخرین بروزرسانی',home_ver_panel:'نسخه پنل',home_ver_core:'هسته',home_core_state:'وضعیت هسته',home_refresh:'بروزرسانی',home_alert_btn:'مشاهده',home_conns:'اتصالات فعال',home_traffic:'ترافیک کل',home_links:'کانفیگ‌های فعال',home_uptime:'آپتایم سرور',home_live:'لحظه‌ای',home_since:'از آخرین راه‌اندازی',home_chart:'توزیع ساعتی ترافیک',home_down:'دانلود',home_up:'آپلود',home_full_stats:'آمار کامل',home_health:'وضعیت سرور',home_cpu:'پردازنده',home_ram:'حافظه',home_disk:'دیسک',home_net:'شبکه',home_tg_title:'کانال رسمی ONEX',home_tg_sub:'اطلاعیه‌ها، نسخه‌های جدید و پشتیبانی مستقیم',home_tg_join:'عضویت در کانال · @V2rayTun0',home_recent:'کانفیگ‌های اخیر',home_view_all:'مشاهده همه',home_col_name:'نام',home_col_proto:'پروتکل',home_col_usage:'مصرف',home_col_exp:'انقضا',home_quick:'عملیات سریع',home_q_create_sub:'ایجاد کانفیگ جدید',home_q_configs:'مدیریت کانفیگ‌ها',home_q_configs_sub:'مشاهده و ویرایش',home_q_groups_sub:'گروه‌های اشتراک',home_q_bot_sub:'مدیریت ربات',home_info:'اطلاعات سرور',home_host:'میزبان',home_domain:'دامنه',home_core:'هسته',home_region:'منطقه',home_os:'سیستم'});
+  Object.assign(I18N.en,{home_welcome:'Welcome to',home_last:'Last update',home_ver_panel:'Panel',home_ver_core:'Core',home_core_state:'Core state',home_refresh:'Refresh',home_alert_btn:'View',home_conns:'Active connections',home_traffic:'Total traffic',home_links:'Active configs',home_uptime:'Server uptime',home_live:'Live',home_since:'Since last start',home_chart:'Hourly traffic distribution',home_down:'Download',home_up:'Upload',home_full_stats:'Full stats',home_health:'Server health',home_cpu:'CPU',home_ram:'Memory',home_disk:'Disk',home_net:'Network',home_tg_title:'Official ONEX channel',home_tg_sub:'News, releases and direct support',home_tg_join:'Join channel · @V2rayTun0',home_recent:'Recent configs',home_view_all:'View all',home_col_name:'Name',home_col_proto:'Protocol',home_col_usage:'Usage',home_col_exp:'Expiry',home_quick:'Quick actions',home_q_create_sub:'Create a new config',home_q_configs:'Manage configs',home_q_configs_sub:'View and edit',home_q_groups_sub:'Subscription groups',home_q_bot_sub:'Manage the bot',home_info:'Server info',home_host:'Host',home_domain:'Domain',home_core:'Core',home_region:'Region',home_os:'System'});
+
+  const H={links:[],stats:null,sys:null,me:null,native:null,netMax:1,busy:false,lastNative:0,chart:null};
+  const $=id=>document.getElementById(id);
+  const set=(id,v)=>{const el=$(id);if(el)el.textContent=v};
+  const fa=()=>lang==='fa';
+  async function jget(url){
+    try{const r=await fetch(url,{cache:'no-store',credentials:'same-origin'});
+      if(r.status===401){location.href='/login';return null}
+      if(!r.ok)return null;return await r.json()}catch(e){return null}
+  }
+  const expMs=l=>{if(!l||!l.expires_at)return null;const t=new Date(l.expires_at).getTime();return isNaN(t)?null:t-Date.now()};
+  window.homeIsExpiring=function(l){const ms=expMs(l);return ms!==null&&ms>0&&ms<=48*3600e3};
+  const isDead=l=>typeof configExpired==='function'?configExpired(l):(!!l.expired);
+
+  function pct(v){v=Number(v);return isFinite(v)?Math.max(0,Math.min(100,v)):null}
+  function bar(id,v){const el=$(id);if(el)el.style.setProperty('--w',(v==null?0:v)+'%')}
+
+  function renderHero(){
+    const u=H.me&&H.me.username;set('homeUser',u?(fa()?'، ':', ')+u:'');
+    set('lastUpd',new Date().toLocaleTimeString(fa()?'fa-IR':'en-US'));
+    if(H.sys&&H.sys.singbox_version)set('homeCoreVer','sing-box '+H.sys.singbox_version);
+    const st=$('homeCoreState');
+    if(st){const n=H.native;let txt='—',c='';
+      if(n){if(n.running){txt=fa()?'فعال':'Running';c='ok'}else if(n.installed===false){txt=fa()?'نصب نشده':'Not installed';c='warn'}else{txt=fa()?'متوقف':'Stopped';c='bad'}}
+      st.textContent=txt;st.dataset.state=c;const pill=$('homeCorePill');if(pill)pill.dataset.state=c;}
+    const exp=H.links.filter(l=>homeIsExpiring(l)&&!isDead(l)).length, dead=H.links.filter(isDead).length;
+    const al=$('homeAlert'),at=$('homeAlertText');
+    if(al&&at){
+      if(!exp&&!dead){al.hidden=true}else{al.hidden=false;
+        const parts=[];
+        if(exp)parts.push(fa()?`<b>${exp} کانفیگ</b> تا ۴۸ ساعت دیگه تموم می‌شن`:`<b>${exp} config${exp>1?'s':''}</b> expire within 48h`);
+        if(dead)parts.push(fa()?`<b>${dead} کانفیگ</b> منقضی/تمام‌شده`:`<b>${dead}</b> expired / depleted`);
+        at.innerHTML=parts.join(' · ');al.dataset.mode=exp?'expiring':'expired';}
+    }
+    const tl=$('homeThemeLbl');if(tl)tl.textContent=document.documentElement.classList.contains('light')?t('theme_dark'):t('theme_light');
+  }
+  function renderMetrics(){
+    const s=H.stats||{};
+    set('homeConns',s.active_connections!=null?Number(s.active_connections).toLocaleString('en-US'):'—');
+    const total=s.total_traffic_bytes!=null?s.total_traffic_bytes:H.links.reduce((a,l)=>a+Number(l.used_bytes||0),0);
+    set('homeTraffic',fmtB(total));
+    set('homeTrafficSub',s.download_bytes!=null?`↓ ${fmtB(s.download_bytes)} · ↑ ${fmtB(s.upload_bytes||0)}`:'—');
+    const totalLinks=s.links_count!=null?s.links_count:H.links.length;
+    const act=s.active_links!=null?s.active_links:H.links.filter(l=>l.active!==false&&!isDead(l)).length;
+    const el=$('homeLinks');if(el)el.innerHTML=`${act} <small>/ ${totalLinks}</small>`;
+    const ex=s.expired_links!=null?s.expired_links:H.links.filter(isDead).length;
+    set('homeLinksSub',fa()?`${ex} منقضی · ${Math.max(0,totalLinks-act-ex)} غیرفعال`:`${ex} expired · ${Math.max(0,totalLinks-act-ex)} disabled`);
+    set('homeUptime',s.uptime||'—');
+    const tu=$('topUptime');if(tu&&s.uptime)tu.textContent='Uptime: '+s.uptime;
+    const th=$('topHost');if(th)th.textContent=location.host||'ONEX';
+  }
+  function renderHealth(){
+    const y=H.sys||{};
+    const c=pct(y.cpu_percent),m=pct(y.mem_percent),d=pct(y.disk_percent);
+    set('homeCpu',c==null?'—':c.toFixed(0)+'%');bar('homeCpuBar',c);
+    set('homeRam',m==null?'—':m.toFixed(0)+'%');bar('homeRamBar',m);
+    set('homeDisk',d==null?'—':d.toFixed(0)+'%');bar('homeDiskBar',d);
+    const rate=(Number(y.net_rx_rate)||0)+(Number(y.net_tx_rate)||0);
+    if(y.net_rx_rate==null){set('homeNet','—');bar('homeNetBar',0)}
+    else{H.netMax=Math.max(H.netMax*0.98,rate,1024);set('homeNet',fmtB(Math.round(rate))+'/s');bar('homeNetBar',Math.round(rate/H.netMax*100))}
+    const ram=$('homeRam');if(ram&&y.mem_used_bytes)ram.title=fmtB(y.mem_used_bytes)+' / '+fmtB(y.mem_total_bytes);
+    const dk=$('homeDisk');if(dk&&y.disk_used_bytes)dk.title=fmtB(y.disk_used_bytes)+' / '+fmtB(y.disk_total_bytes);
+    set('homeHost',location.host||'—');
+    set('homeDomain',y.public_domain||location.hostname||'—');
+    set('homeCore',y.singbox_version?('sing-box '+y.singbox_version):'—');
+    set('homeRegion',y.region||'—');
+    set('homeOs',y.platform||'—');
+  }
+  function protoName(id){try{if(typeof protocolPickerLabel==='function')return protocolPickerLabel(id)}catch(e){}return id||'—'}
+  function renderRecent(){
+    const box=$('homeRecent');if(!box)return;
+    if(!H.links.length){box.innerHTML=`<div class="home-empty">${fa()?'هنوز کانفیگی ساخته نشده':'No configs yet'} · <button type="button" class="home-link-btn" onclick="goPage('create')">${fa()?'ساخت اولین کانفیگ':'Create the first one'}</button></div>`;return}
+    const arr=H.links.slice().sort((a,b)=>String(b.created_at||'').localeCompare(String(a.created_at||''))).slice(0,5);
+    box.innerHTML=arr.map(l=>{
+      const uid=esc(l.uuid||l.id||'');
+      const name=esc(l.label||l.name||String(l.uuid||l.id||'').slice(0,8));
+      const used=Number(l.used_bytes||0),lim=Number(l.limit_bytes||0);
+      const p=lim>0?Math.min(100,Math.round(used/lim*100)):0;
+      const ms=expMs(l),dead=isDead(l),off=l.active===false;
+      let exp=fa()?'∞':'∞',warn=false;
+      if(ms!==null){if(ms<=0)exp=fa()?'منقضی':'expired';else{const dd=Math.ceil(ms/864e5);exp=fa()?`${dd} روز`:`${dd}d`;warn=ms<=3*864e5}}
+      const state=dead?'bad':(off?'off':(warn||p>=90?'warn':'ok'));
+      return `<div class="tr home-row" data-state="${state}" role="button" tabindex="0" onclick="openConfigEditor(null,'${uid}')" onkeydown="if(event.key==='Enter')openConfigEditor(null,'${uid}')">`+
+        `<b title="${name}">${name}</b><span class="proto">${esc(protoName(l.protocol))}</span>`+
+        `<div class="usage"><span class="mono">${fmtB(used)}${lim>0?' / '+fmtB(lim):''}</span><div class="bar"><i style="--w:${lim>0?p:0}%"></i></div></div>`+
+        `<span class="home-exp">${exp}</span><span class="dot" title="${state}"></span></div>`;
+    }).join('');
+  }
+  function drawChart(){
+    const cv=$('traffic');if(!cv)return;const ctx=cv.getContext('2d');if(!ctx)return;
+    const r=cv.getBoundingClientRect();if(!r.width)return;
+    const d=Math.min(devicePixelRatio||1,2);cv.width=r.width*d;cv.height=r.height*d;ctx.setTransform(d,0,0,d,0,0);
+    const w=r.width,h=r.height,padL=8,padR=8,padT=14,padB=22;
+    const s=H.stats||{},down=s.hourly||{},up=s.hourly_upload||{};
+    let cur=0;try{cur=Number(new Intl.DateTimeFormat('en-GB',{hour:'2-digit',hour12:false,timeZone:'Asia/Tehran'}).format(new Date()))%24}catch(e){cur=new Date().getHours()}
+    const keys=[];for(let i=23;i>=0;i--){const hh=(cur-i+24)%24;keys.push(String(hh).padStart(2,'0')+':00')}
+    const D=keys.map(k=>Number(down[k]||0)),U=keys.map(k=>Number(up[k]||0));
+    const max=Math.max(1,...D,...U);
+    const css=getComputedStyle(document.documentElement);
+    const P=(css.getPropertyValue('--accent')||'#38d9ff').trim(),S=(css.getPropertyValue('--purple')||'#8b5cf6').trim();
+    const light=document.documentElement.classList.contains('light');
+    ctx.clearRect(0,0,w,h);
+    ctx.strokeStyle=light?'rgba(15,23,42,.08)':'rgba(255,255,255,.07)';ctx.lineWidth=1;ctx.setLineDash([3,5]);
+    for(let i=0;i<=3;i++){const y=padT+(h-padT-padB)*i/3;ctx.beginPath();ctx.moveTo(padL,y);ctx.lineTo(w-padR,y);ctx.stroke()}
+    ctx.setLineDash([]);
+    const X=i=>padL+(w-padL-padR)*i/23,Y=v=>h-padB-(h-padT-padB)*(v/max);
+    function area(vals,col){
+      const g=ctx.createLinearGradient(0,padT,0,h-padB);
+      g.addColorStop(0,col);g.addColorStop(1,'transparent');
+      ctx.beginPath();vals.forEach((v,i)=>{const x=X(i),y=Y(v);if(!i)ctx.moveTo(x,y);else{const px=X(i-1),py=Y(vals[i-1]),mx=(px+x)/2;ctx.bezierCurveTo(mx,py,mx,y,x,y)}});
+      ctx.save();ctx.lineTo(X(23),h-padB);ctx.lineTo(X(0),h-padB);ctx.closePath();ctx.globalAlpha=.28;ctx.fillStyle=g;ctx.fill();ctx.restore();
+      ctx.beginPath();vals.forEach((v,i)=>{const x=X(i),y=Y(v);if(!i)ctx.moveTo(x,y);else{const px=X(i-1),py=Y(vals[i-1]),mx=(px+x)/2;ctx.bezierCurveTo(mx,py,mx,y,x,y)}});
+      ctx.strokeStyle=col;ctx.lineWidth=2.2;ctx.shadowColor=col;ctx.shadowBlur=10;ctx.stroke();ctx.shadowBlur=0;
+    }
+    area(U,S);area(D,P);
+    ctx.fillStyle=light?'rgba(51,65,85,.7)':'rgba(238,242,255,.45)';ctx.font='500 10px "JetBrains Mono",monospace';ctx.textAlign='center';
+    [0,6,12,18,23].forEach(i=>ctx.fillText(keys[i],Math.min(Math.max(X(i),18),w-18),h-6));
+    ctx.textAlign='left';ctx.fillText(fmtB(max),padL+2,padT-3);
+    H.chart={keys,D,U,X,w,h,padT,padB};
+  }
+  function bindChartHover(){
+    const cv=$('traffic'),tip=$('homeChartTip');if(!cv||!tip||cv.__homeHover)return;cv.__homeHover=1;
+    cv.addEventListener('pointermove',e=>{const c=H.chart;if(!c)return;const r=cv.getBoundingClientRect(),x=e.clientX-r.left;
+      let best=0,bd=1e9;c.keys.forEach((_,i)=>{const dd=Math.abs(c.X(i)-x);if(dd<bd){bd=dd;best=i}});
+      tip.hidden=false;tip.innerHTML=`<b>${c.keys[best]}</b><span><i class="lg-d"></i>${fmtB(c.D[best])}</span><span><i class="lg-u"></i>${fmtB(c.U[best])}</span>`;
+      const tx=Math.min(Math.max(c.X(best),60),r.width-60);tip.style.left=tx+'px'});
+    cv.addEventListener('pointerleave',()=>{tip.hidden=true});
+    addEventListener('resize',()=>{clearTimeout(H.rz);H.rz=setTimeout(drawChart,120)});
+  }
+  function renderAll(){renderHero();renderMetrics();renderHealth();renderRecent();drawChart()}
+  window.homeRender=renderAll;
+
+  window.homeRefresh=async function(showToast){
+    if(H.busy)return;H.busy=true;
+    const btn=$('heroRefresh');if(btn)btn.classList.add('spinning');
+    try{
+      const now=Date.now(),tasks=[jget('/api/links'),jget('/stats'),jget('/api/system/metrics')];
+      tasks.push(!H.me?jget('/api/me'):Promise.resolve(H.me));
+      tasks.push(now-H.lastNative>20000?jget('/api/native/status'):Promise.resolve(H.native));
+      const [links,stats,sys,me,native]=await Promise.all(tasks);
+      if(links){H.links=Array.isArray(links.links)?links.links:(Array.isArray(links)?links:[]);}
+      if(stats)H.stats=stats; if(sys)H.sys=sys; if(me)H.me=me;
+      if(native&&native!==H.native){H.native=native;H.lastNative=now}
+      renderAll();
+      if(showToast)toast(fa()?'داشبورد بروزرسانی شد':'Dashboard refreshed');
+    }finally{H.busy=false;if(btn)btn.classList.remove('spinning')}
+  };
+  window.homeShowExpiring=function(){
+    const mode=($('homeAlert')||{}).dataset?.mode||'expiring';
+    goPage('configs');
+    setTimeout(()=>{
+      if(mode==='expired'){const b=document.querySelector('#cfgFilterRow [data-status="expired"]');if(typeof setCfgStatus==='function')setCfgStatus('expired',b)}
+      else{cfgStatusFilter='expiring';document.querySelectorAll('#cfgFilterRow [data-status]').forEach(x=>x.classList.remove('on'));if(typeof filterConfigs==='function')filterConfigs()}
+    },350);
+  };
+
+  // keep home in sync with language / theme / navigation
+  const _applyLang=applyLang;applyLang=function(){_applyLang.apply(this,arguments);try{renderAll()}catch(e){}};
+  const _goPage=goPage;goPage=function(name){const r=_goPage.apply(this,arguments);if(name==='dash')setTimeout(()=>homeRefresh(false),60);return r};
+  new MutationObserver(()=>{clearTimeout(H.mo);H.mo=setTimeout(drawChart,60)}).observe(document.documentElement,{attributes:true,attributeFilter:['class','style']});
+
+  bindChartHover();applyLang();homeRefresh(false);
+  setInterval(()=>{const pg=$('page-dash');if(pg&&pg.classList.contains('on')&&!document.hidden)homeRefresh(false)},6000);
+})();
 
 </script>
 
@@ -13185,28 +13846,7 @@ renderOnexThemePresets();loadOnexTheme();
 })();
 </script>
 </body>
-<style id="onex-stability-patch">
-/* ONEX stability patch: keep duplicate controls only in the top bar. */
-#page-dash > .grid > .dock{display:none!important}
-/* Performance mode: no visual motion, no layout transitions, no animated canvas. */
-*,*::before,*::after{animation:none!important;transition:none!important;scroll-behavior:auto!important}
-#onexDashScene,#traffic{display:none!important}
-/* Accessible light theme: explicit readable tokens for every panel and control. */
-html.light{--bg:#eef2f7!important;--bg2:#ffffff!important;--bg3:#f8fafc!important;--card:#ffffff!important;--card-b:#cbd5e1!important;--t1:#0f172a!important;--t2:#334155!important;--t3:#64748b!important;--input-bg:#f8fafc!important;--text:#0f172a!important;--muted:#475569!important;--dim:#64748b!important}
-html.light body,html.light .main{color:#0f172a!important;background:#eef2f7!important}
-html.light .sidebar,html.light .mob-bar,html.light .onex-topbar,html.light .onex-control-dock,html.light .page .card,html.light .page .glass,html.light .page .metric,html.light .page .panel,html.light .page .table-wrap,html.light .page .cfg-card,html.light .page .group-card,html.light .page .stats-kpi,html.light .page .stats-panel,html.light .page .admin-card,html.light .page .onex-security-card,html.light .page .tg-page-card,html.light .page .onex-theme-panel,html.light .page .onex-theme-preview{background:#fff!important;color:#0f172a!important;border-color:#cbd5e1!important;box-shadow:0 2px 8px rgb(15 23 42 / .07)!important;backdrop-filter:none!important;-webkit-backdrop-filter:none!important}
-html.light .nav-item,html.light .nav-label,html.light .nav-sec,html.light .top-server,html.light .top-actions,html.light .page-title,html.light .card-title,html.light .page-sub,html.light label,html.light p,html.light span,html.light small,html.light td,html.light th{color:#0f172a!important}
-html.light .page-sub,html.light small,html.light .page .field label,html.light .page .metric-label,html.light .page .quick-desc{color:#475569!important}
-html.light input,html.light select,html.light textarea{background:#f8fafc!important;color:#0f172a!important;border-color:#94a3b8!important}
-html.light input::placeholder,html.light textarea::placeholder{color:#64748b!important}
-html.light input:focus,html.light select:focus,html.light textarea:focus{background:#fff!important;color:#0f172a!important;border-color:var(--accent)!important;box-shadow:0 0 0 2px rgb(var(--accent-rgb,56 217 255) / .2)!important}
-html.light .btn:not(.btn-p):not(.btn-primary):not(.danger),html.light button:not(.btn-p):not(.btn-primary):not(.danger){background:#f1f5f9!important;color:#0f172a!important;border-color:#cbd5e1!important}
-html.light .btn.btn-p,html.light .btn.btn-primary,html.light .primary{background:linear-gradient(135deg,var(--accent),var(--purple))!important;color:#fff!important;border-color:transparent!important}
-html.light .nav-item.on,html.light .nav-item:hover{background:rgb(56 217 255 / .12)!important;color:#0f172a!important}
-html.light .top-setting-btn.active,html.light .range-tab.on,html.light .cfg-select.on,html.light .group-filter.on{color:#0f172a!important;background:rgb(56 217 255 / .15)!important;border-color:rgb(56 217 255 / .45)!important}
-html.light .modal,html.light .cfg-menu,html.light .top-notify-panel,html.light .group-card-menu,html.light .delete-all-modal{background:#fff!important;color:#0f172a!important;border-color:#cbd5e1!important;box-shadow:0 12px 36px rgb(15 23 42 / .16)!important}
-html.light .page a{color:#1d4ed8}
-</style>
+</html>
 """
 
 
@@ -13317,24 +13957,24 @@ async def global_exception_handler(
         )
 
     return HTMLResponse(
-        """
-        <html lang="fa" dir="rtl">
-        <body style="
-            background:#07070a;
-            color:#fff;
-            font-family:sans-serif;
-            padding:40px;
-        ">
-            <h2>
-            خطای داخلی پنل ONEX
-            </h2>
-
-            <p>
-            لطفاً لاگ Railway را بررسی کنید.
-            </p>
-        </body>
-        </html>
-        """,
+        """<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>ONEX · Error</title>
+<link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;700;900&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0}
+body{min-height:100vh;display:grid;place-items:center;padding:24px;font-family:Vazirmatn,system-ui,sans-serif;color:#eef2ff;
+background:radial-gradient(ellipse 60% 50% at 8% 6%,rgb(56 217 255 / .16),transparent 62%),radial-gradient(ellipse 55% 50% at 94% 96%,rgb(139 92 246 / .14),transparent 64%),#05060d}
+.box{width:min(460px,100%);padding:34px 30px;border-radius:26px;text-align:center;background:linear-gradient(160deg,rgb(30 36 64 / .78),rgb(12 14 28 / .86));
+border:1px solid rgb(255 255 255 / .15);box-shadow:0 1px 0 rgb(255 255 255 / .12) inset,0 50px 90px -30px #000,0 0 60px -20px rgb(255 107 129 / .4)}
+.ic{width:70px;height:70px;margin:0 auto 16px;border-radius:50%;display:grid;place-items:center;font-size:30px;color:#ff8da1;background:rgb(255 80 110 / .1);border:1px solid rgb(255 107 129 / .45)}
+h2{font-size:22px;font-weight:900}p{margin-top:10px;color:#a3abc6;font-size:13.5px;line-height:1.9}
+a{display:inline-block;margin-top:20px;padding:12px 20px;border-radius:14px;text-decoration:none;font-weight:800;color:#0b0d14;background:linear-gradient(135deg,#38d9ff,#8b5cf6)}
+small{display:block;margin-top:16px;font:500 11px "JetBrains Mono",monospace;color:#6d7594}
+</style></head>
+<body><div class="box"><div class="ic">!</div><h2>خطای داخلی پنل ONEX</h2><p>مشکلی پیش آمد. لطفاً لاگ سرور (Railway) را بررسی کنید و دوباره تلاش کنید.</p><a href="/dashboard">بازگشت به پنل</a><small>ONEX · internal error</small></div></body>
+</html>
+""",
         status_code=500,
     )
 
