@@ -9373,6 +9373,51 @@ html.light .page input,html.light .page select,html.light .page textarea{color:#
 html:not(.light) .update-error{color:#fecaca;background:rgba(239,68,68,.10)}
 </style>
 </style>
+<style>
+/* ONEX 1.3.9: unified dashboard system, typography and surfaces */
+#htmlRoot,#htmlRoot body,#htmlRoot button,#htmlRoot input,#htmlRoot select,#htmlRoot textarea,#htmlRoot table{
+  font-family:'Vazirmatn',Tahoma,Arial,sans-serif!important;
+  letter-spacing:normal!important;
+}
+#htmlRoot body{font-size:14px!important;line-height:1.7!important;color:var(--t1)!important}
+#htmlRoot .page,#htmlRoot .page *{box-sizing:border-box}
+#htmlRoot .page h1,#htmlRoot .page h2,#htmlRoot .page h3,#htmlRoot .page h4,
+#htmlRoot .page .page-title,#htmlRoot .page .card-title,#htmlRoot .page .onex-card-title,
+#htmlRoot .page .hero h1,#htmlRoot .page .home-brand{font-weight:800!important;line-height:1.45!important;color:var(--t1)!important}
+#htmlRoot .page p,#htmlRoot .page .page-sub,#htmlRoot .page .hero p,#htmlRoot .page label,
+#htmlRoot .page small,#htmlRoot .page .metric-label,#htmlRoot .page .quick-desc,
+#htmlRoot .page .health-name,#htmlRoot .page .info-row span:first-child{font-weight:500!important;line-height:1.85!important;color:var(--t2)!important}
+#htmlRoot .page .hero h1 span,#htmlRoot .page .home-brand{color:var(--accent)!important}
+#htmlRoot .page .mono,#htmlRoot .page code,#htmlRoot .page .metric strong,#htmlRoot .page .metric-val,
+#htmlRoot .page .version b{font-family:'JetBrains Mono',monospace!important;letter-spacing:0!important}
+#htmlRoot .page .btn,#htmlRoot .page button,#htmlRoot .page input,#htmlRoot .page select,#htmlRoot .page textarea{font-size:12px!important;line-height:1.4!important}
+#htmlRoot .page button{font-weight:700!important}
+#htmlRoot .page .onex-control-dock,#htmlRoot .page .dock,#htmlRoot .page .hero,
+#htmlRoot .page .metrics,#htmlRoot .page .onex-card,#htmlRoot .page .onex-metric,
+#htmlRoot .page .table-wrap,#htmlRoot .page .card,#htmlRoot .page .metric,
+#htmlRoot .page .quick-item,#htmlRoot .page .support-tile{
+  border-radius:18px!important;
+  border:1px solid var(--card-b)!important;
+  box-shadow:0 10px 28px rgba(15,23,42,.08)!important;
+}
+#htmlRoot .page .onex-control-dock,#htmlRoot .page .dock{padding:10px!important;gap:10px!important}
+#htmlRoot .page .onex-3d-control,#htmlRoot .page .dock button{min-height:58px!important;border-radius:14px!important;padding:11px 13px!important;transform:none!important}
+#htmlRoot .page .onex-3d-control .control-title,#htmlRoot .page .dock strong{font-size:12px!important;font-weight:800!important;color:var(--t1)!important}
+#htmlRoot .page .onex-3d-control .control-sub,#htmlRoot .page .dock small{font-size:9px!important;color:var(--t3)!important}
+#htmlRoot .page .metric strong,#htmlRoot .page .metric-val{font-size:24px!important;font-weight:800!important;color:var(--t1)!important}
+#htmlRoot .page .version{font-size:11px!important;color:var(--t2)!important;background:var(--bg3)!important;border-color:var(--card-b)!important}
+#htmlRoot .page .version b{font-size:12px!important;color:var(--t1)!important}
+#htmlRoot .page .field input,#htmlRoot .page .field select,#htmlRoot .page .field textarea{min-height:42px!important;border-radius:11px!important;padding:9px 11px!important}
+#htmlRoot .page .btn-p,#htmlRoot .page .primary{border-radius:12px!important;font-weight:800!important}
+html.light #htmlRoot .page .hero h1,html.light #htmlRoot .page .hero p,html.light #htmlRoot .page .version,
+html.light #htmlRoot .page .metric,html.light #htmlRoot .page .metric strong,html.light #htmlRoot .page .onex-card-title,
+html.light #htmlRoot .page .quick-name,html.light #htmlRoot .page .info-row span:last-child{color:#0f172a!important}
+html.light #htmlRoot .page .page-sub,html.light #htmlRoot .page .metric-label,html.light #htmlRoot .page .metric small,
+html.light #htmlRoot .page .quick-desc,html.light #htmlRoot .page .health-name,html.light #htmlRoot .page .info-row span:first-child,
+html.light #htmlRoot .page .dock small,html.light #htmlRoot .page .onex-control-dock .control-sub{color:#64748b!important}
+html:not(.light) #htmlRoot .page .hero h1,html:not(.light) #htmlRoot .page .onex-card-title,
+html:not(.light) #htmlRoot .page .metric strong,html:not(.light) #htmlRoot .page .quick-name{color:#f8fafc!important}
+</style>
 </head>
 <body>
 <canvas id="onexDashScene" aria-hidden="true"></canvas>
