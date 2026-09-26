@@ -9622,6 +9622,7 @@ html:not(.light) #htmlRoot .page .metric strong,html:not(.light) #htmlRoot .page
 
 <style>
 .create-edit-actions{display:flex;gap:8px;align-items:center}.config-edit-banner{display:flex;align-items:center;gap:10px;margin:0 0 12px;padding:11px 13px;border:1px solid rgba(255,71,120,.28);border-radius:15px;background:linear-gradient(135deg,rgba(255,31,92,.10),rgba(37,99,235,.08));color:#dcecff}.config-edit-banner-icon{width:34px;height:34px;display:grid;place-items:center;border-radius:10px;background:rgba(255,71,120,.12);border:1px solid rgba(255,71,120,.24);color:#ff7092;font-size:16px}.config-edit-banner div{min-width:0;display:flex;flex-direction:column;gap:2px}.config-edit-banner b{font-size:11px;color:#fff}.config-edit-banner small{font-size:9px;color:#ff9ab0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:48vw}.config-edit-banner-hint{margin-right:auto;color:var(--t3);font-size:8px}@media(max-width:560px){.config-edit-banner{align-items:flex-start}.config-edit-banner-hint{display:none}.create-edit-actions{margin-top:2px}.create-edit-actions .btn{font-size:9px;height:36px;padding:0 10px}}
+.create-flow{display:grid;gap:14px;margin-bottom:16px}.create-target{display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:6px;background:rgba(37,99,235,.06);border:1px solid rgba(96,165,250,.16);border-radius:16px}.create-target button{min-height:54px;border:1px solid transparent;border-radius:12px;background:transparent;color:var(--t2);text-align:right;padding:8px 12px;cursor:pointer}.create-target button.active{background:rgba(37,99,235,.16);border-color:rgba(56,189,248,.42);color:var(--t1);box-shadow:0 5px 18px rgba(37,99,235,.12)}.create-target b,.create-target small{display:block}.create-target b{font-size:12px}.create-target small{font-size:9px;margin-top:4px;color:var(--t3)}.manual-lab{padding:13px;border:1px solid rgba(96,165,250,.15);border-radius:16px;background:rgba(5,17,38,.24)}.manual-lab-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px}.manual-lab-head b{font-size:11px}.manual-lab-head small{font-size:9px;color:var(--t3)}.manual-fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.manual-fields .field{margin:0}.manual-fields .wide{grid-column:1/-1}.manual-fields[hidden]{display:none}.protocol-specific-empty{font-size:10px;line-height:1.7;color:var(--t3);padding:10px 0}.create-status-line{display:flex;gap:8px;align-items:center;margin:10px 0 0;font-size:10px;color:var(--t3)}.create-status-dot{width:8px;height:8px;border-radius:50%;background:#22c55e;box-shadow:0 0 0 4px rgba(34,197,94,.12)}@media(max-width:700px){.manual-fields{grid-template-columns:1fr}.manual-fields .wide{grid-column:auto}}
 </style>
 <section class="page" id="page-create">
   <div class="page-head">
@@ -9632,6 +9633,13 @@ html:not(.light) #htmlRoot .page .metric strong,html:not(.light) #htmlRoot .page
   <div class="g2">
     <div class="card">
       <div class="card-title" data-i18n="manual_create">ساخت دستی</div>
+      <div class="create-flow">
+        <div class="create-target" role="tablist" aria-label="محل اجرا">
+          <button type="button" class="active" data-target="railway" onclick="setCreateTarget('railway',this)"><b>Railway Relay</b><small>ONEX WB · XHTTP · Gaming</small></button>
+          <button type="button" data-target="native" onclick="setCreateTarget('native',this)"><b>VPS Native</b><small>sing-box · Listener واقعی</small></button>
+        </div>
+        <div class="create-status-line"><span class="create-status-dot"></span><span id="createTargetStatus">Railway برای سه پروتکل اشتراکی آماده است.</span></div>
+      </div>
       <div class="field"><label data-i18n="label_name">نام</label>
         <div style="display:flex;gap:8px;align-items:center">
           <input id="cName" placeholder="ONEX PANEL" style="flex:1">
@@ -9653,6 +9661,10 @@ html:not(.light) #htmlRoot .page .metric strong,html:not(.light) #htmlRoot .page
       <div class="form-row">
         <div class="field"><label data-i18n="label_ip">محدودیت IP</label><input id="cIp" type="number" value="0" min="0"></div>
         <div class="field"><label data-i18n="label_speed">سرعـت (Mbps)</label><input id="cSpeed" type="number" value="0" min="0"></div>
+      </div>
+      <div class="manual-lab">
+        <div class="manual-lab-head"><b>Protocol Lab</b><small id="protocolSpecificHint">فیلدهای مؤثر همین پروتکل را تکمیل کنید</small></div>
+        <div id="protocolSpecificFields" class="manual-fields"></div>
       </div>
       <button id="manualConfigSubmit" class="btn btn-p" style="width:100%" onclick="doManualCreate()">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><path d="M12 5v14M5 12h14"/></svg>
@@ -12596,9 +12608,47 @@ function addAdvancedPort(value){
 }
 function removeAdvancedPort(port){const chip=[...document.querySelectorAll('#advancedPorts .advanced-port-chip')].find(x=>Number(x.dataset.port)===Number(port));if(chip)chip.remove();const chips=[...document.querySelectorAll('#advancedPorts .advanced-port-chip')];chips.forEach((x,i)=>{x.classList.toggle('primary',i===0);const b=x.querySelector('b');if(b)b.textContent=(i===0?'اصلی · ':'')+x.dataset.port})}
 function toggleAdvancedConfig(force){const panel=document.getElementById('advancedConfigPanel'),card=document.querySelector('.advanced-config-card');if(!panel||!card)return;const open=force===undefined?!card.classList.contains('open'):!!force;card.classList.toggle('open',open);panel.hidden=!open;document.getElementById('advancedToggleState').textContent=open?'بستن':'باز کردن';if(open)loadAdvancedDraft()}
+let __createTarget='railway';
+function setCreateTarget(target,btn){
+  __createTarget=target==='native'?'native':'railway';
+  document.querySelectorAll('.create-target button').forEach(x=>x.classList.toggle('active',x===btn));
+  const status=document.getElementById('createTargetStatus');
+  if(status)status.textContent=__createTarget==='native'?'VPS Native فقط یک پروتکل را با Listener واقعی می‌سازد.':'Railway برای سه پروتکل اشتراکی و یک Subscription مشترک آماده است.';
+  const all=document.getElementById('cAllProtocols');if(all){all.disabled=__createTarget==='native';if(__createTarget==='native')all.checked=false}
+  renderProtocolSpecificFields(document.getElementById('cProto')?.value||'');
+}
+function protocolSpecificValue(id){return document.getElementById(id)?.value||''}
+function renderProtocolSpecificFields(protocol){
+  const box=document.getElementById('protocolSpecificFields'),hint=document.getElementById('protocolSpecificHint');if(!box)return;
+  const defs={
+    'shadowsocks':[['advSpecSsMethod','Encryption method','select','aes-256-gcm|chacha20-ietf-poly1305|2022-blake3-aes-128-gcm'],['advSpecSsPassword','Password','password','']],
+    'hysteria2':[['advSpecHyUp','Upload Mbps','number',''],['advSpecHyDown','Download Mbps','number',''],['advSpecHyObfsType','Obfuscation','select','|salamander'],['advSpecHyObfsPassword','Obfs password','password',''],['advSpecHyMasquerade','Masquerade URL','text','https://example.com']],
+    'vless-grpc-reality':[['advGrpcServiceName','gRPC service name','text','ONEX'],['advGrpcAuthority','Authority','text','example.com']],
+    'vless-ws':[['advWsPath','WebSocket path','text','/ws'],['advWsHost','WebSocket host','text','example.com']],
+    'xhttp-packet-up':[['advXhttpMode','XHTTP mode','select','packet-up|stream-up|stream-one']],
+    'xhttp-stream-up':[['advXhttpMode','XHTTP mode','select','stream-up|packet-up|stream-one']],
+    'xhttp-stream-one':[['advXhttpMode','XHTTP mode','select','stream-one|stream-up|packet-up']]
+  };
+  const rows=defs[protocol]||[];
+  hint.textContent=rows.length?'فیلدهای اختصاصی '+(protocol||'پروتکل'):'پروتکل تنظیم اختصاصی دیگری ندارد';
+  box.innerHTML=rows.length?rows.map(([id,label,type,opts])=>{
+    if(type==='select')return `<div class="field"><label>${label}</label><select id="${id}">${opts.split('|').map(x=>`<option value="${x}">${x||'Auto'}</option>`).join('')}</select></div>`;
+    return `<div class="field"><label>${label}</label><input id="${id}" type="${type}" placeholder="${opts}" ${type==='number'?'min="0"':''}></div>`;
+  }).join(''):'<div class="protocol-specific-empty">تنظیمات عمومی و بخش پیشرفته برای این پروتکل کافی است. قبل از ساخت، اعتبارسنجی را اجرا کنید.</div>';
+}
+function protocolSpecificObject(protocol){
+  const get=id=>protocolSpecificValue(id);
+  const out={protocol};
+  if(protocol==='shadowsocks')out.shadowsocks={method:get('advSpecSsMethod')||get('advSsMethod')||'aes-256-gcm',password:get('advSpecSsPassword')};
+  if(protocol==='hysteria2')out.hysteria2={up_mbps:Number(get('advSpecHyUp')||get('advHyUp'))||0,down_mbps:Number(get('advSpecHyDown')||get('advHyDown'))||0,obfs_type:get('advSpecHyObfsType')||get('advHyObfsType'),obfs_password:get('advSpecHyObfsPassword')||get('advHyObfsPassword'),masquerade:get('advSpecHyMasquerade')||get('advHyMasquerade')};
+  if(protocol==='vless-grpc-reality')out.grpc={service_name:get('advGrpcServiceName'),authority:get('advGrpcAuthority')};
+  if(protocol==='vless-ws')out.websocket={path:get('advWsPath'),host:get('advWsHost')};
+  if(protocol.startsWith('xhttp-'))out.xhttp={mode:get('advXhttpMode')||protocol.replace('xhttp-','')};
+  return out;
+}
 function advancedFormObject(){
   const g=id=>document.getElementById(id); const val=id=>(g(id)?.value??'').trim(); const num=id=>Number(g(id)?.value)||0; const chk=id=>!!g(id)?.checked;
-  return {tls:{enabled:val('advTlsMode')!=='none',mode:val('advTlsMode'),sni:val('advSni'),server_name:val('advSni'),alpn:val('advAlpn'),certificate_path:val('advCertPath'),key_path:val('advKeyPath'),allow_insecure:chk('advAllowInsecure'),min_version:val('advTlsMin'),max_version:val('advTlsMax'),reality:{public_key:val('advRealityPk'),private_key:val('advRealitySk'),short_id:val('advRealitySid'),spider_x:val('advRealitySpider'),fingerprint:val('advRealityFp'),handshake_server:val('advRealityHandshake'),handshake_port:num('advRealityHandshakePort'),max_time_difference:val('advRealityMaxDiff')}},host:{address:val('advAddress'),host:val('advHost'),path:val('advPath'),service_name:val('advServiceName'),authority:val('advAuthority')},fingerprint:{enabled:chk('advFpEnabled'),value:val('advFp'),randomize:chk('advFpRandom')},network:{type:val('advNetwork'),mode:val('advNetworkMode'),path:val('advPath'),service_name:val('advServiceName'),http_version:val('advHttpVersion')},headers:{host:val('advHost'),user_agent:val('advUserAgent'),extra:(g('advExtraHeaders')?.value||'').split(/\r?\n/).map(x=>x.trim()).filter(Boolean)},routing:{domain_strategy:val('advDomainStrategy'),route:val('advRoute'),proxy_protocol:chk('advProxyProtocol'),sniff:chk('advSniff'),sniff_override:chk('advSniffOverride'),sniff_timeout:val('advSniffTimeout')},transport:{packet_encoding:val('advPacketEncoding'),early_data:num('advEarlyData'),max_early_data:num('advEarlyData'),early_data_header_name:val('advEarlyDataHeader'),padding:chk('advPadding')},listener:{listen:val('advListen')||'0.0.0.0',bind_interface:val('advBindInterface'),routing_mark:num('advRoutingMark'),netns:val('advNetns'),reuse_addr:chk('advReuseAddr'),tcp_fast_open:chk('advTfo'),tcp_multi_path:chk('advMptcp'),disable_tcp_keep_alive:chk('advDisableKeepAlive'),tcp_keep_alive:val('advTcpKeepAlive'),tcp_keep_alive_interval:val('advTcpKeepAliveInterval'),udp_fragment:chk('advUdpFragment'),udp_timeout:val('advUdpTimeout')},shadowsocks:{method:val('advSsMethod')||'aes-256-gcm'},hysteria2:{up_mbps:num('advHyUp'),down_mbps:num('advHyDown'),obfs_type:val('advHyObfsType'),obfs_password:val('advHyObfsPassword'),masquerade:val('advHyMasquerade')},ports:getAdvancedPorts()};
+  const protocol=g('cProto')?.value||''; return {target:__createTarget,tls:{enabled:val('advTlsMode')!=='none',mode:val('advTlsMode'),sni:val('advSni'),server_name:val('advSni'),alpn:val('advAlpn'),certificate_path:val('advCertPath'),key_path:val('advKeyPath'),allow_insecure:chk('advAllowInsecure'),min_version:val('advTlsMin'),max_version:val('advTlsMax'),reality:{public_key:val('advRealityPk'),private_key:val('advRealitySk'),short_id:val('advRealitySid'),spider_x:val('advRealitySpider'),fingerprint:val('advRealityFp'),handshake_server:val('advRealityHandshake'),handshake_port:num('advRealityHandshakePort'),max_time_difference:val('advRealityMaxDiff')}},host:{address:val('advAddress'),host:val('advHost'),path:val('advPath'),service_name:val('advServiceName'),authority:val('advAuthority')},fingerprint:{enabled:chk('advFpEnabled'),value:val('advFp'),randomize:chk('advFpRandom')},network:{type:val('advNetwork'),mode:val('advNetworkMode'),path:val('advPath'),service_name:val('advServiceName'),http_version:val('advHttpVersion')},headers:{host:val('advHost'),user_agent:val('advUserAgent'),extra:(g('advExtraHeaders')?.value||'').split(/\r?\n/).map(x=>x.trim()).filter(Boolean)},routing:{domain_strategy:val('advDomainStrategy'),route:val('advRoute'),proxy_protocol:chk('advProxyProtocol'),sniff:chk('advSniff'),sniff_override:chk('advSniffOverride'),sniff_timeout:val('advSniffTimeout')},transport:{packet_encoding:val('advPacketEncoding'),early_data:num('advEarlyData'),max_early_data:num('advEarlyData'),early_data_header_name:val('advEarlyDataHeader'),padding:chk('advPadding')},listener:{listen:val('advListen')||'0.0.0.0',bind_interface:val('advBindInterface'),routing_mark:num('advRoutingMark'),netns:val('advNetns'),reuse_addr:chk('advReuseAddr'),tcp_fast_open:chk('advTfo'),tcp_multi_path:chk('advMptcp'),disable_tcp_keep_alive:chk('advDisableKeepAlive'),tcp_keep_alive:val('advTcpKeepAlive'),tcp_keep_alive_interval:val('advTcpKeepAliveInterval'),udp_fragment:chk('advUdpFragment'),udp_timeout:val('advUdpTimeout')},shadowsocks:{method:val('advSsMethod')||'aes-256-gcm'},hysteria2:{up_mbps:num('advHyUp'),down_mbps:num('advHyDown'),obfs_type:val('advHyObfsType'),obfs_password:val('advHyObfsPassword'),masquerade:val('advHyMasquerade')},protocol_specific:protocolSpecificObject(protocol),ports:getAdvancedPorts()};
 }
 function fillAdvancedForm(a){
   a=a||{}; const tls=a.tls||{},host=a.host||{},fp=a.fingerprint||{},net=a.network||{},routing=a.routing||{},transport=a.transport||{},listener=a.listener||{},reality=tls.reality||{},headers=a.headers||{},ss=a.shadowsocks||{},hy=a.hysteria2||{};
@@ -12684,7 +12734,7 @@ async function doManualCreate(){
   const body=collectConfigFormBody();
   const r=await api('/api/links',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}); if(r){showResult(r);refreshAll();saveAdvancedDraft()}
 }
-document.addEventListener('change',e=>{if(e.target?.id==='advTlsMode')updateRealityVisibility();if(e.target?.id==='cProto')loadAdvancedCapabilities(e.target.value)});
+document.addEventListener('change',e=>{if(e.target?.id==='advTlsMode')updateRealityVisibility();if(e.target?.id==='cProto'){renderProtocolSpecificFields(e.target.value);loadAdvancedCapabilities(e.target.value)}});
 
 async function doChangePw(){
   const user=document.getElementById('newUser').value.trim(),cur=document.getElementById('pwCur').value,nw=document.getElementById('pwNew').value,cf=document.getElementById('pwCf').value;
@@ -13559,7 +13609,7 @@ function closeProtocolPicker(){const bg=document.getElementById('protocolPickerB
 document.addEventListener('keydown',e=>{if(e.key==='Escape')closeProtocolPicker()});
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',()=>{setupProtocolPickers();syncAllProtocolToggle()});else {setupProtocolPickers();syncAllProtocolToggle();}setTimeout(setupProtocolPickers,300);setTimeout(setupProtocolPickers,1000);
 
-applyLang();loadMe();loadProtocols();loadCategories();loadGroups();refreshAll();setTimeout(()=>{if(document.getElementById('advancedPorts')&&!getAdvancedPorts().length)fillAdvancedForm({ports:[443]});loadAdvancedCapabilities(document.getElementById('cProto')?.value||'vless-ws')},250);
+applyLang();loadMe();loadProtocols();loadCategories();loadGroups();refreshAll();setTimeout(()=>{if(document.getElementById('advancedPorts')&&!getAdvancedPorts().length)fillAdvancedForm({ports:[443]});renderProtocolSpecificFields(document.getElementById('cProto')?.value||'vless-ws');loadAdvancedCapabilities(document.getElementById('cProto')?.value||'vless-ws')},250);
 setTimeout(()=>{startUpdateNotificationPolling()},1200);
 setTimeout(()=>checkPanelUpdate(true),2500);
 setInterval(()=>checkPanelUpdate(false),10*60*1000);
