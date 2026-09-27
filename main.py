@@ -14256,17 +14256,30 @@ def _front_proxy_ctx(internal_port: int) -> dict:
 
 
 async def _serve():
-    internal_port = safe_int(os.environ.get("ONEX_INTERNAL_PORT", PORT + 1), PORT + 1, 1, 65535)
+    # The public listener must always be the raw front proxy. If the internal
+    # Uvicorn port is equal to PORT, the proxy cannot bind and Railway sends
+    # HTTPUpgrade directly to Uvicorn, which answers with 400.
+    requested_internal = safe_int(
+        os.environ.get("ONEX_INTERNAL_PORT", PORT + 1),
+        PORT + 1,
+        1,
+        65535,
+    )
+    internal_port = requested_internal if requested_internal != PORT else (PORT + 1 if PORT < 65535 else PORT - 1)
     host, port = "127.0.0.1", internal_port
     front = None
     try:
         from onex.core.front_proxy import make_handler
         ctx = _front_proxy_ctx(internal_port)
         front = await asyncio.start_server(make_handler(ctx), "0.0.0.0", PORT)
-        logger.info("Front proxy on 0.0.0.0:%s (panel via 127.0.0.1:%s)", PORT, internal_port)
+        logger.info(
+            "Front proxy ACTIVE on 0.0.0.0:%s (panel via 127.0.0.1:%s)",
+            PORT,
+            internal_port,
+        )
     except Exception as exc:
-        logger.warning("Front proxy unavailable (%s); uvicorn binds the public port directly", exc)
-        host, port = "0.0.0.0", PORT
+        logger.exception("Front proxy FAILED; HTTPUpgrade cannot work: %s", exc)
+        raise
     config = uvicorn.Config(app, host=host, port=port, log_level="info")
     server = uvicorn.Server(config)
     if front is not None:
