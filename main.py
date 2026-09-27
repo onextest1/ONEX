@@ -1217,7 +1217,10 @@ def generate_vless_link(
         # Keep Trojan+WS client transport settings aligned with VLESS+WS.
         # The password remains the UUID; the WS/TLS transport follows the
         # same advanced host/path/SNI/fingerprint/ALPN settings.
-        path = adv_path or f"/ws/{uuid}"
+        # Do not reuse the VLESS /ws route here.  Some clients and reverse
+        # proxies drop custom query parameters, so protocol detection must be
+        # encoded in the WebSocket path itself.
+        path = adv_path or f"/trojan-ws/{uuid}"
         q = {
             "security": security,
             "type": "ws",
@@ -7112,6 +7115,12 @@ try:
 
     app.add_api_websocket_route(
         "/ws/{uuid}",
+        websocket_tunnel,
+    )
+    # Dedicated Trojan-WS route.  Keep it separate from VLESS-WS so clients
+    # that strip query parameters still select the correct wire parser.
+    app.add_api_websocket_route(
+        "/trojan-ws/{uuid}",
         websocket_tunnel,
     )
 
