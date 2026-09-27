@@ -6926,6 +6926,14 @@ except Exception as exc:
     logger.warning("SideRail core unavailable: %s", exc)
 
 
+try:
+    from onex.core.siderail_bridge import router as siderail_bridge_router
+    app.include_router(siderail_bridge_router)
+    logger.info("SideRail bridge routes loaded (/siderail/vmess, /siderail/xhttp)")
+except Exception as exc:
+    logger.warning("SideRail bridge unavailable: %s", exc)
+
+
 async def sync_siderail_core():
     if not SIDERAIL_CORE:
         return False
