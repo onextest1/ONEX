@@ -9760,6 +9760,24 @@ html.light .onex-topbar-brand{background:#fff;border-color:rgba(37,99,235,.16);b
 <style>
 .create-edit-actions{display:flex;gap:8px;align-items:center}.config-edit-banner{display:flex;align-items:center;gap:10px;margin:0 0 12px;padding:11px 13px;border:1px solid rgba(255,71,120,.28);border-radius:15px;background:linear-gradient(135deg,rgba(255,31,92,.10),rgba(37,99,235,.08));color:#dcecff}.config-edit-banner-icon{width:34px;height:34px;display:grid;place-items:center;border-radius:10px;background:rgba(255,71,120,.12);border:1px solid rgba(255,71,120,.24);color:#ff7092;font-size:16px}.config-edit-banner div{min-width:0;display:flex;flex-direction:column;gap:2px}.config-edit-banner b{font-size:11px;color:#fff}.config-edit-banner small{font-size:9px;color:#ff9ab0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:48vw}.config-edit-banner-hint{margin-right:auto;color:var(--t3);font-size:8px}@media(max-width:560px){.config-edit-banner{align-items:flex-start}.config-edit-banner-hint{display:none}.create-edit-actions{margin-top:2px}.create-edit-actions .btn{font-size:9px;height:36px;padding:0 10px}}
 </style>
+
+<style id="onex-config-wizard-css">
+#page-create .config-wizard{display:grid;grid-template-columns:minmax(0,1fr) 330px;gap:18px;align-items:start}
+#page-create .wizard-main{min-width:0}
+#page-create .wizard-stepper{display:grid;grid-template-columns:repeat(7,minmax(70px,1fr));gap:7px;padding:10px;margin-bottom:14px;border:1px solid rgba(96,165,250,.16);border-radius:18px;background:linear-gradient(145deg,rgba(13,25,48,.86),rgba(6,13,27,.92));box-shadow:0 18px 45px rgba(0,0,0,.18)}
+#page-create .wizard-step{position:relative;border:0;background:transparent;color:var(--t3);padding:7px 4px;cursor:pointer;font:700 10px Vazirmatn;display:flex;flex-direction:column;align-items:center;gap:6px;min-width:0}
+#page-create .wizard-step:before{content:attr(data-step);width:28px;height:28px;display:grid;place-items:center;border-radius:50%;border:1px solid rgba(148,163,184,.24);background:rgba(15,23,42,.72);color:var(--t3);font:800 10px var(--mono);transition:.25s}
+#page-create .wizard-step.active{color:#fff}.wizard-step.done{color:#8ee7c0}.wizard-step.active:before{background:linear-gradient(135deg,#2563eb,#7c3aed);border-color:rgba(96,165,250,.8);box-shadow:0 0 0 4px rgba(37,99,235,.12),0 8px 24px rgba(37,99,235,.28);color:#fff}.wizard-step.done:before{content:'✓';border-color:rgba(52,211,153,.5);color:#7ee7b5;background:rgba(16,185,129,.12)}
+#page-create .wizard-content{border:1px solid rgba(96,165,250,.13);border-radius:20px;background:linear-gradient(145deg,rgba(10,20,39,.88),rgba(5,12,25,.94));padding:18px;min-height:620px}
+#page-create .wizard-panel{display:none}.wizard-panel.active{display:block;animation:wizIn .28s ease-out}.wizard-panel h3{margin:0 0 4px;font-size:17px;color:#f7fbff}.wizard-panel>p{margin:0 0 16px;color:var(--t3);font-size:10px}.wizard-grid-2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.wizard-card{padding:15px;border:1px solid rgba(148,163,184,.12);border-radius:16px;background:rgba(15,23,42,.52)}.wizard-card .card-title{margin-bottom:13px}.wizard-card .field{margin-bottom:10px}.wizard-card .field:last-child{margin-bottom:0}
+#page-create .wizard-content .field label{font-size:10px}.wizard-proto-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.wizard-proto-grid .field{margin:0}.wizard-panel .advanced-section{margin-bottom:12px}.wizard-panel .advanced-section:last-child{margin-bottom:0}
+#page-create .config-wizard-preview{position:sticky;top:16px;border:1px solid rgba(96,165,250,.17);border-radius:20px;background:linear-gradient(145deg,rgba(11,24,47,.92),rgba(5,12,25,.97));padding:15px;box-shadow:0 24px 60px rgba(0,0,0,.22)}
+.wiz-preview-head{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:12px}.wiz-preview-head b{font-size:13px}.wiz-live{font-size:8px;color:#7ee7b5;display:flex;align-items:center;gap:5px}.wiz-live i{width:6px;height:6px;border-radius:50%;background:#34d399;box-shadow:0 0 10px #34d399}.wiz-summary{padding:12px;border-radius:15px;background:rgba(2,6,23,.5);border:1px solid rgba(148,163,184,.1);margin-bottom:10px}.wiz-summary-title{font-size:14px;font-weight:900;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.wiz-summary-sub{font-size:9px;color:var(--t3);margin-top:3px}.wiz-kv{display:grid;gap:7px;margin-top:12px}.wiz-kv div{display:flex;justify-content:space-between;gap:10px;font-size:9px}.wiz-kv span:first-child{color:var(--t3)}.wiz-kv span:last-child{color:#dbeafe;font-weight:800;text-align:end;max-width:60%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.wiz-status{margin-top:10px;padding:10px;border-radius:12px;font-size:9px;line-height:1.8;background:rgba(16,185,129,.08);border:1px solid rgba(52,211,153,.18);color:#a7f3d0}.wiz-actions{display:flex;justify-content:space-between;gap:8px;margin-top:14px;padding-top:13px;border-top:1px solid rgba(148,163,184,.1)}.wiz-actions .btn{min-width:110px}.wiz-actions .wiz-next{margin-inline-start:auto}.wiz-draft{font-size:8px;color:var(--t3);text-align:center;margin-top:8px}.wizard-review-box{padding:13px;border:1px solid rgba(96,165,250,.14);border-radius:16px;background:rgba(15,23,42,.45);margin-bottom:12px}.wizard-review-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}.wizard-review-item{padding:10px;border-radius:12px;background:rgba(2,6,23,.4);border:1px solid rgba(148,163,184,.08)}.wizard-review-item small{display:block;color:var(--t3);font-size:8px;margin-bottom:4px}.wizard-review-item b{font-size:10px;color:#e5edff}.wizard-create{width:100%;height:44px;font-size:11px;margin-top:10px}
+#page-create .wizard-panel .config-edit-banner{margin-bottom:12px}.wizard-hidden-source{display:none!important}
+@keyframes wizIn{from{opacity:.25;transform:translateY(5px)}to{opacity:1;transform:none}}
+@media(max-width:1050px){#page-create .config-wizard{grid-template-columns:1fr}.config-wizard-preview{position:relative!important;top:auto!important;order:-1}.wizard-content{min-height:0!important}}
+@media(max-width:700px){#page-create .wizard-stepper{grid-template-columns:repeat(4,1fr)}#page-create .wizard-step:nth-child(n+5){display:none}.wizard-grid-2,.wizard-review-grid{grid-template-columns:1fr}.wizard-proto-grid{grid-template-columns:1fr}.wizard-content{padding:12px!important}}
+</style>
 <section class="page" id="page-create">
   <div class="page-head">
     <div><div class="page-title"><svg id="createPageTitleIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 5v14M5 12h14"/></svg><span id="createPageTitle" data-i18n="nav_create">ساخت کانفیگ</span></div><div class="page-sub" id="createPageSubtitle">ایجاد کانفیگ جدید با تنظیمات پایه و پیشرفته</div></div>
@@ -9943,6 +9961,28 @@ Cache-Control: no-cache"></textarea></div>
       </div>
     </div>
 
+  </div>
+  <div class="config-wizard" id="configWizard">
+    <div class="wizard-main">
+      <div class="wizard-stepper" id="configWizardStepper">
+        <button class="wizard-step active" data-step="1" data-wizard="0" type="button">پایه</button><button class="wizard-step" data-step="2" data-wizard="1" type="button">پروتکل</button><button class="wizard-step" data-step="3" data-wizard="2" type="button">امنیت</button><button class="wizard-step" data-step="4" data-wizard="3" type="button">شبکه</button><button class="wizard-step" data-step="5" data-wizard="4" type="button">مسیریابی</button><button class="wizard-step" data-step="6" data-wizard="5" type="button">پیشرفته</button><button class="wizard-step" data-step="7" data-wizard="6" type="button">بررسی</button>
+      </div>
+      <div class="wizard-content">
+        <div class="wizard-panel active" data-panel="0"><h3>اطلاعات پایه</h3><p>هویت کانفیگ، گروه، محدودیت‌ها و مدت اعتبار را مشخص کنید.</p><div id="wizBasic"></div></div>
+        <div class="wizard-panel" data-panel="1"><h3>انتخاب پروتکل</h3><p>پروتکل اصلی و پروتکل‌های اشتراکی را انتخاب کنید.</p><div id="wizProtocol" class="wizard-proto-grid"></div></div>
+        <div class="wizard-panel" data-panel="2"><h3>امنیت و TLS</h3><p>TLS، Reality، SNI و fingerprint را در یک مرحله کنترل کنید.</p><div id="wizSecurity"></div></div>
+        <div class="wizard-panel" data-panel="3"><h3>Network & Transport</h3><p>نوع شبکه، Host، Path، gRPC، XHTTP و پارامترهای انتقال.</p><div id="wizNetwork"></div></div>
+        <div class="wizard-panel" data-panel="4"><h3>Routing & Listener</h3><p>مسیریابی، sniffing، پورت‌ها و تنظیمات Listener سرور.</p><div id="wizRouting"></div></div>
+        <div class="wizard-panel" data-panel="5"><h3>تنظیمات پیشرفته</h3><p>تنظیمات اختصاصی پروتکل و Headerهای سفارشی را تکمیل کنید.</p><div id="wizAdvanced"></div></div>
+        <div class="wizard-panel" data-panel="6"><h3>بررسی و ساخت</h3><p>قبل از ساخت، خلاصه تنظیمات و Preview نهایی را بررسی و اعتبارسنجی کنید.</p><div id="wizReview"></div></div>
+        <div class="wiz-actions"><button type="button" class="btn" id="wizPrev">← قبلی</button><span class="wiz-draft" id="wizDraftStatus">ذخیره خودکار فعال است</span><button type="button" class="btn btn-p wiz-next" id="wizNext">بعدی →</button></div>
+      </div>
+    </div>
+    <aside class="config-wizard-preview">
+      <div class="wiz-preview-head"><b>Live Configuration Preview</b><span class="wiz-live"><i></i> LIVE</span></div>
+      <div class="wiz-summary"><div class="wiz-summary-title" id="wizPreviewName">ONEX CONFIG</div><div class="wiz-summary-sub" id="wizPreviewSub">VLESS · TLS · WebSocket</div><div class="wiz-kv"><div><span>Protocol</span><span id="wizPvProto">—</span></div><div><span>Security</span><span id="wizPvSecurity">—</span></div><div><span>Network</span><span id="wizPvNetwork">—</span></div><div><span>Port</span><span id="wizPvPort">443</span></div><div><span>Group</span><span id="wizPvGroup">—</span></div><div><span>Expiry</span><span id="wizPvExpiry">Unlimited</span></div></div></div>
+      <div class="wiz-status" id="wizPvStatus">✓ آماده تنظیمات اولیه — در مرحله بررسی اعتبارسنجی نهایی انجام می‌شود.</div>
+    </aside>
   </div>
 </section>
 
@@ -14073,6 +14113,46 @@ window.addEventListener('storage',e=>{if(e.key==='onex_theme_v2')loadOnexTheme()
     for(const o of objs){o.y-=dt*.025;if(o.y<-7)o.y=7;drawShape(o,tm)}requestAnimationFrame(frame)}requestAnimationFrame(frame);
 })();
 </script>
+<script id="onex-config-wizard-js">
+(function(){
+  function initConfigWizard(){
+    const page=document.getElementById('page-create'); if(!page||page.dataset.wizardReady)return;
+    const source=page.querySelector('.g2'); const basic=source?.querySelector('.card'); const advanced=source?.querySelector('.advanced-config-card');
+    if(!source||!basic||!advanced)return;
+    page.dataset.wizardReady='1';
+    const $=(q)=>document.querySelector(q), $$=(q)=>Array.from(document.querySelectorAll(q));
+    const move=(node,target)=>{if(node&&target)target.appendChild(node)};
+    const closest=(id,sel)=>document.getElementById(id)?.closest(sel);
+    const panels=$$('.wizard-panel'); const steps=$$('.wizard-step'); let current=0;
+    const basicBox=$('#wizBasic'), protoBox=$('#wizProtocol'), secBox=$('#wizSecurity'), netBox=$('#wizNetwork'), routeBox=$('#wizRouting'), advBox=$('#wizAdvanced'), reviewBox=$('#wizReview');
+    // Move real controls into the new wizard; IDs remain untouched so all existing API/form logic keeps working.
+    move(closest('cName','.field'),basicBox); move(closest('cSubGroup','.field'),basicBox); move(closest('cDays','.field'),basicBox); move(closest('cLimit','.field'),basicBox); move(closest('cUnit','.field'),basicBox); move(closest('cIp','.field'),basicBox); move(closest('cSpeed','.field'),basicBox);
+    move(closest('cProto','.protocol-field'),protoBox); move(closest('cAllProtocols','.all-proto-toggle'),protoBox); move(closest('protocolBundleOptions','.field'),protoBox);
+    const secs=$$('.advanced-config-card .advanced-section');
+    [0,2].forEach(i=>move(secs[i],secBox)); [1,3].forEach(i=>move(secs[i],netBox)); [4,5,6].forEach(i=>move(secs[i],routeBox)); [7,8].forEach(i=>move(secs[i],advBox));
+    move(closest('cAdBlockEnabled','.all-proto-toggle'),advBox);
+    move($('#advancedValidationStatus'),reviewBox); move($('#advancedCapabilityStatus'),reviewBox); move($('#advancedPreviewBox'),reviewBox); move(advanced.querySelector('.advanced-actions'),reviewBox);
+    const submit=$('#manualConfigSubmit'); if(submit){reviewBox.appendChild(submit);submit.classList.add('wizard-create')}
+    source.classList.add('wizard-hidden-source');
+    if($('#advancedConfigPanel'))$('#advancedConfigPanel').hidden=false;
+    function text(id,fallback='—'){return document.getElementById(id)?.value?.trim()||fallback}
+    function updatePreview(){
+      const name=text('cName','ONEX CONFIG'),proto=text('cProto','—'),tls=text('advTlsMode','tls'),net=text('advNetwork','ws'),port=(typeof getAdvancedPorts==='function'&&getAdvancedPorts()[0])||text('cPort','443');
+      const group=document.getElementById('cSubGroup'); const groupText=group?.selectedOptions?.[0]?.textContent?.trim()||'عمومی';
+      const days=Number(text('cDays','0'))||0;
+      $('#wizPreviewName').textContent=name; $('#wizPvProto').textContent=proto; $('#wizPvSecurity').textContent=tls==='reality'?'Reality':tls==='tls'?'TLS':'None'; $('#wizPvNetwork').textContent=net; $('#wizPvPort').textContent=port; $('#wizPvGroup').textContent=groupText; $('#wizPvExpiry').textContent=days?days+' روز':'نامحدود'; $('#wizPreviewSub').textContent=[proto,tls==='none'?'None':tls.toUpperCase(),net].join(' · ');
+      const valid=document.getElementById('advancedValidationStatus'); if(valid&&valid.textContent.trim()){$('#wizPvStatus').innerHTML=valid.innerHTML}
+      const summary=$('#wizReview'); if(summary){let old=summary.querySelector('.wizard-review-box');if(!old){old=document.createElement('div');old.className='wizard-review-box';summary.prepend(old)}old.innerHTML='<div class="wizard-review-grid">'+[['نام',name],['پروتکل',proto],['امنیت',tls],['شبکه',net],['پورت',port],['انقضا',days?days+' روز':'نامحدود']].map(x=>'<div class="wizard-review-item"><small>'+x[0]+'</small><b>'+String(x[1]).replace(/[&<>]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[m]))+'</b></div>').join('')+'</div>'}
+    }
+    function setStep(n){current=Math.max(0,Math.min(6,n));panels.forEach((p,i)=>p.classList.toggle('active',i===current));steps.forEach((b,i)=>{b.classList.toggle('active',i===current);b.classList.toggle('done',i<current)});$('#wizPrev').disabled=current===0;const next=$('#wizNext');next.textContent=current===6?'✓ اعتبارسنجی':'بعدی →';updatePreview();window.scrollTo({top:0,behavior:'smooth'})}
+    steps.forEach((b,i)=>b.addEventListener('click',()=>setStep(i))); $('#wizPrev').addEventListener('click',()=>setStep(current-1)); $('#wizNext').addEventListener('click',async()=>{if(current<6){setStep(current+1);return} await validateAdvancedConfig(true);updatePreview()});
+    page.addEventListener('input',()=>{updatePreview();const d=$('#wizDraftStatus');if(d)d.textContent='تغییرات ذخیره‌نشده · Auto Save';}); page.addEventListener('change',()=>{updatePreview();loadAdvancedCapabilities(document.getElementById('cProto')?.value||'')});
+    const oldGo=window.goPage; if(oldGo&&!oldGo.__wizWrapped){const wrap=function(name){const r=oldGo.apply(this,arguments);if(name==='create')setTimeout(()=>{setStep(0);updatePreview()},40);return r};wrap.__wizWrapped=true;window.goPage=wrap}
+    setStep(0);updatePreview();
+  }
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',()=>setTimeout(initConfigWizard,50));else setTimeout(initConfigWizard,50);
+})();
+</script>
 </body>
 </html>
 """
@@ -14200,7 +14280,8 @@ h2{font-size:22px;font-weight:900}p{margin-top:10px;color:#a3abc6;font-size:13.5
 a{display:inline-block;margin-top:20px;padding:12px 20px;border-radius:14px;text-decoration:none;font-weight:800;color:#0b0d14;background:linear-gradient(135deg,#38d9ff,#8b5cf6)}
 small{display:block;margin-top:16px;font:500 11px "JetBrains Mono",monospace;color:#6d7594}
 </style></head>
-<body><div class="box"><div class="ic">!</div><h2>خطای داخلی پنل ONEX</h2><p>مشکلی پیش آمد. لطفاً لاگ سرور (Railway) را بررسی کنید و دوباره تلاش کنید.</p><a href="/dashboard">بازگشت به پنل</a><small>ONEX · internal error</small></div></body>
+<body><div class="box"><div class="ic">!</div><h2>خطای داخلی پنل ONEX</h2><p>مشکلی پیش آمد. لطفاً لاگ سرور (Railway) را بررسی کنید و دوباره تلاش کنید.</p><a href="/dashboard">بازگشت به پنل</a><small>ONEX · internal error</small></div>
+</body>
 </html>
 """,
         status_code=500,
