@@ -227,6 +227,7 @@ def make_handler(ctx):
     internal_port = int(ctx.get("internal_port"))
     vmess_port = int(ctx.get("siderail_vmess_port", 18501))
     xhttp_port = int(ctx.get("siderail_xhttp_port", 18503))
+    httpup_port = int(ctx.get("siderail_httpup_port", 18504))
     log = ctx.get("log") or (lambda *a, **k: None)
 
     async def handle(client_r: asyncio.StreamReader, client_w: asyncio.StreamWriter):
@@ -247,8 +248,10 @@ def make_handler(ctx):
             # so no raw connection is ever pinned to Xray.
             if path.startswith("/siderail/"):
                 await _relay_to(internal_host, internal_port, head, client_r, client_w)
-            elif path.startswith("/httpup/") and not has_ws_key:
-                await _httpupgrade_relay(path, upgrade, head, client_r, client_w, ctx)
+            elif path.startswith("/httpup"):
+                # HTTPUpgrade must remain byte-transparent. Let Xray parse the
+                # Upgrade request and VLESS header, exactly like SideRail.
+                await _relay_to(internal_host, httpup_port, head, client_r, client_w)
             else:
                 await _relay_to(internal_host, internal_port, head, client_r, client_w)
         except Exception as exc:
