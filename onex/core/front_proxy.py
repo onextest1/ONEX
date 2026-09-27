@@ -261,7 +261,10 @@ def make_handler(ctx):
         peer = client_w.get_extra_info("peername")
         ctx["client_ip"] = headers.get("x-forwarded-for", "").split(",")[0].strip() or (peer[0] if peer else "unknown")
 
-        if not upgrade:
+        # Only SideRail XHTTP connections get one-request-per-connection.
+        # Railway protocols (vless-ws, xhttp-packet-up, xhttp-stream-up) and the
+        # panel stay byte-for-byte identical to the previous behaviour.
+        if not upgrade and path.startswith("/siderail/"):
             head = _force_close(head)
 
         try:
