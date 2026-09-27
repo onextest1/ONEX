@@ -115,7 +115,7 @@ async def _relay_to(host: str, port: int, head: bytes, client_r, client_w, count
         t.cancel()
 
 
-async def _httpupgrade_relay(path: str, upgrade_value: str, head: bytes, client_r, client_w, ctx):
+async def _httpupgrade_relay(path: str, upgrade_value: str, head: bytes, client_r, client_w, ctx, client_ip: str):
     """Serve a real xray-style HTTPUpgrade: 101 then raw VLESS stream."""
     parts = path.split("/")
     uuid = parts[2] if len(parts) > 2 else ""
@@ -123,7 +123,7 @@ async def _httpupgrade_relay(path: str, upgrade_value: str, head: bytes, client_
     if not ctx["is_link_allowed"](link):
         client_w.close()
         return
-    ip = ctx.get("client_ip", "unknown")
+    ip = client_ip
     if not ctx["is_ip_allowed"](link, uuid, ip):
         client_w.close()
         return
@@ -228,6 +228,7 @@ def make_handler(ctx):
     internal_port = int(ctx.get("internal_port"))
     vmess_port = int(ctx.get("siderail_vmess_port", 18501))
     xhttp_port = int(ctx.get("siderail_xhttp_port", 18503))
+    httpup_port = int(ctx.get("siderail_httpup_port", 18502))
     log = ctx.get("log") or (lambda *a, **k: None)
 
     async def handle(client_r: asyncio.StreamReader, client_w: asyncio.StreamWriter):
@@ -241,15 +242,22 @@ def make_handler(ctx):
         upgrade = (headers.get("upgrade") or "").lower()
         has_ws_key = "sec-websocket-key" in headers
         peer = client_w.get_extra_info("peername")
-        ctx["client_ip"] = headers.get("x-forwarded-for", "").split(",")[0].strip() or (peer[0] if peer else "unknown")
+        client_ip = headers.get("x-forwarded-for", "").split(",")[0].strip() or (peer[0] if peer else "unknown")
+        log_info = ctx.get("log_info") or log
 
         try:
             if path.startswith("/siderail/vmess"):
+                log_info(f"dispatch -> siderail vmess core ({client_ip})")
                 await _relay_to(internal_host, vmess_port, head, client_r, client_w)
             elif path.startswith("/siderail/xhttp"):
+                log_info(f"dispatch -> siderail xhttp core ({client_ip})")
                 await _relay_to(internal_host, xhttp_port, head, client_r, client_w)
+            elif path.startswith("/siderail/httpupgrade"):
+                log_info(f"dispatch -> siderail httpupgrade core ({client_ip})")
+                await _relay_to(internal_host, httpup_port, head, client_r, client_w)
             elif path.startswith("/httpup/") and upgrade and not has_ws_key:
-                await _httpupgrade_relay(path, upgrade, head, client_r, client_w, ctx)
+                log_info(f"dispatch -> httpupgrade relay {path[:40]} ({client_ip})")
+                await _httpupgrade_relay(path, upgrade, head, client_r, client_w, ctx, client_ip)
             else:
                 await _relay_to(internal_host, internal_port, head, client_r, client_w)
         except Exception as exc:

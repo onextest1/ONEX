@@ -26,23 +26,23 @@ logger = logging.getLogger("ONEX.SideRail")
 
 VMESS_PORT = int(os.environ.get("ONEX_SR_VMESS_PORT", "18501"))
 XHTTP_PORT = int(os.environ.get("ONEX_SR_XHTTP_PORT", "18503"))
+HTTPUP_PORT = int(os.environ.get("ONEX_SR_HTTPUP_PORT", "18502"))
 
 VMESS_PATH = "/siderail/vmess"
 XHTTP_PATH = "/siderail/xhttp"
+HTTPUP_PATH = "/siderail/httpupgrade"
 
-VMESS_PROTOCOLS = {"vmess-ws"}
-XHTTP_PROTOCOLS = {"siderail-vless-xhttp"}
+SIDERAIL_PROTOCOLS = {"vmess-ws", "siderail-vless-xhttp", "vless-httpupgrade"}
 
 
-def _uuids_for(links: dict[str, dict[str, Any]], wanted: set[str]) -> list[dict[str, str]]:
+def _uuids_for(links: dict[str, dict[str, Any]], wanted: set[str] | None = None) -> list[dict[str, str]]:
+    """SideRail behaviour: every active user is attached to every enabled
+    inbound. A user works on all SideRail transports, not just the one their
+    panel 'protocol' field names."""
     users = []
     seen = set()
     for uid, link in (links or {}).items():
         if not isinstance(link, dict) or not link.get("active", True):
-            continue
-        proto = str(link.get("protocol") or "")
-        bundle = {str(p) for p in (link.get("bundle_protocols") or [])}
-        if proto not in wanted and not (bundle & wanted):
             continue
         uid = str(uid)
         if uid and uid not in seen:
@@ -73,26 +73,32 @@ class SiderailCore:
         return binary
 
     def build_config(self, links: dict[str, dict[str, Any]]) -> dict[str, Any]:
-        vmess_users = _uuids_for(links, VMESS_PROTOCOLS)
-        xhttp_users = _uuids_for(links, XHTTP_PROTOCOLS)
+        users = _uuids_for(links)
         inbounds: list[dict[str, Any]] = []
-        if vmess_users:
+        if users:
             inbounds.append({
                 "type": "vmess",
                 "tag": "siderail-vmess-ws",
                 "listen": "127.0.0.1",
                 "listen_port": VMESS_PORT,
-                "users": [{**u, "alter_id": 0} for u in vmess_users],
+                "users": [{**u, "alter_id": 0} for u in users],
                 "transport": {"type": "ws", "path": VMESS_PATH},
             })
-        if xhttp_users:
             inbounds.append({
                 "type": "vless",
                 "tag": "siderail-vless-xhttp",
                 "listen": "127.0.0.1",
                 "listen_port": XHTTP_PORT,
-                "users": xhttp_users,
+                "users": users,
                 "transport": {"type": "xhttp", "path": XHTTP_PATH, "mode": "auto"},
+            })
+            inbounds.append({
+                "type": "vless",
+                "tag": "siderail-vless-httpupgrade",
+                "listen": "127.0.0.1",
+                "listen_port": HTTPUP_PORT,
+                "users": users,
+                "transport": {"type": "httpupgrade", "path": HTTPUP_PATH},
             })
         outbounds: list[dict[str, Any]] = [{"type": "direct", "tag": "direct"}]
         rules: list[dict[str, Any]] = []
@@ -117,8 +123,8 @@ class SiderailCore:
             "running": self.is_running(),
             "error": self.last_error,
             **self.last_status,
-            "ports": {"vmess_ws": VMESS_PORT, "vless_xhttp": XHTTP_PORT},
-            "paths": {"vmess_ws": VMESS_PATH, "vless_xhttp": XHTTP_PATH},
+            "ports": {"vmess_ws": VMESS_PORT, "vless_xhttp": XHTTP_PORT, "vless_httpupgrade": HTTPUP_PORT},
+            "paths": {"vmess_ws": VMESS_PATH, "vless_xhttp": XHTTP_PATH, "vless_httpupgrade": HTTPUP_PATH},
         }
 
     async def stop(self) -> None:
