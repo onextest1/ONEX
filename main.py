@@ -1177,7 +1177,7 @@ def generate_vless_link(
         security = "reality"
     if protocol == "vless-ws":
         path = adv_path or f"/ws/{uuid}"
-        q = {"encryption":"none","security":security,"type":"ws","host":adv_host,"path":path,"sni":adv_sni,"fp":adv_fp,"alpn":adv_alpn}
+        q = {"encryption":"none","security":security,"type":"ws","host":adv_host,"path":path,"sni":adv_sni,"fp":adv_fp,"alpn":adv_alpn,"onex":"vless-ws"}
         if adv["tls"].get("allow_insecure"): q["allowInsecure"] = "1"
         if security == "reality":
             r=adv["tls"]["reality"]
@@ -1226,6 +1226,7 @@ def generate_vless_link(
             "sni": adv_sni,
             "fp": adv_fp,
             "alpn": adv_alpn,
+            "onex": "trojan-ws",
         }
         if adv["tls"].get("allow_insecure"):
             q["allowInsecure"] = "1"
@@ -12321,6 +12322,11 @@ html.onex-glass.light .sidebar,html.onex-glass.light .card,html.onex-glass.light
 html.onex-glass.light .page,html.onex-glass.light .page.on,html.onex-glass.light .page span,html.onex-glass.light .page p,html.onex-glass.light .page b,html.onex-glass.light .page strong,html.onex-glass.light .page small,html.onex-glass.light .page label,html.onex-glass.light .page td,html.onex-glass.light .page th,html.onex-glass.light .page h1,html.onex-glass.light .page h2,html.onex-glass.light .page h3,html.onex-glass.light .page h4,html.onex-glass.light .page h5,html.onex-glass.light .page h6{color:#0f172a!important}
 html.onex-glass.light .page .page-sub,html.onex-glass.light .page .field label,html.onex-glass.light .page .metric-label,html.onex-glass.light .page .quick-desc,html.onex-glass.light .page small{color:#475569!important}
 html.onex-glass .adblock-menu-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.adblock-menu-grid textarea,.adblock-test input{border-color:var(--onex-border)!important}.adblock-presets label{display:inline-flex;align-items:center;gap:4px;color:var(--t2);font-size:10px;margin:0 4px}.adblock-presets input{accent-color:var(--accent)}@media(max-width:700px){html.onex-glass .adblock-menu-grid{grid-template-columns:1fr}}
+html.light .page .card,html.light .page .panel,html.light .page .metric,html.light .page .table-wrap,html.light .page .cfg-card,html.light .page .cfg-list-shell,html.light .page .group-hero,html.light .page .group-list-pane,html.light .page .group-detail-pane,html.light .page .stats-panel,html.light .page .tg-glass,html.light .page .admin-card,html.light .page .quick-item,html.light .page .onex-card{background:#fff!important;color:#0f172a!important;border-color:color-mix(in srgb,var(--accent) 18%,rgba(15,23,42,.12))!important;box-shadow:0 8px 24px rgba(15,23,42,.08)!important;backdrop-filter:none!important;-webkit-backdrop-filter:none!important}
+html.light .page input,html.light .page select,html.light .page textarea{background:#fff!important;color:#0f172a!important;border-color:rgba(15,23,42,.16)!important}
+html.light .page .btn:not(.btn-p),html.light .page .btn:not(.btn-p) *{color:#334155!important}
+html.light .page .page-title,html.light .page .card-title,html.light .page .metric-val,html.light .page .quick-name,html.light .page .cfg-name-row b,html.light .page .cfg-list-head b,html.light .page .group-card-title,html.light .page .stats-panel-head b,html.light .page .admin-card-title,html.light .page .tg-card-head h2{color:#0f172a!important}
+html.light .page .page-sub,html.light .page .field label,html.light .page .metric-label,html.light .page .quick-desc,html.light .page .cfg-meta,html.light .page .admin-card-sub,html.light .page .tg-desc,html.light .page small{color:#475569!important}
 
 </style>
 <section class="page" id="page-news">
