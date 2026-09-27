@@ -264,6 +264,7 @@ CATEGORIES: dict = {}
 AD_BLOCKER = {
     "enabled": False,
     "domains": [],
+    "allow_domains": [],
 }
 
 RELAY_PROTOCOLS = {
@@ -285,6 +286,8 @@ def is_destination_blocked(address: str, link: dict | None = None) -> bool:
     if not is_ad_block_enabled_for_link(link):
         return False
     host = normalize_block_domain(address)
+    if any(host == d or host.endswith("." + d) for d in AD_BLOCKER.get("allow_domains", [])):
+        return False
     return any(host == d or host.endswith("." + d) for d in AD_BLOCKER.get("domains", []))
 
 stats = {
@@ -317,18 +320,22 @@ PROTOCOLS: list[str] = []
 
 # The "all protocols in one subscription" switch is intentionally Railway-only.
 # VPS/native protocols remain individually selectable and individually deployable.
-RAILWAY_SUB_PROTOCOLS = ("vless-ws", "xhttp-packet-up", "xhttp-stream-up")
+RAILWAY_SUB_PROTOCOLS = (
+    "vless-ws", "xhttp-packet-up", "xhttp-stream-up",
+    "xhttp-stream-one", "siderail-vless-xhttp",
+    "trojan-ws", "vmess-ws", "vless-httpupgrade",
+)
 
 PROTOCOL_LABELS = {
     # Railway-safe ONEX transports
     "vless-ws": "ONEX WB",
-    "xhttp-packet-up": "ONEX Xhttp",
+    "xhttp-packet-up": "ONEX XHTTP",
     "xhttp-stream-up": "ONEX Gaming",
     "xhttp-stream-one": "ONEX Stream",
-    "vmess-ws": "SideRail VMess WS",
-    "trojan-ws": "SideRail Trojan WS",
-    "vless-httpupgrade": "SideRail VLESS HTTPUpgrade",
-    "siderail-vless-xhttp": "SideRail VLESS XHTTP",
+    "vmess-ws": "ONEX VIP VMess",
+    "trojan-ws": "ONEX VIP Trojan",
+    "vless-httpupgrade": "ONEX VIP HTTPUpgrade",
+    "siderail-vless-xhttp": "ONEX VIP XHTTP",
     # VPS-native protocols
     "trojan": "Trojan",
     "shadowsocks": "Shadowsocks",
@@ -505,14 +512,16 @@ def auto_config_name() -> str:
     return random_config_name()
 
 
-def project_config_name(existing=None) -> str:
-    """Generate a unique config remark/name with the project prefix first."""
+def project_config_name(existing=None, username: str | None = None) -> str:
+    """Generate a unique config name as PROJECT-USER-RANDOM."""
     existing = existing or set()
+    user = sanitize_config_name(username or AUTH.get("username") or "user").lower()[:18]
+    prefix = f"{APP_NAME}-{user}-"
     for _ in range(80):
-        name = f"{APP_NAME}-{random_config_name()}"
+        name = f"{prefix}{random_config_name()}"
         if name not in existing:
             return name
-    return f"{APP_NAME}-{secrets.token_hex(6)}"
+    return f"{prefix}{secrets.token_hex(6)}"
 
 
 def now_ir():
@@ -1483,6 +1492,11 @@ async def load_state():
             for x in (AD_BLOCKER.get("domains") or [])
             if normalize_block_domain(x)
         })
+        AD_BLOCKER["allow_domains"] = sorted({
+            normalize_block_domain(x)
+            for x in (AD_BLOCKER.get("allow_domains") or [])
+            if normalize_block_domain(x)
+        })
 
         ADMIN_ACCOUNTS.clear()
         ADMIN_ACCOUNTS.update(data.get("admin_accounts") or {})
@@ -1729,7 +1743,8 @@ async def make_link(
     uid = generate_uuid()
 
     clean_label = sanitize_config_name((label or "").strip() or random_config_name())
-    project_prefix = f"{APP_NAME}-"
+    current_user = sanitize_config_name(AUTH.get("username") or "user").lower()[:18]
+    project_prefix = f"{APP_NAME}-{current_user}-"
     if not clean_label.lower().startswith(project_prefix.lower()):
         clean_label = f"{project_prefix}{clean_label}"
 
@@ -3674,6 +3689,17 @@ async def api_protocols(request: Request):
 async def get_ad_blocker(_=Depends(require_auth)):
     return {"ok": True, **AD_BLOCKER}
 
+@app.post("/api/ad-blocker/test")
+async def test_ad_blocker(request: Request, _=Depends(require_auth)):
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+    domain = normalize_block_domain(body.get("domain", ""))
+    if not domain:
+        raise HTTPException(400, "دامنه وارد نشده است")
+    return {"ok": True, "domain": domain, "blocked": is_destination_blocked(domain)}
+
 @app.put("/api/ad-blocker")
 async def update_ad_blocker(request: Request, _=Depends(require_auth)):
     try:
@@ -3688,10 +3714,21 @@ async def update_ad_blocker(request: Request, _=Depends(require_auth)):
         for x in raw
         if normalize_block_domain(x)
     })
+    raw_allow = body.get("allow_domains") or []
+    if isinstance(raw_allow, str):
+        raw_allow = raw_allow.replace(",", "\n").splitlines()
+    allow_domains = sorted({
+        normalize_block_domain(x)
+        for x in raw_allow
+        if normalize_block_domain(x)
+    })
     if len(domains) > 2000:
         raise HTTPException(400, "حداکثر ۲۰۰۰ دامنه مجاز است")
+    if len(allow_domains) > 500:
+        raise HTTPException(400, "حداکثر ۵۰۰ دامنه مجاز برای استثنا مجاز است")
     AD_BLOCKER["enabled"] = bool(body.get("enabled", AD_BLOCKER.get("enabled")))
     AD_BLOCKER["domains"] = domains
+    AD_BLOCKER["allow_domains"] = allow_domains
     await save_state()
     if NATIVE_CORE:
         asyncio.create_task(sync_native_core())
@@ -9339,6 +9376,10 @@ html.light .protocol-picker-bg{background:rgba(15,23,42,.28)}html.light .protoco
 /* ============================================================
    ADVANCED CONFIG — GLASS CONTROL PANEL
    ============================================================ */
+/* Performance mode: decorative motion and expensive effects are off globally. */
+*,*::before,*::after{animation:none!important;transition:none!important;scroll-behavior:auto!important}
+html.reduce-motion *,html.reduce-motion *::before,html.reduce-motion *::after{filter:none!important;backdrop-filter:none!important;-webkit-backdrop-filter:none!important}
+.adblock-menu-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin-top:12px}.adblock-menu-grid>div{display:grid;gap:6px}.adblock-menu-grid label{font-size:11px;color:var(--t2)}.adblock-menu-grid textarea{width:100%;resize:vertical;min-height:132px;padding:10px;border-radius:12px;border:1px solid var(--card-b);background:var(--input-bg);color:var(--t1);font:500 11px 'JetBrains Mono',monospace;direction:ltr;text-align:left}.adblock-menu-grid small{font-size:9px;color:var(--t3)}.adblock-presets,.adblock-test{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:11px}.adblock-presets>b{font-size:10px;color:var(--t2);margin-left:4px}.adblock-test input{flex:1;min-width:170px;height:38px;padding:0 10px;border-radius:10px;border:1px solid var(--card-b);background:var(--input-bg);color:var(--t1);direction:ltr}.adblock-test span{font-size:10px}.adblock-test span.ok{color:#16a34a}.adblock-test span.bad{color:#dc2626}html.light .adblock-menu-grid textarea,html.light .adblock-test input{background:#fff!important;color:#0f172a!important;border-color:rgba(15,23,42,.14)!important}@media(max-width:700px){.adblock-menu-grid{grid-template-columns:1fr}}
 .advanced-config-card{overflow:hidden;background:linear-gradient(145deg,rgba(13,34,67,.78),rgba(3,15,32,.9));border:1px solid rgba(86,157,255,.22);box-shadow:inset 0 1px rgba(255,255,255,.055),0 18px 48px rgba(0,0,0,.16)}
 .advanced-toggle{width:100%;border:0;background:linear-gradient(120deg,rgba(24,61,111,.48),rgba(6,24,50,.35));color:var(--t1);display:flex;align-items:center;gap:12px;padding:16px;border-radius:16px;cursor:pointer;text-align:right;font-family:inherit}
 .advanced-toggle:hover{background:linear-gradient(120deg,rgba(30,80,145,.58),rgba(8,29,59,.45))}
@@ -9778,7 +9819,7 @@ html.light .onex-topbar-brand{background:#fff;border-color:rgba(37,99,235,.16);b
       <div class="wizard-steps" id="wizardSteps">
         <button class="wizard-step on" type="button" data-step="0"><i>1</i>پایه</button><button class="wizard-step" type="button" data-step="1"><i>2</i>پروتکل</button><button class="wizard-step" type="button" data-step="2"><i>3</i>امنیت</button><button class="wizard-step" type="button" data-step="3"><i>4</i>شبکه</button><button class="wizard-step" type="button" data-step="4"><i>5</i>مسیر</button><button class="wizard-step" type="button" data-step="5"><i>6</i>پیشرفته</button><button class="wizard-step" type="button" data-step="6"><i>7</i>مرور</button>
       </div>
-      <div class="wizard-panel on" data-panel="0"><h3>اطلاعات پایه</h3><p>نام، محدودیت‌ها و گروه اشتراک را همین‌جا تنظیم کن.</p><div class="wz-grid"><div class="wz-field full"><label>نام کانفیگ</label><input id="wzName" placeholder="ONEX-IRAN-01"></div><div class="wz-field"><label>گروه اشتراک</label><select id="wzSubGroup"><option value="">بدون گروه (عمومی)</option></select></div><div class="wz-field"><label>انقضا، روز</label><input id="wzDays" type="number" min="0" value="0"></div><div class="wz-field"><label>محدودیت حجم</label><input id="wzLimit" type="number" min="0" value="0"></div><div class="wz-field"><label>واحد حجم</label><select id="wzUnit"><option>GB</option><option>MB</option><option>KB</option></select></div><label class="wz-toggle full"><span>همه پروتکل‌های Railway در یک Subscription</span><input id="wzAllProtocols" type="checkbox"></label></div></div>
+      <div class="wizard-panel on" data-panel="0"><h3>اطلاعات پایه</h3><p>نام، محدودیت‌ها و گروه اشتراک را همین‌جا تنظیم کن.</p><div class="wz-grid"><div class="wz-field full"><label>نام کانفیگ</label><input id="wzName" placeholder="ONEX-user-IRAN-01"></div><div class="wz-field"><label>گروه اشتراک</label><select id="wzSubGroup"><option value="">بدون گروه (عمومی)</option></select></div><div class="wz-field"><label>انقضا، روز</label><input id="wzDays" type="number" min="0" value="0"></div><div class="wz-field"><label>محدودیت حجم</label><input id="wzLimit" type="number" min="0" value="0"></div><div class="wz-field"><label>واحد حجم</label><select id="wzUnit"><option>GB</option><option>MB</option><option>KB</option></select></div><label class="wz-toggle full"><span>همه ۸ پروتکل ONEX VIP در یک Subscription</span><input id="wzAllProtocols" type="checkbox"></label></div></div>
       <div class="wizard-panel" data-panel="1"><h3>انتخاب پروتکل</h3><p>پروتکل را انتخاب کن؛ تنظیمات اختصاصی در مراحل بعدی فعال می‌شوند.</p><div class="wz-protocol-grid" id="wzProtocolGrid"></div><div class="wz-actions"><button type="button" class="btn" onclick="openProtocolPicker('cProto')">لیست کامل پروتکل‌ها</button><span id="wzProtoHint" style="color:#7898bd;font-size:10px">VLESS</span></div></div>
       <div class="wizard-panel" data-panel="2"><h3>امنیت اتصال</h3><p>TLS، Reality و fingerprint را بدون گم‌شدن در تنظیمات ریز کنترل کن.</p><div class="wz-grid"><div class="wz-field"><label>حالت امنیت</label><select id="wzSecurity"><option value="tls">TLS</option><option value="reality">Reality</option><option value="none">بدون TLS</option></select></div><div class="wz-field"><label>Fingerprint</label><select id="wzFingerprint"><option>chrome</option><option>firefox</option><option>safari</option><option>ios</option><option>android</option><option>edge</option><option>randomized</option></select></div><div class="wz-field full"><label>SNI / Server Name</label><input id="wzSni" placeholder="example.com"></div></div></div>
       <div class="wizard-panel" data-panel="3"><h3>تنظیمات شبکه</h3><p>نوع انتقال، مسیر و پورت اصلی را مشخص کن.</p><div class="wz-grid"><div class="wz-field"><label>Transport</label><select id="wzNetwork"><option value="ws">WebSocket</option><option value="xhttp">XHTTP</option><option value="grpc">gRPC</option><option value="tcp">TCP</option><option value="http">HTTP</option><option value="h2">HTTP/2</option><option value="quic">QUIC</option><option value="kcp">mKCP</option></select></div><div class="wz-field"><label>پورت اصلی</label><input id="wzPort" type="number" min="1" max="65535" value="443"></div><div class="wz-field full"><label>Path / Service Name</label><input id="wzPath" placeholder="/ws یا ONEX"></div></div></div>
@@ -9803,7 +9844,7 @@ html.light .onex-topbar-brand{background:#fff;border-color:rgba(37,99,235,.16);b
             <div class="field protocol-field" data-protocol-picker="cProto"><label data-i18n="label_proto">پروتکـل</label><select id="cProto" class="protocol-native" tabindex="-1" aria-hidden="true"></select><button type="button" class="protocol-trigger" data-for="cProto" onclick="window.openProtocolPicker&&window.openProtocolPicker('cProto')"><span class="protocol-trigger-main"><span class="protocol-trigger-icon">🚀</span><span class="protocol-trigger-text"><span class="protocol-trigger-name">ONEX WB</span><span class="protocol-trigger-sub">برای تغییر پروتکل، اینجا بزنید</span></span></span><span class="protocol-trigger-arrow">⌄</span></button></div>
       <div class="field"><label>گروه اشتراک</label><select id="cSubGroup"><option value="">بدون گروه (عمومی)</option></select><small style="display:block;margin-top:5px;color:var(--t3);font-size:9px">با انتخاب گروه، این کانفیگ بعد از ساخت خودکار عضو همان گروه می‌شود.</small></div>
 <div class="form-row">
-        <label class="all-proto-toggle" title="یک اکانت با همه پروتکل‌ها و یک ساب"><span><b>همه پروتکل‌ها در یک ساب</b><small>یک اکانت · فقط ۳ پروتکل Railway · یک لینک اشتراک</small></span><input id="cAllProtocols" type="checkbox"><i aria-hidden="true"></i></label>
+        <label class="all-proto-toggle" title="یک اکانت با همه پروتکل‌ها و یک ساب"><span><b>همه پروتکل‌ها در یک ساب</b><small>یک اکانت · ۸ پروتکل ONEX VIP · یک لینک اشتراک</small></span><input id="cAllProtocols" type="checkbox"><i aria-hidden="true"></i></label>
         <div class="field"><label data-i18n="label_days">انقضـا (روز)</label><input id="cDays" type="number" value="0" min="0"></div>
       </div>
       <label class="all-proto-toggle" style="margin:4px 0 10px"><span><b>Ad Blocker برای همین کانفیگ</b><small>فقط روی این کانفیگ اعمال می‌شود</small></span><input id="cAdBlockEnabled" type="checkbox"><i aria-hidden="true"></i></label>
@@ -10178,10 +10219,15 @@ Cache-Control: no-cache"></textarea></div>
   </div>
   <div class="card">
     <div class="card-title">Ad Blocker / مسدودکننده تبلیغات</div>
-    <p style="font-size:11px;color:var(--t3);line-height:1.8">دامنه‌های تبلیغاتی را هر خط یک مورد وارد کنید. روی لینک‌های رله‌ای و هسته native اعمال می‌شود، نه فقط داخل مرورگر.</p>
+    <p style="font-size:11px;color:var(--t3);line-height:1.8">این تنظیمات روی ترافیک واقعی رله و هسته native اعمال می‌شوند، نه فقط روی ظاهر پنل.</p>
     <label class="all-proto-toggle" style="margin:12px 0"><span><b>فعال‌سازی مسدودکننده</b><small>مسدودکردن دامنه و زیردامنه</small></span><input id="adBlockEnabled" type="checkbox"><i aria-hidden="true"></i></label>
-    <textarea id="adBlockDomains" rows="7" placeholder="doubleclick.net&#10;googlesyndication.com&#10;ads.youtube.com&#10;ads.google.com" style="width:100%;resize:vertical"></textarea>
-    <button class="btn btn-p" style="margin-top:10px" onclick="saveAdBlocker()">ذخیره و اعمال</button>
+    <div class="adblock-menu-grid">
+      <div><label>دامنه‌های مسدودشده</label><textarea id="adBlockDomains" rows="7" placeholder="doubleclick.net&#10;googlesyndication.com&#10;ads.youtube.com&#10;ads.google.com"></textarea><small>هر خط یک دامنه. زیردامنه‌ها هم مسدود می‌شوند.</small></div>
+      <div><label>استثناها، همیشه مجاز</label><textarea id="adBlockAllowDomains" rows="7" placeholder="example.com&#10;your-domain.com"></textarea><small>اگر دامنه در هر دو لیست باشد، استثنا اولویت دارد.</small></div>
+    </div>
+    <div class="adblock-presets"><b>لیست آماده</b><button type="button" class="btn btn-sm" onclick="applyAdBlockPreset('balanced')">Balanced</button><button type="button" class="btn btn-sm" onclick="applyAdBlockPreset('strict')">Strict</button><button type="button" class="btn btn-sm" onclick="clearAdBlockLists()">پاک‌کردن</button></div>
+    <div class="adblock-test"><input id="adBlockTestDomain" placeholder="تست دامنه، مثلا ads.google.com"><button type="button" class="btn btn-sm" onclick="testAdBlockDomain()">تست اعمال</button><span id="adBlockTestResult"></span></div>
+    <button class="btn btn-p" style="margin-top:10px" onclick="saveAdBlocker()">ذخیره و اعمال روی سرویس</button>
   </div>
   
   <div class="card onex-security-card">
@@ -13419,19 +13465,26 @@ async function loadProtocols(){
   setupProtocolPickers();
   const bundle=document.getElementById('protocolBundleOptions');
   if(bundle){
-    const ids=['vless-ws','siderail-vless-xhttp','vmess-ws','trojan-ws','vless-httpupgrade'];
+    const ids=['vless-ws','xhttp-packet-up','xhttp-stream-up','xhttp-stream-one','siderail-vless-xhttp','trojan-ws','vmess-ws','vless-httpupgrade'];
     bundle.innerHTML=ids.map(id=>`<label style="display:flex;align-items:center;gap:6px;padding:8px;border:1px solid rgba(96,165,250,.2);border-radius:10px;font-size:10px"><input type="checkbox" value="${id}"> <span>${esc(protocolPickerShort(id))}</span></label>`).join('');
   }
 }
+const AD_BLOCK_PRESETS={balanced:['doubleclick.net','googlesyndication.com','googleadservices.com','adservice.google.com','ads.youtube.com','adnxs.com','advertising.com','scorecardresearch.com'],strict:['doubleclick.net','googlesyndication.com','googleadservices.com','adservice.google.com','ads.youtube.com','ads.google.com','adnxs.com','advertising.com','scorecardresearch.com','taboola.com','outbrain.com','zedo.com','moatads.com','criteo.com','amazon-adsystem.com']};
 async function loadAdBlocker(){
   const r=await api('/api/ad-blocker');if(!r)return;
-  const e=document.getElementById('adBlockEnabled'),d=document.getElementById('adBlockDomains');
-  if(e)e.checked=!!r.enabled;if(d)d.value=(r.domains||[]).join('\n');
+  const e=document.getElementById('adBlockEnabled'),d=document.getElementById('adBlockDomains'),a=document.getElementById('adBlockAllowDomains');
+  if(e)e.checked=!!r.enabled;if(d)d.value=(r.domains||[]).join('\n');if(a)a.value=(r.allow_domains||[]).join('\n');
+}
+function applyAdBlockPreset(name){const d=document.getElementById('adBlockDomains');if(d)d.value=AD_BLOCK_PRESETS[name].join('\n');toast('لیست آماده وارد شد، برای اعمال ذخیره کن')}
+function clearAdBlockLists(){['adBlockDomains','adBlockAllowDomains'].forEach(id=>{const e=document.getElementById(id);if(e)e.value=''});toast('لیست‌ها پاک شدند')}
+async function testAdBlockDomain(){
+  const d=document.getElementById('adBlockTestDomain')?.value||'',r=await api('/api/ad-blocker/test',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({domain:d})});
+  const out=document.getElementById('adBlockTestResult');if(out&&r){out.textContent=r.blocked?'✕ مسدود می‌شود':'✓ عبور می‌کند';out.className=r.blocked?'bad':'ok'}
 }
 async function saveAdBlocker(){
-  const e=document.getElementById('adBlockEnabled'),d=document.getElementById('adBlockDomains');
-  const r=await api('/api/ad-blocker',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({enabled:!!e?.checked,domains:d?.value||''})});
-  if(r)toast('مسدودکننده تبلیغات ذخیره شد');
+  const e=document.getElementById('adBlockEnabled'),d=document.getElementById('adBlockDomains'),a=document.getElementById('adBlockAllowDomains');
+  const r=await api('/api/ad-blocker',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({enabled:!!e?.checked,domains:d?.value||'',allow_domains:a?.value||''})});
+  if(r)toast('مسدودکننده ذخیره و روی سرویس اعمال شد');
 }
 let __allLinks=[];
 let cfgStatusFilter='all',cfgSortMode='newest';
@@ -13769,13 +13822,12 @@ async function restoreBot(){
 /* ============================================================
    LIGHT STATIC 3D PROTOCOL PICKER
    ============================================================ */
-const RAILWAY_SUB_PROTOCOLS=['vless-ws','xhttp-packet-up','xhttp-stream-up'];
+const RAILWAY_SUB_PROTOCOLS=['vless-ws','xhttp-packet-up','xhttp-stream-up','xhttp-stream-one','siderail-vless-xhttp','trojan-ws','vmess-ws','vless-httpupgrade'];
 const PROTOCOL_PICKER_GROUPS=[
-  {title:'پروتکل‌های Railway',subtitle:'پروتکل‌های سازگار با Railway',ids:['vless-ws','xhttp-packet-up','xhttp-stream-up'],kind:'railway'},
-  {title:'پروتکل‌های SideRail',subtitle:'پنج پروتکل واقعی پروژه SideRail',ids:['vless-ws','siderail-vless-xhttp','vmess-ws','trojan-ws','vless-httpupgrade'],kind:'siderail'},
-  {title:'پروتکل‌های VPS',subtitle:'تمام پروتکل‌های قابل ساخت روی VPS',ids:['trojan','shadowsocks','socks5','http','hysteria2','vless-reality','vless-grpc-reality','vmess','tuic','anytls','naive','shadowtls','snell','hysteria'],kind:'vps'}
+  {title:'ONEX VIP',subtitle:'۸ پروتکل یکپارچه برای یک Subscription',ids:['vless-ws','xhttp-packet-up','xhttp-stream-up','xhttp-stream-one','siderail-vless-xhttp','trojan-ws','vmess-ws','vless-httpupgrade'],kind:'railway'},
+  {title:'ONEX VPS',subtitle:'پروتکل‌های واقعی هسته Native روی VPS',ids:['trojan','shadowsocks','socks5','http','hysteria2','vless-reality','vless-grpc-reality','vmess','tuic','anytls','naive','shadowtls','snell','hysteria'],kind:'vps'}
 ];
-const PROTOCOL_PICKER_NAMES={"vless-ws":"SideRail VLESS WS","siderail-vless-xhttp":"SideRail VLESS XHTTP","vmess-ws":"SideRail VMess WS","trojan-ws":"SideRail Trojan WS","vless-httpupgrade":"SideRail VLESS HTTPUpgrade","xhttp-packet-up":"ONEX Xhttp","xhttp-stream-up":"ONEX Gaming","xhttp-stream-one":"ONEX Stream","trojan":"Trojan","shadowsocks":"Shadowsocks","socks5":"SOCKS5","http":"HTTP Proxy","hysteria2":"Hysteria2","vless-reality":"VLESS Reality","vless-grpc-reality":"VLESS gRPC Reality","vmess":"VMess","tuic":"TUIC","anytls":"AnyTLS","naive":"NaiveProxy","shadowtls":"ShadowTLS","snell":"Snell","hysteria":"Hysteria"};
+const PROTOCOL_PICKER_NAMES={"vless-ws":"ONEX WB","siderail-vless-xhttp":"ONEX VIP XHTTP","vmess-ws":"ONEX VIP VMess","trojan-ws":"ONEX VIP Trojan","vless-httpupgrade":"ONEX VIP HTTPUpgrade","xhttp-packet-up":"ONEX XHTTP","xhttp-stream-up":"ONEX Gaming","xhttp-stream-one":"ONEX Stream","trojan":"Trojan","shadowsocks":"Shadowsocks","socks5":"SOCKS5","http":"HTTP Proxy","hysteria2":"Hysteria2","vless-reality":"VLESS Reality","vless-grpc-reality":"VLESS gRPC Reality","vmess":"VMess","tuic":"TUIC","anytls":"AnyTLS","naive":"NaiveProxy","shadowtls":"ShadowTLS","snell":"Snell","hysteria":"Hysteria"};
 const PROTOCOL_PICKER_DESCS={"vless-ws":"VLESS + WebSocket","siderail-vless-xhttp":"VLESS + XHTTP","vmess-ws":"VMess + WebSocket","trojan-ws":"Trojan + WebSocket","vless-httpupgrade":"VLESS + HTTPUpgrade","xhttp-packet-up":"VLESS + XHTTP","xhttp-stream-up":"VLESS + XHTTP","xhttp-stream-one":"VLESS + XHTTP stream-one","trojan":"Trojan + TLS","shadowsocks":"Shadowsocks","socks5":"SOCKS5","http":"HTTP Proxy","hysteria2":"Hysteria2 + QUIC","vless-reality":"VLESS + Reality","vless-grpc-reality":"VLESS + gRPC + Reality","vmess":"VMess + TLS","tuic":"TUIC + QUIC","anytls":"AnyTLS + TLS","naive":"NaiveProxy + TLS","shadowtls":"ShadowTLS v3","snell":"Snell v5","hysteria":"Hysteria + QUIC"};
 const PROTOCOL_ICON_DATA={"vless-ws":"/api/protocol-icon/vless-ws.png?v=1.3.5","siderail-vless-xhttp":"/api/protocol-icon/vless-ws.png?v=1.3.5","vmess-ws":"/api/protocol-icon/vmess.png?v=1.3.5","trojan-ws":"/api/protocol-icon/trojan.png?v=1.3.5","vless-httpupgrade":"/api/protocol-icon/vless-ws.png?v=1.3.5","xhttp-packet-up":"/api/protocol-icon/xhttp-packet-up.png?v=1.3.5","xhttp-stream-up":"/api/protocol-icon/xhttp-stream-up.png?v=1.3.5","xhttp-stream-one":"/api/protocol-icon/xhttp-stream-one.png?v=1.3.5","trojan":"/api/protocol-icon/trojan.png?v=1.3.5","shadowsocks":"/api/protocol-icon/shadowsocks.png?v=1.3.5","socks5":"/api/protocol-icon/socks5.png?v=1.3.5","http":"/api/protocol-icon/http.png?v=1.3.5","hysteria2":"/api/protocol-icon/hysteria2.png?v=1.3.5","vless-reality":"/api/protocol-icon/vless-reality.png?v=1.3.5","vless-grpc-reality":"/api/protocol-icon/vless-grpc-reality.png?v=1.3.5","vmess":"/api/protocol-icon/vmess.png?v=1.3.5","tuic":"/api/protocol-icon/tuic.png?v=1.3.5","anytls":"/api/protocol-icon/anytls.png?v=1.3.5","naive":"/api/protocol-icon/naive.png?v=1.3.5","shadowtls":"/api/protocol-icon/shadowtls.png?v=1.3.5","snell":"/api/protocol-icon/snell.png?v=1.3.5","hysteria":"/api/protocol-icon/hysteria.png?v=1.3.5"};
 function protocolPickerLabel(id){const p=__protocolPickerOptions.find(x=>x.id===id);return PROTOCOL_PICKER_NAMES[id]||p?.label||id||'Vortex Link'}
@@ -13786,7 +13838,7 @@ function protocolIconMarkup(id){
 }
 function setupProtocolPickers(){['cProto','aProto'].forEach(id=>{const sel=document.getElementById(id);if(!sel)return;sel.classList.add('protocol-native');sel.style.setProperty('display','none','important');sel.setAttribute('aria-hidden','true');let trigger=sel.parentNode.querySelector(`.protocol-trigger[data-for="${id}"]`);if(!trigger){trigger=document.createElement('button');trigger.type='button';trigger.className='protocol-trigger';trigger.dataset.for=id;sel.parentNode.insertBefore(trigger,sel.nextSibling)}trigger.onclick=e=>{e.preventDefault();openProtocolPicker(id)};syncProtocolPicker(id)})}
 function syncProtocolPicker(id){const sel=document.getElementById(id),trigger=document.querySelector(`.protocol-trigger[data-for="${id}"]`);if(!sel||!trigger)return;const value=sel.value||'vless-ws';trigger.innerHTML=`<span class="protocol-trigger-main"><span class="protocol-trigger-icon">${protocolIconMarkup(value)}</span><span class="protocol-trigger-text"><span class="protocol-trigger-name">${esc(protocolPickerShort(value))}</span><span class="protocol-trigger-sub">${lang==='fa'?'برای تغییر، انتخاب کنید':'Tap to choose another protocol'}</span></span></span><span class="protocol-trigger-arrow">⌄</span>`}
-function syncAllProtocolToggle(){const sel=document.getElementById('cProto'),all=document.getElementById('cAllProtocols'),wrap=all?.closest('.all-proto-toggle');if(!sel||!all)return;const railway=RAILWAY_SUB_PROTOCOLS.includes(sel.value);if(!railway){all.checked=false;all.disabled=true;if(wrap){wrap.style.opacity='0.48';wrap.style.cursor='not-allowed';wrap.title=lang==='fa'?'این گزینه فقط برای پروتکل‌های Railway است':'This option is only for Railway protocols';}}else{all.disabled=false;if(wrap){wrap.style.opacity='1';wrap.style.cursor='pointer';wrap.title=lang==='fa'?'فقط سه پروتکل Railway در یک ساب':'Only the three Railway protocols in one subscription';}}}
+function syncAllProtocolToggle(){const sel=document.getElementById('cProto'),all=document.getElementById('cAllProtocols'),wrap=all?.closest('.all-proto-toggle');if(!sel||!all)return;const vip=RAILWAY_SUB_PROTOCOLS.includes(sel.value);if(!vip){all.checked=false;all.disabled=true;if(wrap){wrap.style.opacity='0.48';wrap.style.cursor='not-allowed';wrap.title=lang==='fa'?'این گزینه فقط برای ONEX VIP است':'This option is only for ONEX VIP';}}else{all.disabled=false;if(wrap){wrap.style.opacity='1';wrap.style.cursor='pointer';wrap.title=lang==='fa'?'هشت پروتکل ONEX VIP در یک ساب':'All eight ONEX VIP protocols in one subscription';}}}
 
 function ensureProtocolPicker(){let bg=document.getElementById('protocolPickerBg');if(bg)return bg;bg=document.createElement('div');bg.id='protocolPickerBg';bg.className='protocol-picker-bg';bg.innerHTML=`<div class="protocol-picker" role="dialog" aria-modal="true"><div class="protocol-picker-head"><div class="protocol-picker-head-icon"><span>✦</span></div><div class="protocol-picker-head-text"><div class="protocol-picker-title">${lang==='fa'?'انتخاب پروتکل':'Select Protocol'}</div><div class="protocol-picker-subtitle">${lang==='fa'?'پروتکل موردنظر را انتخاب کنید':'Choose the protocol you want to use'}</div></div><button type="button" class="protocol-picker-close" id="protocolPickerClose">×</button></div><div class="protocol-picker-scroll" id="protocolPickerScroll"></div><div class="protocol-picker-foot"><div class="protocol-selected-info" id="protocolSelectedInfo">—</div><button type="button" class="protocol-picker-confirm" id="protocolPickerConfirm">${lang==='fa'?'تأیید و ادامه →':'Confirm & Continue →'}</button></div></div>`;document.body.appendChild(bg);bg.addEventListener('click',e=>{if(e.target===bg)closeProtocolPicker()});bg.querySelector('#protocolPickerClose').onclick=closeProtocolPicker;bg.querySelector('#protocolPickerConfirm').onclick=confirmProtocolPicker;return bg}
 function openProtocolPicker(targetId){const sel=document.getElementById(targetId);if(!sel)return;const bg=ensureProtocolPicker();__protocolPickerTarget=targetId;const current=sel.value||'vless-ws';const available=new Set([...sel.options].map(o=>o.value));const sections=PROTOCOL_PICKER_GROUPS.map(g=>{const ids=g.ids.filter(id=>available.has(id));if(!ids.length)return '';return `<section class="protocol-picker-section ${g.kind||''}"><div class="protocol-picker-section-head"><div><b>${esc(g.title)}</b><small>${esc(g.subtitle||'')}</small></div><span>${ids.length}</span></div><div class="protocol-grid protocol-grid-all">${ids.map(id=>`<button type="button" class="protocol-option ${id===current?'selected':''}" data-proto="${id}"><span class="protocol-option-radio"></span>${protocolIconMarkup(id)}<span class="protocol-option-name">${esc(protocolPickerShort(id))}</span><span class="protocol-option-desc">${id===current?(lang==='fa'?'انتخاب‌شده · ':'Selected · ')+(PROTOCOL_PICKER_DESCS[id]||''):(PROTOCOL_PICKER_DESCS[id]|| (lang==='fa'?'برای انتخاب کلیک کنید':'Tap to choose'))}</span></button>`).join('')}</div></section>`}).join('');const scroll=bg.querySelector('#protocolPickerScroll');scroll.innerHTML=sections;scroll.querySelectorAll('.protocol-option').forEach(btn=>btn.addEventListener('click',()=>chooseProtocol(btn.dataset.proto)));bg.querySelector('#protocolSelectedInfo').textContent=(lang==='fa'?'پروتکل انتخاب‌شده: ':'Selected: ')+protocolPickerShort(current);bg.classList.add('open');document.body.style.overflow='hidden'}
