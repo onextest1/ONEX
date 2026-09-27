@@ -268,7 +268,7 @@ AD_BLOCKER = {
 
 RELAY_PROTOCOLS = {
     "vless-ws", "siderail-vless-xhttp", "xhttp-packet-up",
-    "xhttp-stream-up", "xhttp-stream-one", "vmess-ws",
+    "xhttp-stream-up", "xhttp-stream-one",
     "trojan-ws", "vless-httpupgrade",
 }
 
@@ -277,8 +277,12 @@ def normalize_block_domain(value: str) -> str:
     value = value.replace("https://", "").replace("http://", "").split("/")[0]
     return value.removeprefix("www.").strip(".")
 
-def is_destination_blocked(address: str) -> bool:
-    if not AD_BLOCKER.get("enabled"):
+def is_ad_block_enabled_for_link(link: dict | None) -> bool:
+    return bool((link or {}).get("ad_block_enabled", AD_BLOCKER.get("enabled")))
+
+
+def is_destination_blocked(address: str, link: dict | None = None) -> bool:
+    if not is_ad_block_enabled_for_link(link):
         return False
     host = normalize_block_domain(address)
     return any(host == d or host.endswith("." + d) for d in AD_BLOCKER.get("domains", []))
@@ -1328,7 +1332,7 @@ def group_subscription_lines_for_link(
     if not selected:
         return []
     names = used_names if used_names is not None else set()
-    cfg_count = 1 if link.get("all_protocols") else max(1, min(40, int(link.get("config_count") or 1)))
+    cfg_count = 1 if (link.get("all_protocols") or link.get("bundle_protocols")) else max(1, min(40, int(link.get("config_count") or 1)))
     clean_ips = list(link.get("clean_ips") or [])
     if clean_ips:
         hosts = []
@@ -1388,6 +1392,7 @@ def get_link_info(
         "label": link.get("label", ""),
         "protocol": link.get("protocol", DEFAULT_PROTOCOL),
         "bundle_protocols": list(link.get("bundle_protocols") or []),
+        "ad_block_enabled": bool(link.get("ad_block_enabled", AD_BLOCKER.get("enabled"))),
         "active": is_active,
         "used_bytes": used_b,
         "limit_bytes": limit_b,
@@ -1556,6 +1561,8 @@ async def load_state():
             link.setdefault("config_count", 1)
             link.setdefault("sort_order", 0)
             link.setdefault("usage_history", [])
+            link.setdefault("bundle_protocols", [])
+            link.setdefault("ad_block_enabled", False)
             link["advanced"] = normalize_advanced_config(link.get("advanced"))
 
         logger.info(
@@ -1691,6 +1698,7 @@ async def make_link(
     config_count: int = 1,
     all_protocols: bool = False,
     bundle_protocols=None,
+    ad_blocker: bool | None = None,
     advanced: dict | None = None,
 ):
 
@@ -1806,6 +1814,7 @@ async def make_link(
         "advanced": normalize_advanced_config(advanced),
         "native_protocols": [p for p in PROTOCOLS if p not in {"vless-ws", "xhttp-packet-up", "xhttp-stream-up", "xhttp-stream-one", "trojan-ws", "vmess-ws"}],
         "usage_history": [],
+        "ad_block_enabled": bool(AD_BLOCKER.get("enabled") if ad_blocker is None else ad_blocker),
     }
 
     async with LINKS_LOCK:
@@ -3480,6 +3489,10 @@ async def create_link_api(
             bundle_protocols.append(value)
     if bundle_protocols and protocol not in bundle_protocols:
         bundle_protocols.insert(0, protocol)
+    if protocol == "vmess-ws":
+        # VMess WS in SideRail is not byte-compatible with ONEX's lightweight WS relay.
+        # Use ONEX's native sing-box VMess listener and keep the client link as vmess+ws.
+        protocol = "vmess"
     sub_id = str(body.get("sub_id") or "").strip() or None
     if sub_id:
         async with SUBS_LOCK:
@@ -3489,6 +3502,9 @@ async def create_link_api(
         allowed = set(target_sub.get("protocols") or PROTOCOLS)
         if not all_protocols and protocol not in allowed:
             raise HTTPException(status_code=400, detail="پروتکل انتخابی در این گروه فعال نیست؛ ابتدا آن را از مدیریت گروه فعال کنید")
+        for value in bundle_protocols:
+            if value not in allowed:
+                raise HTTPException(status_code=400, detail=f"پروتکل {PROTOCOL_LABELS.get(value, value)} در این گروه فعال نیست")
     advanced = normalize_advanced_config(body.get("advanced"))
     # Advanced UI is authoritative for the duplicate legacy fields when provided.
     if isinstance(body.get("advanced"), dict):
@@ -3550,6 +3566,7 @@ async def create_link_api(
         config_count=config_count,
         all_protocols=all_protocols,
         bundle_protocols=bundle_protocols,
+        ad_blocker=bool(body.get("ad_block_enabled", AD_BLOCKER.get("enabled"))),
         advanced=advanced,
     )
 
@@ -4040,6 +4057,15 @@ async def update_link(
             "label",
             uid,
         )
+
+        if "ad_block_enabled" in body:
+            link["ad_block_enabled"] = bool(body.get("ad_block_enabled"))
+
+        if "bundle_protocols" in body:
+            raw_bundle = body.get("bundle_protocols") or []
+            if not isinstance(raw_bundle, list):
+                raw_bundle = []
+            link["bundle_protocols"] = [str(p) for p in raw_bundle if str(p) in RELAY_PROTOCOLS]
 
         if "active" in body:
             link["active"] = bool(
@@ -4610,7 +4636,7 @@ async def subscription_single(
         lines = [stats_line]
     else:
         lines = []
-    cfg_count = 1 if link.get("all_protocols") else max(1, min(40, int(link.get("config_count") or 1)))
+    cfg_count = 1 if (link.get("all_protocols") or link.get("bundle_protocols")) else max(1, min(40, int(link.get("config_count") or 1)))
     protocols = list(RAILWAY_SUB_PROTOCOLS) if link.get("all_protocols") else [link.get("protocol", DEFAULT_PROTOCOL)]
     if clean_ips:
         hosts = list(clean_ips)
@@ -5647,6 +5673,9 @@ async def update_sub_api(
 
         if "active" in body:
             sub["active"] = bool(body.get("active"))
+
+        if "ad_block_enabled" in body:
+            sub["ad_block_enabled"] = bool(body.get("ad_block_enabled"))
 
         if "protocols" in body:
             raw_protocols = body.get("protocols") or []
@@ -9693,6 +9722,7 @@ html.light .onex-topbar-brand{background:#fff;border-color:rgba(37,99,235,.16);b
         <label class="all-proto-toggle" title="یک اکانت با همه پروتکل‌ها و یک ساب"><span><b>همه پروتکل‌ها در یک ساب</b><small>یک اکانت · فقط ۳ پروتکل Railway · یک لینک اشتراک</small></span><input id="cAllProtocols" type="checkbox"><i aria-hidden="true"></i></label>
         <div class="field"><label data-i18n="label_days">انقضـا (روز)</label><input id="cDays" type="number" value="0" min="0"></div>
       </div>
+      <label class="all-proto-toggle" style="margin:4px 0 10px"><span><b>Ad Blocker برای همین کانفیگ</b><small>فقط روی این کانفیگ اعمال می‌شود</small></span><input id="cAdBlockEnabled" type="checkbox"><i aria-hidden="true"></i></label>
       <div class="field">
         <label>انتخاب چند پروتکل برای یک ساب</label>
         <div id="protocolBundleOptions" style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px"></div>
@@ -12712,6 +12742,9 @@ async function openConfigEditor(e,uid){
   setConfigEditValue('cIp',link.ip_limit||0);
   const speedBytes=Number(link.speed_limit_bytes||0);setConfigEditValue('cSpeed',speedBytes?Math.round((speedBytes*8/(1024*1024))*100)/100:0);
   const all=document.getElementById('cAllProtocols');if(all)all.checked=!!link.all_protocols;
+  const bundleSelected=new Set(Array.isArray(link.bundle_protocols)?link.bundle_protocols:[link.protocol]);
+  document.querySelectorAll('#protocolBundleOptions input').forEach(x=>{x.checked=bundleSelected.has(x.value)});
+  const adb=document.getElementById('cAdBlockEnabled');if(adb)adb.checked=!!link.ad_block_enabled;
   fillAdvancedForm(link.advanced||{ports:[Number(link.port)||443]});
   document.getElementById('advancedValidationStatus')?.replaceChildren();
   document.getElementById('advancedPreviewBox')?.setAttribute('hidden','');
@@ -12721,7 +12754,7 @@ async function openConfigEditor(e,uid){
 function collectConfigFormBody(){
   const advanced=advancedFormObject(),ports=advanced.ports.length?advanced.ports:[Number(configEditValue('cPort'))||443];
   const bundle=[...document.querySelectorAll('#protocolBundleOptions input:checked')].map(x=>x.value);
-  return {label:configEditValue('cName').trim()||undefined,protocol:configEditValue('cProto')||undefined,bundle_protocols:bundle,category_id:'0',sub_id:configEditValue('cSubGroup')||undefined,limit_value:Number(configEditValue('cLimit'))||0,limit_unit:configEditValue('cUnit')||'GB',expires_days:Number(configEditValue('cDays'))||0,ip_limit:Number(configEditValue('cIp'))||0,speed_limit_value:Number(configEditValue('cSpeed'))||0,speed_limit_unit:'MBIT',all_protocols:!!document.getElementById('cAllProtocols')?.checked,port:ports[0],fingerprint:advanced.fingerprint.value,alpn:advanced.tls.alpn,advanced};
+  return {label:configEditValue('cName').trim()||undefined,protocol:configEditValue('cProto')||undefined,bundle_protocols:bundle,ad_block_enabled:!!document.getElementById('cAdBlockEnabled')?.checked,category_id:'0',sub_id:configEditValue('cSubGroup')||undefined,limit_value:Number(configEditValue('cLimit'))||0,limit_unit:configEditValue('cUnit')||'GB',expires_days:Number(configEditValue('cDays'))||0,ip_limit:Number(configEditValue('cIp'))||0,speed_limit_value:Number(configEditValue('cSpeed'))||0,speed_limit_unit:'MBIT',all_protocols:!!document.getElementById('cAllProtocols')?.checked,port:ports[0],fingerprint:advanced.fingerprint.value,alpn:advanced.tls.alpn,advanced};
 }
 async function saveEditedConfig(){
   const uid=__configEditUid;if(!uid)return false;
@@ -13258,7 +13291,7 @@ async function loadProtocols(){
   const bundle=document.getElementById('protocolBundleOptions');
   if(bundle){
     const ids=['vless-ws','siderail-vless-xhttp','vmess-ws','trojan-ws','vless-httpupgrade'];
-    bundle.innerHTML=ids.filter(id=>list.some(p=>p.id===id)).map(id=>`<label style="display:flex;align-items:center;gap:6px;padding:8px;border:1px solid rgba(96,165,250,.2);border-radius:10px;font-size:10px"><input type="checkbox" value="${id}"> <span>${esc(protocolPickerShort(id))}</span></label>`).join('');
+    bundle.innerHTML=ids.map(id=>`<label style="display:flex;align-items:center;gap:6px;padding:8px;border:1px solid rgba(96,165,250,.2);border-radius:10px;font-size:10px"><input type="checkbox" value="${id}"> <span>${esc(protocolPickerShort(id))}</span></label>`).join('');
   }
 }
 async function loadAdBlocker(){
