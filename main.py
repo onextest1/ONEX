@@ -6953,6 +6953,9 @@ async def start_siderail_core():
             st = SIDERAIL_CORE.status()
             logger.info("SideRail core status: running=%s installed=%s listeners=%s error=%s",
                         st.get("running"), st.get("installed"), st.get("listeners"), st.get("error") or "-")
+            if not st.get("running"):
+                logger.warning("SideRail core NOT RUNNING (bin=%s): %s",
+                               st.get("bin_path"), st.get("error") or "no SideRail users yet")
         asyncio.create_task(_log_status())
 
 
