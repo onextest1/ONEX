@@ -247,7 +247,7 @@ def make_handler(ctx):
             # so no raw connection is ever pinned to Xray.
             if path.startswith("/siderail/"):
                 await _relay_to(internal_host, internal_port, head, client_r, client_w)
-            elif path.startswith("/httpup/") and upgrade and not has_ws_key:
+            elif path.startswith("/httpup/") and not has_ws_key:
                 await _httpupgrade_relay(path, upgrade, head, client_r, client_w, ctx)
             else:
                 await _relay_to(internal_host, internal_port, head, client_r, client_w)
