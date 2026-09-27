@@ -270,7 +270,11 @@ async def websocket_tunnel(ws: WebSocket, uuid: str):
         await ws.close(code=1008, reason="ip limit reached")
         return
 
-    protocol = str((link or {}).get("protocol") or "vless-ws")
+    # One ONEX VIP subscription deliberately reuses a UUID across transports.
+    # The generated URI carries the transport discriminator so Trojan-WS does
+    # not get parsed as VLESS when it shares the same UUID.
+    requested_protocol = str(ws.query_params.get("onex") or "").strip().lower()
+    protocol = requested_protocol if requested_protocol in {"vless-ws", "trojan-ws"} else str((link or {}).get("protocol") or "vless-ws")
     conn_id = secrets.token_urlsafe(6)
     connections[conn_id] = {
         "uuid": uuid,
