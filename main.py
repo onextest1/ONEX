@@ -1200,7 +1200,7 @@ def generate_vless_link(
         if adv["tls"].get("allow_insecure"): q["allowInsecure"] = "1"
         return "vless://" + uuid + "@" + host + ":" + str(port_value) + "?" + "&".join(f"{k}={quote(str(v), safe=',/') }" for k,v in q.items()) + "#" + label
     if protocol == "vmess-ws":
-        # Exact SideRail VMess-WS shape; traffic is piped to the local Xray
+        # Exact SideRail VMess-WS shape; traffic is piped to the local sing-box
         # VMess listener which owns the VMess handshake (alterId 0 / AEAD).
         raw = {"v":"2","ps":remark,"add":host,"port":port_value,"id":uuid,"aid":0,"scy":"auto","net":"ws","type":"none","host":host,"path":"/siderail/vmess","tls":"tls","sni":host,"alpn":"http/1.1","fp":fp}
         return "vmess://" + base64.b64encode(json.dumps(raw,separators=(",",":"),ensure_ascii=False).encode()).decode()
@@ -7118,7 +7118,7 @@ if "vless-httpupgrade" not in PROTOCOLS and "vless-ws" in PROTOCOLS:
     PROTOCOLS.append("vless-httpupgrade")
 
 if "vmess-ws" not in PROTOCOLS:
-    # VMess-WS is served by the SideRail Xray core behind the front proxy.
+    # VMess-WS is served by the SideRail sing-box core behind the front proxy.
     PROTOCOLS.append("vmess-ws")
 
 # Keep the panel/backend protocol order stable: the existing Railway-safe
