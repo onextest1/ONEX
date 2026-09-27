@@ -1,11 +1,11 @@
 {
-  "version": "1.3.10",
-  "title": "ONEX 1.3.10",
-  "message": "پروتکل‌های SideRail (VMess WS و VLESS XHTTP) درست شدند.",
+  "version": "1.3.11",
+  "title": "ONEX 1.3.11",
+  "message": "پروتکل‌های Railway مثل قبل برگشتند و پروتکل‌های SideRail روی Xray کار می‌کنند.",
   "changelog": [
-    "هسته SideRail از sing-box به Xray-core منتقل شد (رفع کار نکردن VMess WS و VLESS XHTTP)",
-    "رفع مسیریابی اشتباه درخواست‌های XHTTP روی اتصال‌های keep-alive",
-    "Dockerfile و railway.json برای دیپلوی آماده، Xray داخل ایمیج"
+    "برگشت کامل رفتار پروتکل‌های Railway (VLESS WS، ONEX Xhttp، ONEX Gaming) به نسخه قبل",
+    "هسته SideRail از sing-box به Xray-core منتقل شد (رفع VMess WS و VLESS XHTTP)",
+    "حذف Dockerfile؛ دیپلوی مثل قبل با بیلد خودکار Railway"
   ],
   "published_at": "2026-09-27"
 }

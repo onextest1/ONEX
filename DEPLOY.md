@@ -1,22 +1,8 @@
-# دیپلوی ONEX 1.3.10
+# دیپلوی ONEX 1.3.11
 
-## Railway
-1. محتوای این پوشه رو push کن روی ریپو (جایگزین نسخه قبلی).
-2. Railway خودش `railway.json` رو می‌خونه و با Dockerfile بیلد می‌کنه.
-3. یه **Volume** با mount path `/data` وصل کن (Railway خودش `RAILWAY_VOLUME_MOUNT_PATH` رو ست می‌کنه).
-4. Networking: دامنه عمومی بساز، target port = `8080`.
-5. بعد از دیپلوی تو لاگ باید ببینی: `SideRail core (xray) running`.
-6. وضعیت هسته: `GET /api/siderail/status` (باید `engine: xray` و `running: true` باشه).
+مثل قبل: فایل‌ها رو روی ریپو push کن، Railway خودش بیلد می‌کنه (بدون Dockerfile).
+هیچ تنظیم یا متغیر جدیدی لازم نیست.
 
-## Docker معمولی
-```
-docker build -t onex .
-docker run -d -p 8080:8080 -v onex-data:/data --name onex onex
-```
-
-## متغیرهای اختیاری
-- `XRAY_VERSION` / `SINGBOX_VERSION` (build arg): نسخه هسته‌ها
-- `ONEX_SR_VMESS_PORT` (پیش‌فرض 18501)، `ONEX_SR_XHTTP_PORT` (پیش‌فرض 18503)
-- `ONEX_XRAY_LOG_LEVEL` (پیش‌فرض warning)
-
-نکته: لینک‌های VMess WS و SideRail VLESS XHTTP که قبلاً ساختی نیاز به ساخت دوباره ندارن؛ همون مسیرهای `/siderail/vmess` و `/siderail/xhttp` هستن.
+- هسته Xray برای پروتکل‌های SideRail بار اول که لینک VMess WS یا SideRail VLESS XHTTP وجود داشته باشه، خودکار از گیت‌هاب دانلود می‌شه و توی پوشه دیتا (`siderail-xray`) ذخیره می‌شه.
+- لاگ موفق: `SideRail core (xray) running`
+- وضعیت: `GET /api/siderail/status`
