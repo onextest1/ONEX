@@ -1194,9 +1194,8 @@ def generate_vless_link(
         if adv["tls"].get("allow_insecure"): q["allowInsecure"] = "1"
         return "vless://" + uuid + "@" + host + ":" + str(port_value) + "?" + "&".join(f"{k}={quote(str(v), safe=',/') }" for k,v in q.items()) + "#" + label
     if protocol == "vless-httpupgrade":
-        # HTTPUpgrade is terminated by the local Xray inbound. Keep the path
-        # stable so the front proxy can pass the complete request through.
-        path = "/httpup"
+        # Real HTTPUpgrade relay on the front proxy; uuid in path for quota/auth.
+        path = adv_path or f"/httpup/{uuid}"
         q = {"encryption":"none","security":security,"type":"httpupgrade","host":adv_host,"path":path,"sni":adv_sni,"fp":adv_fp,"alpn":adv_alpn}
         if adv["tls"].get("allow_insecure"): q["allowInsecure"] = "1"
         return "vless://" + uuid + "@" + host + ":" + str(port_value) + "?" + "&".join(f"{k}={quote(str(v), safe=',/') }" for k,v in q.items()) + "#" + label
@@ -14241,7 +14240,6 @@ def _front_proxy_ctx(internal_port: int) -> dict:
     return {
         "internal_host": "127.0.0.1",
         "internal_port": internal_port,
-        "siderail_httpup_port": int(os.environ.get("ONEX_SR_HTTPUP_PORT", "18504")),
         "get_link": get_link,
         "is_link_allowed": is_link_allowed,
         "is_ip_allowed": is_ip_allowed,
@@ -14256,30 +14254,17 @@ def _front_proxy_ctx(internal_port: int) -> dict:
 
 
 async def _serve():
-    # The public listener must always be the raw front proxy. If the internal
-    # Uvicorn port is equal to PORT, the proxy cannot bind and Railway sends
-    # HTTPUpgrade directly to Uvicorn, which answers with 400.
-    requested_internal = safe_int(
-        os.environ.get("ONEX_INTERNAL_PORT", PORT + 1),
-        PORT + 1,
-        1,
-        65535,
-    )
-    internal_port = requested_internal if requested_internal != PORT else (PORT + 1 if PORT < 65535 else PORT - 1)
+    internal_port = safe_int(os.environ.get("ONEX_INTERNAL_PORT", PORT + 1), PORT + 1, 1, 65535)
     host, port = "127.0.0.1", internal_port
     front = None
     try:
         from onex.core.front_proxy import make_handler
         ctx = _front_proxy_ctx(internal_port)
         front = await asyncio.start_server(make_handler(ctx), "0.0.0.0", PORT)
-        logger.info(
-            "Front proxy ACTIVE on 0.0.0.0:%s (panel via 127.0.0.1:%s)",
-            PORT,
-            internal_port,
-        )
+        logger.info("Front proxy on 0.0.0.0:%s (panel via 127.0.0.1:%s)", PORT, internal_port)
     except Exception as exc:
-        logger.exception("Front proxy FAILED; HTTPUpgrade cannot work: %s", exc)
-        raise
+        logger.warning("Front proxy unavailable (%s); uvicorn binds the public port directly", exc)
+        host, port = "0.0.0.0", PORT
     config = uvicorn.Config(app, host=host, port=port, log_level="info")
     server = uvicorn.Server(config)
     if front is not None:
