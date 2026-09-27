@@ -270,7 +270,7 @@ AD_BLOCKER = {
 RELAY_PROTOCOLS = {
     "vless-ws", "siderail-vless-xhttp", "xhttp-packet-up",
     "xhttp-stream-up", "xhttp-stream-one",
-    "trojan-ws", "vless-httpupgrade",
+    "trojan-ws", "vmess-ws", "vless-httpupgrade",
 }
 
 def normalize_block_domain(value: str) -> str:
@@ -10225,7 +10225,7 @@ Cache-Control: no-cache"></textarea></div>
       <div><label>دامنه‌های مسدودشده</label><textarea id="adBlockDomains" rows="7" placeholder="doubleclick.net&#10;googlesyndication.com&#10;ads.youtube.com&#10;ads.google.com"></textarea><small>هر خط یک دامنه. زیردامنه‌ها هم مسدود می‌شوند.</small></div>
       <div><label>استثناها، همیشه مجاز</label><textarea id="adBlockAllowDomains" rows="7" placeholder="example.com&#10;your-domain.com"></textarea><small>اگر دامنه در هر دو لیست باشد، استثنا اولویت دارد.</small></div>
     </div>
-    <div class="adblock-presets"><b>لیست آماده</b><button type="button" class="btn btn-sm" onclick="applyAdBlockPreset('balanced')">Balanced</button><button type="button" class="btn btn-sm" onclick="applyAdBlockPreset('strict')">Strict</button><button type="button" class="btn btn-sm" onclick="clearAdBlockLists()">پاک‌کردن</button></div>
+    <div class="adblock-presets"><b>دسته‌های مسدودسازی</b><label><input type="checkbox" class="ad-category" value="ads" checked> تبلیغات عمومی</label><label><input type="checkbox" class="ad-category" value="youtube"> تبلیغات YouTube</label><label><input type="checkbox" class="ad-category" value="trackers"> ردیاب‌ها</label><label><input type="checkbox" class="ad-category" value="social"> تبلیغات شبکه‌های اجتماعی</label><button type="button" class="btn btn-sm" onclick="clearAdBlockLists()">پاک‌کردن</button></div>
     <div class="adblock-test"><input id="adBlockTestDomain" placeholder="تست دامنه، مثلا ads.google.com"><button type="button" class="btn btn-sm" onclick="testAdBlockDomain()">تست اعمال</button><span id="adBlockTestResult"></span></div>
     <button class="btn btn-p" style="margin-top:10px" onclick="saveAdBlocker()">ذخیره و اعمال روی سرویس</button>
   </div>
@@ -12313,6 +12313,14 @@ html.light #page-dash .home-chart-tip{background:#fff;color:#0f172a;border-color
 html.light #page-dash .metric strong{-webkit-text-fill-color:#0f172a;background:none}
 @media (max-width:800px){#page-dash .home-legend span{display:none}}
 @media (prefers-reduced-motion:reduce){html.onex-glass *,html.onex-glass *::before,html.onex-glass *::after{animation-duration:.01ms!important;transition-duration:.01ms!important}}
+/* Final theme/performance guard: this must stay last so legacy blue rules lose. */
+html.onex-glass *,html.onex-glass *::before,html.onex-glass *::after{animation:none!important;transition:none!important;scroll-behavior:auto!important}
+html.onex-glass .sidebar,html.onex-glass .main,html.onex-glass .mob-bar,html.onex-glass .card,html.onex-glass .panel,html.onex-glass .modal,html.onex-glass .table-wrap,html.onex-glass .cfg-card,html.onex-glass .cfg-list-shell,html.onex-glass .group-hero,html.onex-glass .group-list-pane,html.onex-glass .group-detail-pane,html.onex-glass .stats-panel,html.onex-glass .tg-glass,html.onex-glass .admin-card{backdrop-filter:blur(18px) saturate(125%)!important;-webkit-backdrop-filter:blur(18px) saturate(125%)!important}
+html.onex-glass:not(.light) .sidebar,html.onex-glass:not(.light) .card,html.onex-glass:not(.light) .panel,html.onex-glass:not(.light) .modal,html.onex-glass:not(.light) .table-wrap,html.onex-glass:not(.light) .cfg-card,html.onex-glass:not(.light) .cfg-list-shell,html.onex-glass:not(.light) .group-hero,html.onex-glass:not(.light) .group-list-pane,html.onex-glass:not(.light) .group-detail-pane,html.onex-glass:not(.light) .stats-panel,html.onex-glass:not(.light) .tg-glass,html.onex-glass:not(.light) .admin-card{background:linear-gradient(145deg,color-mix(in srgb,var(--accent) 10%,#1b2238),#0b1020)!important;border-color:color-mix(in srgb,var(--accent) 28%,rgba(255,255,255,.12))!important}
+html.onex-glass.light .sidebar,html.onex-glass.light .card,html.onex-glass.light .panel,html.onex-glass.light .modal,html.onex-glass.light .table-wrap,html.onex-glass.light .cfg-card,html.onex-glass.light .cfg-list-shell,html.onex-glass.light .group-hero,html.onex-glass.light .group-list-pane,html.onex-glass.light .group-detail-pane,html.onex-glass.light .stats-panel,html.onex-glass.light .tg-glass,html.onex-glass.light .admin-card{background:#fff!important;color:#0f172a!important;border-color:color-mix(in srgb,var(--accent) 20%,rgba(15,23,42,.12))!important;box-shadow:0 8px 24px rgba(15,23,42,.08)!important;backdrop-filter:none!important;-webkit-backdrop-filter:none!important}
+html.onex-glass.light .page,html.onex-glass.light .page.on,html.onex-glass.light .page span,html.onex-glass.light .page p,html.onex-glass.light .page b,html.onex-glass.light .page strong,html.onex-glass.light .page small,html.onex-glass.light .page label,html.onex-glass.light .page td,html.onex-glass.light .page th,html.onex-glass.light .page h1,html.onex-glass.light .page h2,html.onex-glass.light .page h3,html.onex-glass.light .page h4,html.onex-glass.light .page h5,html.onex-glass.light .page h6{color:#0f172a!important}
+html.onex-glass.light .page .page-sub,html.onex-glass.light .page .field label,html.onex-glass.light .page .metric-label,html.onex-glass.light .page .quick-desc,html.onex-glass.light .page small{color:#475569!important}
+html.onex-glass .adblock-menu-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.adblock-menu-grid textarea,.adblock-test input{border-color:var(--onex-border)!important}.adblock-presets label{display:inline-flex;align-items:center;gap:4px;color:var(--t2);font-size:10px;margin:0 4px}.adblock-presets input{accent-color:var(--accent)}@media(max-width:700px){html.onex-glass .adblock-menu-grid{grid-template-columns:1fr}}
 
 </style>
 <section class="page" id="page-news">
@@ -13469,11 +13477,12 @@ async function loadProtocols(){
     bundle.innerHTML=ids.map(id=>`<label style="display:flex;align-items:center;gap:6px;padding:8px;border:1px solid rgba(96,165,250,.2);border-radius:10px;font-size:10px"><input type="checkbox" value="${id}"> <span>${esc(protocolPickerShort(id))}</span></label>`).join('');
   }
 }
-const AD_BLOCK_PRESETS={balanced:['doubleclick.net','googlesyndication.com','googleadservices.com','adservice.google.com','ads.youtube.com','adnxs.com','advertising.com','scorecardresearch.com'],strict:['doubleclick.net','googlesyndication.com','googleadservices.com','adservice.google.com','ads.youtube.com','ads.google.com','adnxs.com','advertising.com','scorecardresearch.com','taboola.com','outbrain.com','zedo.com','moatads.com','criteo.com','amazon-adsystem.com']};
+const AD_BLOCK_PRESETS={ads:['doubleclick.net','googlesyndication.com','googleadservices.com','adservice.google.com','adnxs.com','advertising.com'],youtube:['ads.youtube.com','googleads.g.doubleclick.net','pagead2.googlesyndication.com'],trackers:['scorecardresearch.com','quantserve.com','mixpanel.com','hotjar.com','clarity.ms','matomo.cloud'],social:['an.facebook.com','pixel.facebook.com','ads-twitter.com','analytics.twitter.com','ads.linkedin.com']};
 async function loadAdBlocker(){
   const r=await api('/api/ad-blocker');if(!r)return;
   const e=document.getElementById('adBlockEnabled'),d=document.getElementById('adBlockDomains'),a=document.getElementById('adBlockAllowDomains');
   if(e)e.checked=!!r.enabled;if(d)d.value=(r.domains||[]).join('\n');if(a)a.value=(r.allow_domains||[]).join('\n');
+  document.querySelectorAll('.ad-category').forEach(x=>x.checked=false);
 }
 function applyAdBlockPreset(name){const d=document.getElementById('adBlockDomains');if(d)d.value=AD_BLOCK_PRESETS[name].join('\n');toast('لیست آماده وارد شد، برای اعمال ذخیره کن')}
 function clearAdBlockLists(){['adBlockDomains','adBlockAllowDomains'].forEach(id=>{const e=document.getElementById(id);if(e)e.value=''});toast('لیست‌ها پاک شدند')}
@@ -13483,7 +13492,9 @@ async function testAdBlockDomain(){
 }
 async function saveAdBlocker(){
   const e=document.getElementById('adBlockEnabled'),d=document.getElementById('adBlockDomains'),a=document.getElementById('adBlockAllowDomains');
-  const r=await api('/api/ad-blocker',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({enabled:!!e?.checked,domains:d?.value||'',allow_domains:a?.value||''})});
+  const preset=[...document.querySelectorAll('.ad-category:checked')].flatMap(x=>AD_BLOCK_PRESETS[x.value]||[]);
+  const manual=(d?.value||'').split(/\r?\n|,/).map(x=>x.trim()).filter(Boolean);
+  const r=await api('/api/ad-blocker',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({enabled:!!e?.checked,domains:[...new Set([...preset,...manual])],allow_domains:a?.value||''})});
   if(r)toast('مسدودکننده ذخیره و روی سرویس اعمال شد');
 }
 let __allLinks=[];
