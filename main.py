@@ -261,31 +261,6 @@ SUBS: dict = {}
 SESSIONS: dict = {}
 connections: dict = {}
 CATEGORIES: dict = {}
-AD_BLOCKER = {
-    "enabled": False,
-    "domains": [],
-}
-
-RELAY_PROTOCOLS = {
-    "vless-ws", "siderail-vless-xhttp", "xhttp-packet-up",
-    "xhttp-stream-up", "xhttp-stream-one",
-    "trojan-ws", "vless-httpupgrade",
-}
-
-def normalize_block_domain(value: str) -> str:
-    value = str(value or "").strip().lower()
-    value = value.replace("https://", "").replace("http://", "").split("/")[0]
-    return value.removeprefix("www.").strip(".")
-
-def is_ad_block_enabled_for_link(link: dict | None) -> bool:
-    return bool((link or {}).get("ad_block_enabled", AD_BLOCKER.get("enabled")))
-
-
-def is_destination_blocked(address: str, link: dict | None = None) -> bool:
-    if not is_ad_block_enabled_for_link(link):
-        return False
-    host = normalize_block_domain(address)
-    return any(host == d or host.endswith("." + d) for d in AD_BLOCKER.get("domains", []))
 
 stats = {
     "total_bytes": 0,
@@ -327,8 +302,6 @@ PROTOCOL_LABELS = {
     "xhttp-stream-one": "ONEX Stream",
     "vmess-ws": "SideRail VMess WS",
     "trojan-ws": "SideRail Trojan WS",
-    "vless-httpupgrade": "SideRail VLESS HTTPUpgrade",
-    "siderail-vless-xhttp": "SideRail VLESS XHTTP",
     # VPS-native protocols
     "trojan": "Trojan",
     "shadowsocks": "Shadowsocks",
@@ -1187,16 +1160,6 @@ def generate_vless_link(
         q = {"encryption":"none","security":security,"type":"xhttp","mode":mode,"host":adv_host,"path":path,"sni":adv_sni,"fp":adv_fp,"alpn":adv_alpn}
         if adv["tls"].get("allow_insecure"): q["allowInsecure"] = "1"
         return "vless://" + uuid + "@" + host + ":" + str(port_value) + "?" + "&".join(f"{k}={quote(str(v), safe=',/') }" for k,v in q.items()) + "#" + label
-    if protocol == "siderail-vless-xhttp":
-        path = adv_path or f"/xhttp-siz10/packet-up/{uuid}"
-        q = {"encryption":"none","security":security,"type":"xhttp","mode":"packet-up","host":adv_host,"path":path,"sni":adv_sni,"fp":adv_fp,"alpn":adv_alpn}
-        if adv["tls"].get("allow_insecure"): q["allowInsecure"] = "1"
-        return "vless://" + uuid + "@" + host + ":" + str(port_value) + "?" + "&".join(f"{k}={quote(str(v), safe=',/') }" for k,v in q.items()) + "#" + label
-    if protocol == "vless-httpupgrade":
-        path = adv_path or f"/ws/{uuid}"
-        q = {"encryption":"none","security":security,"type":"httpupgrade","host":adv_host,"path":path,"sni":adv_sni,"fp":adv_fp,"alpn":adv_alpn}
-        if adv["tls"].get("allow_insecure"): q["allowInsecure"] = "1"
-        return "vless://" + uuid + "@" + host + ":" + str(port_value) + "?" + "&".join(f"{k}={quote(str(v), safe=',/') }" for k,v in q.items()) + "#" + label
     if protocol == "vmess-ws":
         raw = {"v":"2","ps":remark,"add":host,"port":port_value,"id":uuid,"aid":0,"scy":"auto","net":"ws","type":"none","host":host,"path":f"/ws/{uuid}","tls":"tls","sni":host,"fp":fp}
         return "vmess://" + base64.b64encode(json.dumps(raw,separators=(",",":"),ensure_ascii=False).encode()).decode()
@@ -1322,9 +1285,7 @@ def group_subscription_lines_for_link(
     # Previously this function always used the group's protocol list, which
     # meant a normal single-protocol link could unexpectedly appear as every
     # protocol in its subscription.
-    if link.get("bundle_protocols"):
-        selected = [normalize_protocol(str(p)) for p in link.get("bundle_protocols")]
-    elif link.get("all_protocols"):
+    if link.get("all_protocols"):
         selected = [normalize_protocol(str(p)) for p in RAILWAY_SUB_PROTOCOLS]
     else:
         selected = [normalize_protocol(str(link.get("protocol", DEFAULT_PROTOCOL)))]
@@ -1332,7 +1293,7 @@ def group_subscription_lines_for_link(
     if not selected:
         return []
     names = used_names if used_names is not None else set()
-    cfg_count = 1 if (link.get("all_protocols") or link.get("bundle_protocols")) else max(1, min(40, int(link.get("config_count") or 1)))
+    cfg_count = 1 if link.get("all_protocols") else max(1, min(40, int(link.get("config_count") or 1)))
     clean_ips = list(link.get("clean_ips") or [])
     if clean_ips:
         hosts = []
@@ -1391,8 +1352,6 @@ def get_link_info(
         "name": link.get("label", ""),
         "label": link.get("label", ""),
         "protocol": link.get("protocol", DEFAULT_PROTOCOL),
-        "bundle_protocols": list(link.get("bundle_protocols") or []),
-        "ad_block_enabled": bool(link.get("ad_block_enabled", AD_BLOCKER.get("enabled"))),
         "active": is_active,
         "used_bytes": used_b,
         "limit_bytes": limit_b,
@@ -1472,13 +1431,6 @@ async def load_state():
                 {},
             )
         )
-        AD_BLOCKER.update(data.get("ad_blocker") or {})
-        AD_BLOCKER["enabled"] = bool(AD_BLOCKER.get("enabled"))
-        AD_BLOCKER["domains"] = sorted({
-            normalize_block_domain(x)
-            for x in (AD_BLOCKER.get("domains") or [])
-            if normalize_block_domain(x)
-        })
 
         ADMIN_ACCOUNTS.clear()
         ADMIN_ACCOUNTS.update(data.get("admin_accounts") or {})
@@ -1561,8 +1513,6 @@ async def load_state():
             link.setdefault("config_count", 1)
             link.setdefault("sort_order", 0)
             link.setdefault("usage_history", [])
-            link.setdefault("bundle_protocols", [])
-            link.setdefault("ad_block_enabled", False)
             link["advanced"] = normalize_advanced_config(link.get("advanced"))
 
         logger.info(
@@ -1599,9 +1549,6 @@ async def save_state():
 
                 "categories":
                     dict(CATEGORIES),
-
-                "ad_blocker":
-                    dict(AD_BLOCKER),
 
                 "admin_accounts":
                     dict(ADMIN_ACCOUNTS),
@@ -1697,8 +1644,6 @@ async def make_link(
     category_id: str = "0",
     config_count: int = 1,
     all_protocols: bool = False,
-    bundle_protocols=None,
-    ad_blocker: bool | None = None,
     advanced: dict | None = None,
 ):
 
@@ -1807,14 +1752,9 @@ async def make_link(
         "category_id": str(category_id or "0"),
         "config_count": max(1, min(40, int(config_count or 1))),
         "all_protocols": bool(all_protocols),
-        "bundle_protocols": [
-            p for p in (bundle_protocols or [])
-            if p in RELAY_PROTOCOLS
-        ],
         "advanced": normalize_advanced_config(advanced),
         "native_protocols": [p for p in PROTOCOLS if p not in {"vless-ws", "xhttp-packet-up", "xhttp-stream-up", "xhttp-stream-one", "trojan-ws", "vmess-ws"}],
         "usage_history": [],
-        "ad_block_enabled": bool(AD_BLOCKER.get("enabled") if ad_blocker is None else ad_blocker),
     }
 
     async with LINKS_LOCK:
@@ -3479,20 +3419,6 @@ async def create_link_api(
         all_protocols = False
     if all_protocols:
         config_count = 1
-    raw_bundle = body.get("bundle_protocols") or []
-    if not isinstance(raw_bundle, list):
-        raw_bundle = []
-    bundle_protocols = []
-    for item in raw_bundle:
-        value = str(item)
-        if value in RELAY_PROTOCOLS and value in PROTOCOLS and value not in bundle_protocols:
-            bundle_protocols.append(value)
-    if bundle_protocols and protocol not in bundle_protocols:
-        bundle_protocols.insert(0, protocol)
-    if protocol == "vmess-ws":
-        # VMess WS in SideRail is not byte-compatible with ONEX's lightweight WS relay.
-        # Use ONEX's native sing-box VMess listener and keep the client link as vmess+ws.
-        protocol = "vmess"
     sub_id = str(body.get("sub_id") or "").strip() or None
     if sub_id:
         async with SUBS_LOCK:
@@ -3502,9 +3428,6 @@ async def create_link_api(
         allowed = set(target_sub.get("protocols") or PROTOCOLS)
         if not all_protocols and protocol not in allowed:
             raise HTTPException(status_code=400, detail="پروتکل انتخابی در این گروه فعال نیست؛ ابتدا آن را از مدیریت گروه فعال کنید")
-        for value in bundle_protocols:
-            if value not in allowed:
-                raise HTTPException(status_code=400, detail=f"پروتکل {PROTOCOL_LABELS.get(value, value)} در این گروه فعال نیست")
     advanced = normalize_advanced_config(body.get("advanced"))
     # Advanced UI is authoritative for the duplicate legacy fields when provided.
     if isinstance(body.get("advanced"), dict):
@@ -3565,8 +3488,6 @@ async def create_link_api(
         category_id=category_id,
         config_count=config_count,
         all_protocols=all_protocols,
-        bundle_protocols=bundle_protocols,
-        ad_blocker=bool(body.get("ad_block_enabled", AD_BLOCKER.get("enabled"))),
         advanced=advanced,
     )
 
@@ -3663,33 +3584,6 @@ async def api_protocols(request: Request):
         "default": PROTOCOLS[0] if PROTOCOLS else DEFAULT_PROTOCOL,
         "native_core": {"installed": bool(NATIVE_CORE and NATIVE_CORE.binary_exists()), "running": native_ready, "error": getattr(NATIVE_CORE, "last_error", "") if NATIVE_CORE else ""},
     }
-
-@app.get("/api/ad-blocker")
-async def get_ad_blocker(_=Depends(require_auth)):
-    return {"ok": True, **AD_BLOCKER}
-
-@app.put("/api/ad-blocker")
-async def update_ad_blocker(request: Request, _=Depends(require_auth)):
-    try:
-        body = await request.json()
-    except Exception:
-        raise HTTPException(400, "JSON نامعتبر است")
-    raw = body.get("domains") or []
-    if isinstance(raw, str):
-        raw = raw.replace(",", "\n").splitlines()
-    domains = sorted({
-        normalize_block_domain(x)
-        for x in raw
-        if normalize_block_domain(x)
-    })
-    if len(domains) > 2000:
-        raise HTTPException(400, "حداکثر ۲۰۰۰ دامنه مجاز است")
-    AD_BLOCKER["enabled"] = bool(body.get("enabled", AD_BLOCKER.get("enabled")))
-    AD_BLOCKER["domains"] = domains
-    await save_state()
-    if NATIVE_CORE:
-        asyncio.create_task(sync_native_core())
-    return {"ok": True, **AD_BLOCKER}
 
 
 # ============================================================
@@ -4057,15 +3951,6 @@ async def update_link(
             "label",
             uid,
         )
-
-        if "ad_block_enabled" in body:
-            link["ad_block_enabled"] = bool(body.get("ad_block_enabled"))
-
-        if "bundle_protocols" in body:
-            raw_bundle = body.get("bundle_protocols") or []
-            if not isinstance(raw_bundle, list):
-                raw_bundle = []
-            link["bundle_protocols"] = [str(p) for p in raw_bundle if str(p) in RELAY_PROTOCOLS]
 
         if "active" in body:
             link["active"] = bool(
@@ -4636,7 +4521,7 @@ async def subscription_single(
         lines = [stats_line]
     else:
         lines = []
-    cfg_count = 1 if (link.get("all_protocols") or link.get("bundle_protocols")) else max(1, min(40, int(link.get("config_count") or 1)))
+    cfg_count = 1 if link.get("all_protocols") else max(1, min(40, int(link.get("config_count") or 1)))
     protocols = list(RAILWAY_SUB_PROTOCOLS) if link.get("all_protocols") else [link.get("protocol", DEFAULT_PROTOCOL)]
     if clean_ips:
         hosts = list(clean_ips)
@@ -5673,9 +5558,6 @@ async def update_sub_api(
 
         if "active" in body:
             sub["active"] = bool(body.get("active"))
-
-        if "ad_block_enabled" in body:
-            sub["ad_block_enabled"] = bool(body.get("ad_block_enabled"))
 
         if "protocols" in body:
             raw_protocols = body.get("protocols") or []
@@ -6912,7 +6794,6 @@ async def sync_native_core():
     if not NATIVE_CORE:
         return False
     try:
-        NATIVE_CORE.ad_blocker = deepcopy(AD_BLOCKER)
         return await NATIVE_CORE.sync(LINKS, CONFIG.get("host") or os.getenv("RAILWAY_PUBLIC_DOMAIN", "localhost"))
     except Exception as exc:
         logger.warning("Native core sync failed: %s", exc)
@@ -7055,7 +6936,6 @@ try:
         "xhttp-packet-up",
         "xhttp-stream-up",
         "xhttp-stream-one",
-        "siderail-vless-xhttp",
     ):
         if _protocol not in PROTOCOLS:
             PROTOCOLS.append(_protocol)
@@ -7071,11 +6951,6 @@ except Exception as exc:
         exc,
     )
 
-if "vless-httpupgrade" not in PROTOCOLS and "vless-ws" in PROTOCOLS:
-    # SideRail's HTTPUpgrade uses the same VLESS byte relay as WS after the
-    # edge upgrades the connection, but keeps its own client URI type.
-    PROTOCOLS.append("vless-httpupgrade")
-
 # Keep the panel/backend protocol order stable: the existing Railway-safe
 # transports remain first, while native listeners are appended afterwards.
 _PROTOCOL_ORDER = [
@@ -7085,8 +6960,6 @@ _PROTOCOL_ORDER = [
     "xhttp-stream-one",
     "vmess-ws",
     "trojan-ws",
-    "vless-httpupgrade",
-    "siderail-vless-xhttp",
     "trojan",
     "shadowsocks",
     "socks5",
@@ -9722,12 +9595,6 @@ html.light .onex-topbar-brand{background:#fff;border-color:rgba(37,99,235,.16);b
         <label class="all-proto-toggle" title="یک اکانت با همه پروتکل‌ها و یک ساب"><span><b>همه پروتکل‌ها در یک ساب</b><small>یک اکانت · فقط ۳ پروتکل Railway · یک لینک اشتراک</small></span><input id="cAllProtocols" type="checkbox"><i aria-hidden="true"></i></label>
         <div class="field"><label data-i18n="label_days">انقضـا (روز)</label><input id="cDays" type="number" value="0" min="0"></div>
       </div>
-      <label class="all-proto-toggle" style="margin:4px 0 10px"><span><b>Ad Blocker برای همین کانفیگ</b><small>فقط روی این کانفیگ اعمال می‌شود</small></span><input id="cAdBlockEnabled" type="checkbox"><i aria-hidden="true"></i></label>
-      <div class="field">
-        <label>انتخاب چند پروتکل برای یک ساب</label>
-        <div id="protocolBundleOptions" style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px"></div>
-        <small style="display:block;margin-top:5px;color:var(--t3);font-size:9px">هرکدام را علامت بزنید، با همان اکانت در یک Subscription ساخته می‌شود.</small>
-      </div>
       <div class="form-row">
         <div class="field"><label data-i18n="label_limit">محدودیت حجم</label><input id="cLimit" type="number" value="0" min="0"></div>
         <div class="field"><label data-i18n="label_unit">واحد</label><select id="cUnit"><option>GB</option><option>MB</option><option>KB</option></select></div>
@@ -10091,13 +9958,6 @@ Cache-Control: no-cache"></textarea></div>
     <div class="field"><label data-i18n="pw_new">رمـز جدیـد</label><input type="password" id="pwNew"></div>
     <div class="field"><label data-i18n="pw_cf">تکـرار رمـز</label><input type="password" id="pwCf"></div>
     <button class="btn btn-p" onclick="doChangePw()"><span data-i18n="btn_save">ذخیـره</span></button>
-  </div>
-  <div class="card">
-    <div class="card-title">Ad Blocker / مسدودکننده تبلیغات</div>
-    <p style="font-size:11px;color:var(--t3);line-height:1.8">دامنه‌های تبلیغاتی را هر خط یک مورد وارد کنید. روی لینک‌های رله‌ای و هسته native اعمال می‌شود، نه فقط داخل مرورگر.</p>
-    <label class="all-proto-toggle" style="margin:12px 0"><span><b>فعال‌سازی مسدودکننده</b><small>مسدودکردن دامنه و زیردامنه</small></span><input id="adBlockEnabled" type="checkbox"><i aria-hidden="true"></i></label>
-    <textarea id="adBlockDomains" rows="7" placeholder="doubleclick.net&#10;googlesyndication.com&#10;ads.youtube.com&#10;ads.google.com" style="width:100%;resize:vertical"></textarea>
-    <button class="btn btn-p" style="margin-top:10px" onclick="saveAdBlocker()">ذخیره و اعمال</button>
   </div>
   
   <div class="card onex-security-card">
@@ -12742,9 +12602,6 @@ async function openConfigEditor(e,uid){
   setConfigEditValue('cIp',link.ip_limit||0);
   const speedBytes=Number(link.speed_limit_bytes||0);setConfigEditValue('cSpeed',speedBytes?Math.round((speedBytes*8/(1024*1024))*100)/100:0);
   const all=document.getElementById('cAllProtocols');if(all)all.checked=!!link.all_protocols;
-  const bundleSelected=new Set(Array.isArray(link.bundle_protocols)?link.bundle_protocols:[link.protocol]);
-  document.querySelectorAll('#protocolBundleOptions input').forEach(x=>{x.checked=bundleSelected.has(x.value)});
-  const adb=document.getElementById('cAdBlockEnabled');if(adb)adb.checked=!!link.ad_block_enabled;
   fillAdvancedForm(link.advanced||{ports:[Number(link.port)||443]});
   document.getElementById('advancedValidationStatus')?.replaceChildren();
   document.getElementById('advancedPreviewBox')?.setAttribute('hidden','');
@@ -12753,8 +12610,7 @@ async function openConfigEditor(e,uid){
 }
 function collectConfigFormBody(){
   const advanced=advancedFormObject(),ports=advanced.ports.length?advanced.ports:[Number(configEditValue('cPort'))||443];
-  const bundle=[...document.querySelectorAll('#protocolBundleOptions input:checked')].map(x=>x.value);
-  return {label:configEditValue('cName').trim()||undefined,protocol:configEditValue('cProto')||undefined,bundle_protocols:bundle,ad_block_enabled:!!document.getElementById('cAdBlockEnabled')?.checked,category_id:'0',sub_id:configEditValue('cSubGroup')||undefined,limit_value:Number(configEditValue('cLimit'))||0,limit_unit:configEditValue('cUnit')||'GB',expires_days:Number(configEditValue('cDays'))||0,ip_limit:Number(configEditValue('cIp'))||0,speed_limit_value:Number(configEditValue('cSpeed'))||0,speed_limit_unit:'MBIT',all_protocols:!!document.getElementById('cAllProtocols')?.checked,port:ports[0],fingerprint:advanced.fingerprint.value,alpn:advanced.tls.alpn,advanced};
+  return {label:configEditValue('cName').trim()||undefined,protocol:configEditValue('cProto')||undefined,category_id:'0',sub_id:configEditValue('cSubGroup')||undefined,limit_value:Number(configEditValue('cLimit'))||0,limit_unit:configEditValue('cUnit')||'GB',expires_days:Number(configEditValue('cDays'))||0,ip_limit:Number(configEditValue('cIp'))||0,speed_limit_value:Number(configEditValue('cSpeed'))||0,speed_limit_unit:'MBIT',all_protocols:!!document.getElementById('cAllProtocols')?.checked,port:ports[0],fingerprint:advanced.fingerprint.value,alpn:advanced.tls.alpn,advanced};
 }
 async function saveEditedConfig(){
   const uid=__configEditUid;if(!uid)return false;
@@ -13288,21 +13144,6 @@ async function loadProtocols(){
       ||'<option value="vless-ws">ONEX WB</option>';
   });
   setupProtocolPickers();
-  const bundle=document.getElementById('protocolBundleOptions');
-  if(bundle){
-    const ids=['vless-ws','siderail-vless-xhttp','vmess-ws','trojan-ws','vless-httpupgrade'];
-    bundle.innerHTML=ids.map(id=>`<label style="display:flex;align-items:center;gap:6px;padding:8px;border:1px solid rgba(96,165,250,.2);border-radius:10px;font-size:10px"><input type="checkbox" value="${id}"> <span>${esc(protocolPickerShort(id))}</span></label>`).join('');
-  }
-}
-async function loadAdBlocker(){
-  const r=await api('/api/ad-blocker');if(!r)return;
-  const e=document.getElementById('adBlockEnabled'),d=document.getElementById('adBlockDomains');
-  if(e)e.checked=!!r.enabled;if(d)d.value=(r.domains||[]).join('\n');
-}
-async function saveAdBlocker(){
-  const e=document.getElementById('adBlockEnabled'),d=document.getElementById('adBlockDomains');
-  const r=await api('/api/ad-blocker',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({enabled:!!e?.checked,domains:d?.value||''})});
-  if(r)toast('مسدودکننده تبلیغات ذخیره شد');
 }
 let __allLinks=[];
 let cfgStatusFilter='all',cfgSortMode='newest';
@@ -13643,12 +13484,12 @@ async function restoreBot(){
 const RAILWAY_SUB_PROTOCOLS=['vless-ws','xhttp-packet-up','xhttp-stream-up'];
 const PROTOCOL_PICKER_GROUPS=[
   {title:'پروتکل‌های Railway',subtitle:'پروتکل‌های سازگار با Railway',ids:['vless-ws','xhttp-packet-up','xhttp-stream-up'],kind:'railway'},
-  {title:'پروتکل‌های SideRail',subtitle:'پنج پروتکل واقعی پروژه SideRail',ids:['vless-ws','siderail-vless-xhttp','vmess-ws','trojan-ws','vless-httpupgrade'],kind:'siderail'},
+  {title:'پروتکل‌های SideRail',subtitle:'پنج ترنسپورت SideRail روی رله‌ی ONEX',ids:['vless-ws','xhttp-packet-up','xhttp-stream-up','xhttp-stream-one','trojan-ws'],kind:'siderail'},
   {title:'پروتکل‌های VPS',subtitle:'تمام پروتکل‌های قابل ساخت روی VPS',ids:['trojan','shadowsocks','socks5','http','hysteria2','vless-reality','vless-grpc-reality','vmess','tuic','anytls','naive','shadowtls','snell','hysteria'],kind:'vps'}
 ];
-const PROTOCOL_PICKER_NAMES={"vless-ws":"SideRail VLESS WS","siderail-vless-xhttp":"SideRail VLESS XHTTP","vmess-ws":"SideRail VMess WS","trojan-ws":"SideRail Trojan WS","vless-httpupgrade":"SideRail VLESS HTTPUpgrade","xhttp-packet-up":"ONEX Xhttp","xhttp-stream-up":"ONEX Gaming","xhttp-stream-one":"ONEX Stream","trojan":"Trojan","shadowsocks":"Shadowsocks","socks5":"SOCKS5","http":"HTTP Proxy","hysteria2":"Hysteria2","vless-reality":"VLESS Reality","vless-grpc-reality":"VLESS gRPC Reality","vmess":"VMess","tuic":"TUIC","anytls":"AnyTLS","naive":"NaiveProxy","shadowtls":"ShadowTLS","snell":"Snell","hysteria":"Hysteria"};
-const PROTOCOL_PICKER_DESCS={"vless-ws":"VLESS + WebSocket","siderail-vless-xhttp":"VLESS + XHTTP","vmess-ws":"VMess + WebSocket","trojan-ws":"Trojan + WebSocket","vless-httpupgrade":"VLESS + HTTPUpgrade","xhttp-packet-up":"VLESS + XHTTP","xhttp-stream-up":"VLESS + XHTTP","xhttp-stream-one":"VLESS + XHTTP stream-one","trojan":"Trojan + TLS","shadowsocks":"Shadowsocks","socks5":"SOCKS5","http":"HTTP Proxy","hysteria2":"Hysteria2 + QUIC","vless-reality":"VLESS + Reality","vless-grpc-reality":"VLESS + gRPC + Reality","vmess":"VMess + TLS","tuic":"TUIC + QUIC","anytls":"AnyTLS + TLS","naive":"NaiveProxy + TLS","shadowtls":"ShadowTLS v3","snell":"Snell v5","hysteria":"Hysteria + QUIC"};
-const PROTOCOL_ICON_DATA={"vless-ws":"/api/protocol-icon/vless-ws.png?v=1.3.5","siderail-vless-xhttp":"/api/protocol-icon/vless-ws.png?v=1.3.5","vmess-ws":"/api/protocol-icon/vmess.png?v=1.3.5","trojan-ws":"/api/protocol-icon/trojan.png?v=1.3.5","vless-httpupgrade":"/api/protocol-icon/vless-ws.png?v=1.3.5","xhttp-packet-up":"/api/protocol-icon/xhttp-packet-up.png?v=1.3.5","xhttp-stream-up":"/api/protocol-icon/xhttp-stream-up.png?v=1.3.5","xhttp-stream-one":"/api/protocol-icon/xhttp-stream-one.png?v=1.3.5","trojan":"/api/protocol-icon/trojan.png?v=1.3.5","shadowsocks":"/api/protocol-icon/shadowsocks.png?v=1.3.5","socks5":"/api/protocol-icon/socks5.png?v=1.3.5","http":"/api/protocol-icon/http.png?v=1.3.5","hysteria2":"/api/protocol-icon/hysteria2.png?v=1.3.5","vless-reality":"/api/protocol-icon/vless-reality.png?v=1.3.5","vless-grpc-reality":"/api/protocol-icon/vless-grpc-reality.png?v=1.3.5","vmess":"/api/protocol-icon/vmess.png?v=1.3.5","tuic":"/api/protocol-icon/tuic.png?v=1.3.5","anytls":"/api/protocol-icon/anytls.png?v=1.3.5","naive":"/api/protocol-icon/naive.png?v=1.3.5","shadowtls":"/api/protocol-icon/shadowtls.png?v=1.3.5","snell":"/api/protocol-icon/snell.png?v=1.3.5","hysteria":"/api/protocol-icon/hysteria.png?v=1.3.5"};
+const PROTOCOL_PICKER_NAMES={"vless-ws":"ONEX WB","xhttp-packet-up":"ONEX Xhttp","xhttp-stream-up":"ONEX Gaming","xhttp-stream-one":"ONEX Stream","vmess-ws":"SideRail VMess WS","trojan-ws":"SideRail Trojan WS","trojan":"Trojan","shadowsocks":"Shadowsocks","socks5":"SOCKS5","http":"HTTP Proxy","hysteria2":"Hysteria2","vless-reality":"VLESS Reality","vless-grpc-reality":"VLESS gRPC Reality","vmess":"VMess","tuic":"TUIC","anytls":"AnyTLS","naive":"NaiveProxy","shadowtls":"ShadowTLS","snell":"Snell","hysteria":"Hysteria"};
+const PROTOCOL_PICKER_DESCS={"vless-ws":"VLESS + WebSocket","xhttp-packet-up":"VLESS + XHTTP","xhttp-stream-up":"VLESS + XHTTP","xhttp-stream-one":"VLESS + XHTTP stream-one","vmess-ws":"VMess + WebSocket","trojan-ws":"Trojan + WebSocket","trojan":"Trojan + TLS","shadowsocks":"Shadowsocks","socks5":"SOCKS5","http":"HTTP Proxy","hysteria2":"Hysteria2 + QUIC","vless-reality":"VLESS + Reality","vless-grpc-reality":"VLESS + gRPC + Reality","vmess":"VMess + TLS","tuic":"TUIC + QUIC","anytls":"AnyTLS + TLS","naive":"NaiveProxy + TLS","shadowtls":"ShadowTLS v3","snell":"Snell v5","hysteria":"Hysteria + QUIC"};
+const PROTOCOL_ICON_DATA={"vless-ws":"/api/protocol-icon/vless-ws.png?v=1.3.5","xhttp-packet-up":"/api/protocol-icon/xhttp-packet-up.png?v=1.3.5","xhttp-stream-up":"/api/protocol-icon/xhttp-stream-up.png?v=1.3.5","xhttp-stream-one":"/api/protocol-icon/xhttp-stream-one.png?v=1.3.5","vmess-ws":"/api/protocol-icon/vmess.png?v=1.3.5","trojan-ws":"/api/protocol-icon/trojan.png?v=1.3.5","trojan":"/api/protocol-icon/trojan.png?v=1.3.5","shadowsocks":"/api/protocol-icon/shadowsocks.png?v=1.3.5","socks5":"/api/protocol-icon/socks5.png?v=1.3.5","http":"/api/protocol-icon/http.png?v=1.3.5","hysteria2":"/api/protocol-icon/hysteria2.png?v=1.3.5","vless-reality":"/api/protocol-icon/vless-reality.png?v=1.3.5","vless-grpc-reality":"/api/protocol-icon/vless-grpc-reality.png?v=1.3.5","vmess":"/api/protocol-icon/vmess.png?v=1.3.5","tuic":"/api/protocol-icon/tuic.png?v=1.3.5","anytls":"/api/protocol-icon/anytls.png?v=1.3.5","naive":"/api/protocol-icon/naive.png?v=1.3.5","shadowtls":"/api/protocol-icon/shadowtls.png?v=1.3.5","snell":"/api/protocol-icon/snell.png?v=1.3.5","hysteria":"/api/protocol-icon/hysteria.png?v=1.3.5"};
 function protocolPickerLabel(id){const p=__protocolPickerOptions.find(x=>x.id===id);return PROTOCOL_PICKER_NAMES[id]||p?.label||id||'Vortex Link'}
 function protocolPickerShort(id){return PROTOCOL_PICKER_NAMES[id]||id}
 function protocolIconMarkup(id){
@@ -13668,7 +13509,6 @@ document.addEventListener('keydown',e=>{if(e.key==='Escape')closeProtocolPicker(
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',()=>{setupProtocolPickers();syncAllProtocolToggle()});else {setupProtocolPickers();syncAllProtocolToggle();}setTimeout(setupProtocolPickers,300);setTimeout(setupProtocolPickers,1000);
 
 applyLang();loadMe();loadProtocols();loadCategories();loadGroups();refreshAll();setTimeout(()=>{if(document.getElementById('advancedPorts')&&!getAdvancedPorts().length)fillAdvancedForm({ports:[443]});loadAdvancedCapabilities(document.getElementById('cProto')?.value||'vless-ws')},250);
-loadAdBlocker();
 setTimeout(()=>{startUpdateNotificationPolling()},1200);
 setTimeout(()=>checkPanelUpdate(true),2500);
 setInterval(()=>checkPanelUpdate(false),10*60*1000);
