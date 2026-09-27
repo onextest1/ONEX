@@ -1,8 +1,8 @@
 """Transparent TCP front proxy for ONEX (SideRail-style edge).
 
 Owns the public port and dispatches raw connections:
-  * /siderail/vmess*   -> local Xray VMess-WS listener
-  * /siderail/xhttp*   -> local Xray VLESS-XHTTP listener
+  * /siderail/vmess*   -> local sing-box VMess-WS listener
+  * /siderail/xhttp*   -> local sing-box VLESS-XHTTP listener
   * /httpup/<uuid>     -> pure-python VLESS HTTPUpgrade relay (101 + raw stream)
   * everything else    -> uvicorn (panel, WS relay, XHTTP)
 
@@ -98,24 +98,6 @@ async def _pipe(a: asyncio.StreamReader, b: asyncio.StreamWriter, counter=None):
             b.close()
         except Exception:
             pass
-
-
-def _force_close(head: bytes) -> bytes:
-    """Rewrite a plain (non-Upgrade) HTTP request head to `Connection: close`.
-
-    FIX: routing is decided from the FIRST request on a TCP connection. The
-    Railway/CDN edge re-uses keep-alive connections, so later XHTTP requests
-    (/siderail/xhttp POST/GET) could ride a connection already pinned to
-    uvicorn (-> 404) or vice-versa. Forcing one request per connection makes
-    every request get routed on its own path, like SideRail's per-request proxy.
-    """
-    sep = head.find(b"\r\n\r\n")
-    if sep < 0:
-        return head
-    lines = head[:sep].split(b"\r\n")
-    kept = [lines[0]] + [l for l in lines[1:] if not l.lower().startswith((b"connection:", b"keep-alive:"))]
-    kept.append(b"Connection: close")
-    return b"\r\n".join(kept) + head[sep:]
 
 
 async def _relay_to(host: str, port: int, head: bytes, client_r, client_w, counter=None):
@@ -260,12 +242,6 @@ def make_handler(ctx):
         has_ws_key = "sec-websocket-key" in headers
         peer = client_w.get_extra_info("peername")
         ctx["client_ip"] = headers.get("x-forwarded-for", "").split(",")[0].strip() or (peer[0] if peer else "unknown")
-
-        # Only SideRail XHTTP connections get one-request-per-connection.
-        # Railway protocols (vless-ws, xhttp-packet-up, xhttp-stream-up) and the
-        # panel stay byte-for-byte identical to the previous behaviour.
-        if not upgrade and path.startswith("/siderail/"):
-            head = _force_close(head)
 
         try:
             if path.startswith("/siderail/vmess"):
