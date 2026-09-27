@@ -39,7 +39,7 @@ from fastapi.middleware.cors import CORSMiddleware
 # ============================================================
 
 APP_NAME = "ONEX"
-APP_VERSION = "1.3.9"
+APP_VERSION = "1.3.8"
 
 SUPPORT_USERNAME = "@V2rayTun0"
 SUPPORT_URL = "https://t.me/V2rayTun0"
@@ -2576,6 +2576,7 @@ html.light .update-prompt-modal{background:#fff;border-color:rgba(37,99,235,.16)
 @media(max-width:380px){
   .mob-brand-icon{width:118px!important;height:48px!important;flex-basis:118px!important;}
 }
+</style>
 </head>
 
 <body>
@@ -3174,7 +3175,6 @@ ADVANCED_DEFAULTS = {
     "listener": {"listen": "0.0.0.0", "bind_interface": "", "routing_mark": 0, "netns": "", "reuse_addr": True, "tcp_fast_open": False, "tcp_multi_path": False, "disable_tcp_keep_alive": False, "tcp_keep_alive": "5m", "tcp_keep_alive_interval": "75s", "udp_fragment": False, "udp_timeout": "5m"},
     "shadowsocks": {"method": "aes-256-gcm"},
     "hysteria2": {"up_mbps": 0, "down_mbps": 0, "obfs_type": "", "obfs_password": "", "masquerade": ""},
-    "ad_blocker": {"enabled": False, "categories": [], "custom_blocklist": ""},
     "ports": [443],
 }
 
@@ -3222,12 +3222,6 @@ def normalize_advanced_config(raw):
         extra=raw["headers"].get("extra",[])
         if isinstance(extra,list):
             base["headers"]["extra"]=[str(x)[:300] for x in extra[:30] if str(x).strip()]
-    if isinstance(raw.get("ad_blocker"),dict):
-        base["ad_blocker"]["enabled"] = bool(raw["ad_blocker"].get("enabled"))
-        cats = raw["ad_blocker"].get("categories", [])
-        if isinstance(cats, list):
-            base["ad_blocker"]["categories"] = [str(x)[:40] for x in cats[:20] if str(x).strip()]
-        base["ad_blocker"]["custom_blocklist"] = str(raw["ad_blocker"].get("custom_blocklist") or "")[:500]
     ports=raw.get("ports")
     if isinstance(ports,list):
         vals=[]
@@ -3651,82 +3645,6 @@ def railway_endpoint_info(protocol: str) -> dict:
 async def api_railway_status(request: Request, token=Depends(require_auth)):
     protocol = normalize_protocol(request.query_params.get("protocol") or DEFAULT_PROTOCOL)
     return {"ok": True, "protocol": protocol, "endpoint": railway_endpoint_info(protocol)}
-
-
-async def _probe_protocol_socket(host: str, port: int, timeout: float = 2.5) -> dict:
-    if not host or not port:
-        return {"tested": False, "ok": False, "detail": "endpoint is not configured"}
-    try:
-        _reader, writer = await asyncio.wait_for(asyncio.open_connection(host, port), timeout=timeout)
-        writer.close()
-        await writer.wait_closed()
-        return {"tested": True, "ok": True, "detail": "TCP endpoint accepted a connection"}
-    except Exception as exc:
-        return {"tested": True, "ok": False, "detail": str(exc)[:180]}
-
-
-def _protocol_test_advanced(protocol: str) -> dict:
-    advanced = normalize_advanced_config({"ports": [443]})
-    if protocol in RAILWAY_SUB_PROTOCOLS:
-        advanced["network"]["type"] = "xhttp" if protocol.startswith("xhttp-") else "ws"
-        advanced["network"]["mode"] = protocol.replace("xhttp-", "") if protocol.startswith("xhttp-") else ""
-        advanced["tls"]["mode"] = "tls"
-    elif NATIVE_CORE and protocol in getattr(NATIVE_CORE, "SUPPORTED", ()):
-        advanced["ports"] = [int(getattr(NATIVE_CORE, "DEFAULT_PORTS", {}).get(protocol, 443))]
-        advanced = NATIVE_CORE._effective_advanced({"advanced": advanced}, protocol)  # type: ignore[attr-defined]
-    return advanced
-
-
-@app.post("/api/protocols/test")
-async def test_all_protocols(request: Request, token=Depends(require_auth)):
-    """Generate a real link shape and probe the configured endpoint per protocol."""
-    host = get_host(request)
-    requested = []
-    try:
-        body = await request.json()
-        requested = body.get("protocols", []) if isinstance(body, dict) else []
-    except Exception:
-        pass
-    protocols = [normalize_protocol(str(p)) for p in requested if str(p) in PROTOCOLS] if requested else list(PROTOCOLS)
-    results = []
-    for index, protocol in enumerate(protocols, 1):
-        uid = generate_uuid()
-        advanced = _protocol_test_advanced(protocol)
-        record = {
-            "label": f"ONEX TEST {protocol}", "protocol": protocol, "active": True,
-            "advanced": advanced, "port": (advanced.get("ports") or [443])[0],
-            "fingerprint": "chrome", "alpn": DEFAULT_ALPN_BY_PROTOCOL.get(protocol, "http/1.1"),
-            "all_protocols": False, "config_count": 1, "limit_bytes": 0, "used_bytes": 0,
-            "ip_limit": 0, "connection_limit": 0, "speed_limit_bytes": 0,
-            "fragment": "off", "clean_ips": [], "category_id": "0",
-        }
-        native = bool(NATIVE_CORE and protocol in getattr(NATIVE_CORE, "SUPPORTED", ()))
-        item = {"index": index, "protocol": protocol, "label": PROTOCOL_LABELS.get(protocol, protocol), "backend": "native" if native else "relay"}
-        try:
-            link = vless_link_for_link(record, uid, host)
-            item["link"] = link
-            item["link_ok"] = bool(link and "://" in link)
-        except Exception as exc:
-            item["link_ok"] = False
-            item["link_error"] = str(exc)[:180]
-        if native:
-            try:
-                errors = NATIVE_CORE._validate_advanced_for_protocol(record, protocol)  # type: ignore[attr-defined]
-                item["config_ok"] = not errors
-                if errors: item["config_errors"] = errors
-            except Exception as exc:
-                item["config_ok"] = False
-                item["config_errors"] = [str(exc)[:180]]
-        else:
-            item["config_ok"] = True
-            item["endpoint"] = railway_endpoint_info(protocol)
-        endpoint = item.get("endpoint") or {}
-        probe_host = endpoint.get("domain") if not native else host
-        probe_port = 443 if not native else int(record["port"])
-        item["connection"] = await _probe_protocol_socket(probe_host, probe_port)
-        item["ok"] = bool(item.get("link_ok") and item.get("config_ok"))
-        results.append(item)
-    return {"ok": all(x["ok"] for x in results), "tested": len(results), "results": results, "host": host}
 
 
 def _advanced_validation_errors(advanced: dict, protocol: str) -> list[str]:
@@ -9437,69 +9355,6 @@ html.light .onex-topbar-brand{background:#fff;border-color:rgba(37,99,235,.16);b
 #page-dash{--bg:#070a12;--surface:#101827;--surface2:#16243b;--line:rgba(137,193,255,.16);--text:#eff7ff;--muted:#9fb2ca;--dim:#6d809b;--p:#38d9ff;--s:#8b5cf6;--ok:#48e39d;--warn:#ffc857;--bad:#ff6d86;--sb:272px;--ease:cubic-bezier(.16,1,.3,1)}
 #page-dash button{font:inherit;color:inherit;cursor:pointer}#page-dash canvas{display:block}#page-dash .mono{font-family:"JetBrains Mono",monospace;direction:ltr}#page-dash .glass{background:linear-gradient(145deg,rgba(24,39,65,.88),rgba(9,15,27,.9));border:1px solid var(--line);box-shadow:0 18px 50px rgba(0,0,0,.3),inset 0 1px rgba(255,255,255,.06);backdrop-filter:blur(18px);border-radius:22px}#page-dash .badge{margin-inline-start:auto;color:var(--p);font:700 11px "JetBrains Mono"}#page-dash .bars{position:relative;width:20px;height:20px;display:block;margin:auto}#page-dash .bars i{position:absolute;left:1px;right:1px;height:2.5px;border-radius:4px;background:#081326;transition:transform .5s var(--ease),opacity .2s}#page-dash .bars i:nth-child(1){top:4px}#page-dash .bars i:nth-child(2){top:9px}#page-dash .bars i:nth-child(3){top:14px}@keyframes spin{to{transform:rotate(360deg)}}#page-dash .dot{width:8px;height:8px;border-radius:50%;background:var(--ok);box-shadow:0 0 12px var(--ok);flex:none}#page-dash .grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));grid-template-areas:"hero hero chart chart" "dock dock chart chart" "metrics metrics metrics metrics" "health telegram recent recent" "info quick recent recent";gap:16px}#page-dash .area{min-width:0}#page-dash .hero{grid-area:hero;padding:24px;display:flex;flex-direction:column;gap:14px}#page-dash .hero h1{font-size:clamp(25px,3vw,37px);line-height:1.35;margin:0}#page-dash .hero h1 span{color:var(--p)}#page-dash .hero p{margin:0;color:var(--muted);font-size:13px}#page-dash .versions{display:flex;gap:9px;flex-wrap:wrap}#page-dash .version{padding:9px 12px;border:1px solid var(--line);background:rgba(0,0,0,.18);border-radius:11px;font-size:11px;color:var(--muted)}#page-dash .version b{color:var(--text);font:700 12px "JetBrains Mono";direction:ltr;margin-inline-start:5px}#page-dash .alert{display:flex;align-items:center;gap:10px;padding:10px 12px;border:1px solid rgba(255,200,87,.35);background:rgba(255,200,87,.08);border-radius:12px;color:var(--muted);font-size:12px}#page-dash .alert b{color:var(--warn)}#page-dash .alert button{margin-inline-start:auto;border:0;background:var(--warn);color:#17120a;border-radius:8px;padding:7px 10px;font-weight:800;font-size:11px}#page-dash .actions{display:flex;gap:9px}#page-dash .primary{border:0!important;background:linear-gradient(135deg,var(--p),var(--s))!important;color:#091321!important;font-weight:900}#page-dash .hero .actions button{padding:11px 15px;border-radius:12px}#page-dash .dock{grid-area:dock;display:grid;grid-template-columns:repeat(3,1fr);gap:10px;padding:10px}#page-dash .dock button{display:flex;align-items:center;gap:10px;text-align:start;padding:13px;border-radius:15px;border:1px solid var(--line);background:rgba(255,255,255,.035);transition:transform .25s var(--ease),border-color .2s}#page-dash .dock button:hover{transform:translateY(-3px);border-color:rgba(56,217,255,.5)}#page-dash .dock strong{display:block;font-size:12.5px}#page-dash .dock small{display:block;color:var(--dim);font:10px "JetBrains Mono";margin-top:3px}#page-dash .icon{width:36px;height:36px;border-radius:11px;display:grid;place-items:center;background:rgba(56,217,255,.13);color:var(--p);font-weight:900;flex:none}#page-dash .metrics{grid-area:metrics;display:grid;grid-template-columns:repeat(4,1fr);gap:1px;padding:1px}#page-dash .metric{padding:19px;border-inline-end:1px solid var(--line)}#page-dash .metric:last-child{border:0}#page-dash .metric label{display:block;color:var(--muted);font-size:12px}#page-dash .metric strong{display:block;font:700 25px "JetBrains Mono";direction:ltr;margin-top:8px}#page-dash .metric small{color:var(--dim);font-size:11px}#page-dash .chart{grid-area:chart;padding:20px}#page-dash .head{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:14px}#page-dash .head h2{font-size:15px;margin:0}#page-dash .range{display:flex;gap:3px;padding:3px;border-radius:9px;background:rgba(0,0,0,.2)}#page-dash .range button{border:0;background:transparent;color:var(--muted);border-radius:7px;padding:6px 8px;font-size:11px}#page-dash .range button.active{background:rgba(56,217,255,.18);color:var(--text)}#page-dash #traffic{width:100%;height:230px}#page-dash .health{grid-area:health;padding:20px}#page-dash .rows{display:grid;gap:13px}#page-dash .healthrow{display:grid;grid-template-columns:38px 1fr 40px;gap:10px;align-items:center}#page-dash .healthrow .tag{height:30px;border-radius:9px;background:rgba(56,217,255,.1);border:1px solid rgba(56,217,255,.25);display:grid;place-items:center;color:var(--p);font:700 10px "JetBrains Mono"}#page-dash .track{height:6px;background:rgba(255,255,255,.08);border-radius:9px;overflow:hidden}#page-dash .track i{display:block;height:100%;width:var(--w);background:linear-gradient(90deg,var(--p),var(--s));border-radius:inherit}#page-dash .healthrow label{font-size:12px;color:var(--muted);display:block;margin-bottom:5px}#page-dash .healthrow b{font:600 11px "JetBrains Mono";direction:ltr}#page-dash .telegram{grid-area:telegram;padding:20px;display:flex;flex-direction:column;justify-content:space-between;background:radial-gradient(circle at 50% 0,rgba(56,217,255,.18),transparent 44%),linear-gradient(145deg,rgba(15,53,79,.9),rgba(9,16,31,.95))}#page-dash .tgmark{width:82px;height:82px;border-radius:50%;margin:5px auto 16px;display:grid;place-items:center;background:linear-gradient(145deg,#39bdf8,#3965f6);box-shadow:0 0 35px rgba(56,189,248,.5);font-size:35px}#page-dash .telegram h3{text-align:center;font-size:14px;margin:0}#page-dash .telegram p{text-align:center;color:var(--muted);font-size:11px;margin:5px 0 17px}#page-dash .telegram a{display:block;text-align:center;text-decoration:none;color:#fff;background:#269ee0;border-radius:11px;padding:10px;font-size:12px;font-weight:800}#page-dash .recent{grid-area:recent;padding:20px}#page-dash .table{display:grid;gap:0}#page-dash .tr{display:grid;grid-template-columns:1.2fr 1fr 1.2fr 70px 42px;gap:12px;align-items:center;padding:13px 8px;border-bottom:1px solid var(--line);font-size:12px}#page-dash .tr.headrow{color:var(--dim);font-size:10px}#page-dash .tr:last-child{border:0}#page-dash .proto{color:var(--muted);font:11px "JetBrains Mono";direction:ltr}#page-dash .usage .bar{height:5px;background:rgba(255,255,255,.08);border-radius:8px;margin-top:6px;overflow:hidden}#page-dash .usage i{display:block;height:100%;background:var(--p);width:var(--w);border-radius:8px}#page-dash .quick{grid-area:quick;padding:20px}#page-dash .quicklist{display:grid;gap:9px}#page-dash .quickitem{display:flex;align-items:center;gap:10px;padding:12px;border:1px solid var(--line);border-radius:13px;background:rgba(255,255,255,.03);font-size:12px}#page-dash .quickitem:hover{border-color:rgba(56,217,255,.4)}#page-dash .info{grid-area:info;padding:20px}#page-dash .kv{display:grid;grid-template-columns:auto 1fr;gap:11px;font-size:11px}#page-dash .kv dt{color:var(--dim)}#page-dash .kv dd{margin:0;text-align:left;direction:ltr;color:var(--muted);font-family:"JetBrains Mono";overflow:hidden;text-overflow:ellipsis;white-space:nowrap}@media(max-width:1150px){#page-dash .grid{grid-template-columns:repeat(2,minmax(0,1fr));grid-template-areas:"hero hero" "dock dock" "metrics metrics" "chart chart" "health telegram" "recent recent" "quick info"}}@media(max-width:800px){#page-dash .open .sidebar{transform:none}#page-dash .grid{grid-template-columns:1fr;grid-template-areas:"hero" "dock" "metrics" "chart" "health" "telegram" "recent" "quick" "info"}#page-dash .metrics{grid-template-columns:1fr 1fr}#page-dash .metric{border-bottom:1px solid var(--line)}#page-dash .dock{grid-template-columns:1fr}#page-dash .picker{display:none}}
 
-<style>
-/* ONEX 1.3.9: static panel mode for smooth performance in both themes. */
-html,html *,html *::before,html *::after{animation:none!important;transition:none!important;scroll-behavior:auto!important}
-#onexDashScene,.onex-control-dock:before,.onex-3d-control:after{display:none!important}
-html.light .page,html.light #page-dash{color:#0f172a!important}
-html:not(.light) .page,html:not(.light) #page-dash{color:#eff7ff!important}
-html.light .page .page-title,html.light .page .card-title,html.light .page .metric-val,html.light .page .quick-name,html.light .page .onex-card-title,html.light .page .info-row span:last-child,html.light .page .recent-table td{color:#0f172a!important}
-html.light .page .page-sub,html.light .page .metric-label,html.light .page .quick-desc,html.light .page .health-name,html.light .page .health-pct,html.light .page .info-row span:first-child,html.light .page .recent-table th{color:#475569!important}
-html.light .page .hero,html.light .page .dock,html.light .page .metrics,html.light .page .onex-card,html.light .page .onex-metric,html.light .page .table-wrap,html.light .page .recent-table,html.light .page .onex-control-dock{background:#fff!important;color:#0f172a!important}
-html.light #page-dash .hero,html.light #page-dash .dock,html.light #page-dash .metrics,html.light #page-dash .metric,html.light #page-dash .chart,html.light #page-dash .health,html.light #page-dash .telegram,html.light #page-dash .info,html.light #page-dash .quick,html.light #page-dash .recent{background:#fff!important;color:#0f172a!important}
-html.light #page-dash .hero h1,html.light #page-dash .hero p,html.light #page-dash .hero .version,html.light #page-dash .head h2,html.light #page-dash .healthrow label,html.light #page-dash .metric label,html.light #page-dash .metric strong,html.light #page-dash .metric small,html.light #page-dash .quick-name,html.light #page-dash .quick-desc,html.light #page-dash .info-row,html.light #page-dash .recent-table td,html.light #page-dash .onex-3d-control .control-title{color:#0f172a!important}
-html.light #page-dash .hero .hero-sub,html.light #page-dash .onex-3d-control .control-sub,html.light #page-dash .healthrow label,html.light #page-dash .quick-desc,html.light #page-dash .info-row span:first-child,html.light #page-dash .recent-table th{color:#475569!important}
-html.light #page-dash .onex-3d-control{background:#fff!important;color:#0f172a!important;border-color:rgba(15,23,42,.12)!important;box-shadow:0 6px 16px rgba(15,23,42,.08)!important}
-html.light #page-dash .version{background:#f8fafc!important;color:#0f172a!important}
-html.light .page input,html.light .page select,html.light .page textarea{color:#0f172a!important;background:#fff!important}
-.update-error{padding:14px;border:1px solid rgba(239,68,68,.28);border-radius:12px;color:#b91c1c;background:rgba(239,68,68,.07);line-height:1.8}
-html:not(.light) .update-error{color:#fecaca;background:rgba(239,68,68,.10)}
-</style>
-</style>
-<style>
-/* ONEX 1.3.9: unified dashboard system, typography and surfaces */
-#htmlRoot,#htmlRoot body,#htmlRoot button,#htmlRoot input,#htmlRoot select,#htmlRoot textarea,#htmlRoot table{
-  font-family:'Vazirmatn',Tahoma,Arial,sans-serif!important;
-  letter-spacing:normal!important;
-}
-#htmlRoot body{font-size:14px!important;line-height:1.7!important;color:var(--t1)!important}
-#htmlRoot .page,#htmlRoot .page *{box-sizing:border-box}
-#htmlRoot .page h1,#htmlRoot .page h2,#htmlRoot .page h3,#htmlRoot .page h4,
-#htmlRoot .page .page-title,#htmlRoot .page .card-title,#htmlRoot .page .onex-card-title,
-#htmlRoot .page .hero h1,#htmlRoot .page .home-brand{font-weight:800!important;line-height:1.45!important;color:var(--t1)!important}
-#htmlRoot .page p,#htmlRoot .page .page-sub,#htmlRoot .page .hero p,#htmlRoot .page label,
-#htmlRoot .page small,#htmlRoot .page .metric-label,#htmlRoot .page .quick-desc,
-#htmlRoot .page .health-name,#htmlRoot .page .info-row span:first-child{font-weight:500!important;line-height:1.85!important;color:var(--t2)!important}
-#htmlRoot .page .hero h1 span,#htmlRoot .page .home-brand{color:var(--accent)!important}
-#htmlRoot .page .mono,#htmlRoot .page code,#htmlRoot .page .metric strong,#htmlRoot .page .metric-val,
-#htmlRoot .page .version b{font-family:'JetBrains Mono',monospace!important;letter-spacing:0!important}
-#htmlRoot .page .btn,#htmlRoot .page button,#htmlRoot .page input,#htmlRoot .page select,#htmlRoot .page textarea{font-size:12px!important;line-height:1.4!important}
-#htmlRoot .page button{font-weight:700!important}
-#htmlRoot .page .onex-control-dock,#htmlRoot .page .dock,#htmlRoot .page .hero,
-#htmlRoot .page .metrics,#htmlRoot .page .onex-card,#htmlRoot .page .onex-metric,
-#htmlRoot .page .table-wrap,#htmlRoot .page .card,#htmlRoot .page .metric,
-#htmlRoot .page .quick-item,#htmlRoot .page .support-tile{
-  border-radius:18px!important;
-  border:1px solid var(--card-b)!important;
-  box-shadow:0 10px 28px rgba(15,23,42,.08)!important;
-}
-#htmlRoot .page .onex-control-dock,#htmlRoot .page .dock{padding:10px!important;gap:10px!important}
-#htmlRoot .page .onex-3d-control,#htmlRoot .page .dock button{min-height:58px!important;border-radius:14px!important;padding:11px 13px!important;transform:none!important}
-#htmlRoot .page .onex-3d-control .control-title,#htmlRoot .page .dock strong{font-size:12px!important;font-weight:800!important;color:var(--t1)!important}
-#htmlRoot .page .onex-3d-control .control-sub,#htmlRoot .page .dock small{font-size:9px!important;color:var(--t3)!important}
-#htmlRoot .page .metric strong,#htmlRoot .page .metric-val{font-size:24px!important;font-weight:800!important;color:var(--t1)!important}
-#htmlRoot .page .version{font-size:11px!important;color:var(--t2)!important;background:var(--bg3)!important;border-color:var(--card-b)!important}
-#htmlRoot .page .version b{font-size:12px!important;color:var(--t1)!important}
-#htmlRoot .page .field input,#htmlRoot .page .field select,#htmlRoot .page .field textarea{min-height:42px!important;border-radius:11px!important;padding:9px 11px!important}
-#htmlRoot .page .btn-p,#htmlRoot .page .primary{border-radius:12px!important;font-weight:800!important}
-html.light #htmlRoot .page .hero h1,html.light #htmlRoot .page .hero p,html.light #htmlRoot .page .version,
-html.light #htmlRoot .page .metric,html.light #htmlRoot .page .metric strong,html.light #htmlRoot .page .onex-card-title,
-html.light #htmlRoot .page .quick-name,html.light #htmlRoot .page .info-row span:last-child{color:#0f172a!important}
-html.light #htmlRoot .page .page-sub,html.light #htmlRoot .page .metric-label,html.light #htmlRoot .page .metric small,
-html.light #htmlRoot .page .quick-desc,html.light #htmlRoot .page .health-name,html.light #htmlRoot .page .info-row span:first-child,
-html.light #htmlRoot .page .dock small,html.light #htmlRoot .page .onex-control-dock .control-sub{color:#64748b!important}
-html:not(.light) #htmlRoot .page .hero h1,html:not(.light) #htmlRoot .page .onex-card-title,
-html:not(.light) #htmlRoot .page .metric strong,html:not(.light) #htmlRoot .page .quick-name{color:#f8fafc!important}
 </style>
 </head>
 <body>
@@ -9639,6 +9494,11 @@ html:not(.light) #htmlRoot .page .metric strong,html:not(.light) #htmlRoot .page
     <button type="button" id="heroRefresh" onclick="homeRefresh(true)">↻ <span data-i18n="home_refresh">بروزرسانی</span></button>
   </div>
 </section>
+<section class="dock glass area">
+  <button type="button" onclick="toggleTheme()"><span class="icon">◐</span><span><strong id="homeThemeLbl">تم روشن</strong><small>THEME CONTROL</small></span></button>
+  <button type="button" onclick="homeRefresh(true)"><span class="icon">↻</span><span><strong data-i18n="refresh_stats">بروزرسانی آمار</strong><small>LIVE STATISTICS</small></span></button>
+  <button type="button" onclick="panelUpdate()"><span class="icon">⇩</span><span><strong data-i18n="refresh_panel">بروزرسانی پنل</strong><small>PANEL UPDATE</small></span></button>
+</section>
 <section class="metrics glass area">
   <div class="metric"><label data-i18n="home_conns">اتصالات فعال</label><strong id="homeConns">—</strong><small data-i18n="home_live">لحظه‌ای</small></div>
   <div class="metric"><label data-i18n="home_traffic">ترافیک کل</label><strong id="homeTraffic">—</strong><small id="homeTrafficSub">—</small></div>
@@ -9705,140 +9565,8 @@ html:not(.light) #htmlRoot .page .metric strong,html:not(.light) #htmlRoot .page
 
 <style>
 .create-edit-actions{display:flex;gap:8px;align-items:center}.config-edit-banner{display:flex;align-items:center;gap:10px;margin:0 0 12px;padding:11px 13px;border:1px solid rgba(255,71,120,.28);border-radius:15px;background:linear-gradient(135deg,rgba(255,31,92,.10),rgba(37,99,235,.08));color:#dcecff}.config-edit-banner-icon{width:34px;height:34px;display:grid;place-items:center;border-radius:10px;background:rgba(255,71,120,.12);border:1px solid rgba(255,71,120,.24);color:#ff7092;font-size:16px}.config-edit-banner div{min-width:0;display:flex;flex-direction:column;gap:2px}.config-edit-banner b{font-size:11px;color:#fff}.config-edit-banner small{font-size:9px;color:#ff9ab0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:48vw}.config-edit-banner-hint{margin-right:auto;color:var(--t3);font-size:8px}@media(max-width:560px){.config-edit-banner{align-items:flex-start}.config-edit-banner-hint{display:none}.create-edit-actions{margin-top:2px}.create-edit-actions .btn{font-size:9px;height:36px;padding:0 10px}}
-.create-flow{display:grid;gap:14px;margin-bottom:16px}.create-target{display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:6px;background:rgba(37,99,235,.06);border:1px solid rgba(96,165,250,.16);border-radius:16px}.create-target button{min-height:54px;border:1px solid transparent;border-radius:12px;background:transparent;color:var(--t2);text-align:right;padding:8px 12px;cursor:pointer}.create-target button.active{background:rgba(37,99,235,.16);border-color:rgba(56,189,248,.42);color:var(--t1);box-shadow:0 5px 18px rgba(37,99,235,.12)}.create-target b,.create-target small{display:block}.create-target b{font-size:12px}.create-target small{font-size:9px;margin-top:4px;color:var(--t3)}.manual-lab{padding:13px;border:1px solid rgba(96,165,250,.15);border-radius:16px;background:rgba(5,17,38,.24)}.manual-lab-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px}.manual-lab-head b{font-size:11px}.manual-lab-head small{font-size:9px;color:var(--t3)}.manual-fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.manual-fields .field{margin:0}.manual-fields .wide{grid-column:1/-1}.manual-fields[hidden]{display:none}.protocol-specific-empty{font-size:10px;line-height:1.7;color:var(--t3);padding:10px 0}.create-status-line{display:flex;gap:8px;align-items:center;margin:10px 0 0;font-size:10px;color:var(--t3)}.create-status-dot{width:8px;height:8px;border-radius:50%;background:#22c55e;box-shadow:0 0 0 4px rgba(34,197,94,.12)}@media(max-width:700px){.manual-fields{grid-template-columns:1fr}.manual-fields .wide{grid-column:auto}}
-.matrix-builder{direction:rtl}.matrix-builder .matrix-layout{display:grid;grid-template-columns:minmax(0,1fr) 320px;gap:15px}.matrix-builder .matrix-panel{border:1px solid #2d3b56;border-radius:21px;background:linear-gradient(145deg,rgba(24,36,59,.97),rgba(14,22,39,.97));box-shadow:0 24px 70px #0004}.matrix-builder .matrix-main{padding:18px}.matrix-builder .matrix-side{padding:17px;height:max-content;position:sticky;top:14px}.matrix-builder .matrix-infra{display:grid;grid-template-columns:1fr 1fr;gap:7px;padding:5px;background:#101a2b;border:1px solid #2d3b56;border-radius:14px;margin-bottom:16px}.matrix-builder .matrix-infra button{border:0;border-radius:9px;background:transparent;color:#9eabc0;padding:10px;font-size:11px;font-weight:900;cursor:pointer}.matrix-builder .matrix-infra button.active{background:#2b3859;color:#fff;box-shadow:0 4px 14px #0003}.matrix-builder .matrix-section{border-top:1px solid #2d3b56;padding-top:16px;margin-top:16px}.matrix-builder .matrix-section:first-child{border-top:0;padding-top:0;margin-top:0}.matrix-builder .matrix-head{display:flex;justify-content:space-between;align-items:start;gap:10px;margin-bottom:11px}.matrix-builder .matrix-head h2{font-size:15px;margin:0}.matrix-builder .matrix-head p{font-size:10px;color:#9eabc0;margin:4px 0 0;line-height:1.8}.matrix-builder .matrix-count{font:10px var(--mono);color:#42d9e8;direction:ltr}.matrix-builder .matrix-protos{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}.matrix-builder .matrix-proto{position:relative;text-align:right;min-height:92px;padding:10px;border:1px solid #2d3b56;border-radius:14px;background:#111a2c;color:#f3f6fb;cursor:pointer}.matrix-builder .matrix-proto.active{border-color:#ff4f8b;background:linear-gradient(145deg,#35203d,#202743);box-shadow:0 0 0 1px #ff4f8b55}.matrix-builder .matrix-proto.active:after{content:'✓';position:absolute;left:8px;top:8px;width:19px;height:19px;display:grid;place-items:center;border-radius:50%;background:#ff4f8b;font-size:10px}.matrix-builder .matrix-mark{width:30px;height:30px;border-radius:9px;display:grid;place-items:center;background:#27375b;color:#42d9e8;font:900 9px var(--mono);margin-bottom:7px}.matrix-builder .matrix-proto.active .matrix-mark{background:#5a2d6d;color:#ffb8d1}.matrix-builder .matrix-proto b{display:block;font-size:10px}.matrix-builder .matrix-proto small{display:block;color:#9eabc0;font-size:8px;margin-top:3px}.matrix-builder .matrix-pack{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:11px 12px;border:1px solid #604152;border-radius:13px;background:#251a2c;margin-top:10px}.matrix-builder .matrix-pack b{display:block;font-size:11px}.matrix-builder .matrix-pack small{display:block;color:#9eabc0;font-size:9px;margin-top:3px}.matrix-builder .matrix-toggle{width:42px;height:23px;border:0;border-radius:99px;background:#56637a;padding:3px;cursor:pointer}.matrix-builder .matrix-toggle i{display:block;width:17px;height:17px;border-radius:50%;background:#fff;transform:translateX(-19px)}.matrix-builder .matrix-toggle.on{background:#ff4f8b}.matrix-builder .matrix-toggle.on i{transform:translateX(0)}.matrix-builder .matrix-fields{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}.matrix-builder .matrix-field label{display:block;font-size:10px;font-weight:900;color:#d0d9e7;margin-bottom:6px}.matrix-builder .matrix-input{width:100%;height:41px;border:1px solid #2d3b56;border-radius:10px;background:#0f1728;color:#f3f6fb;padding:0 10px;outline:0}.matrix-builder .matrix-input:focus{border-color:#42d9e8;box-shadow:0 0 0 3px #42d9e825}.matrix-builder .matrix-manual{border:1px solid #414b76;border-radius:16px;background:linear-gradient(145deg,#191f3b,#151b2e);overflow:hidden}.matrix-builder .matrix-manual-head{display:flex;justify-content:space-between;align-items:center;padding:14px;border-bottom:1px solid #2e3b59}.matrix-builder .matrix-manual-head b{font-size:13px}.matrix-builder .matrix-manual-head small{display:block;color:#9eabc0;font-size:9px;margin-top:3px}.matrix-builder .matrix-badge{padding:5px 8px;border-radius:7px;background:#292957;color:#bcb5ff;font-size:9px;font-weight:900}.matrix-builder .matrix-manual-body{padding:13px}.matrix-builder .matrix-tabs{display:flex;gap:6px;overflow:auto;margin-bottom:11px}.matrix-builder .matrix-tabs button{white-space:nowrap;border:1px solid #2d3b56;background:#111a2c;color:#9eabc0;border-radius:8px;padding:7px 9px;font-size:9px;font-weight:800;cursor:pointer}.matrix-builder .matrix-tabs button.active{border-color:#8b7bff;background:#2c2a58;color:#e0ddff}.matrix-builder .matrix-pane{display:none}.matrix-builder .matrix-pane.active{display:block}.matrix-builder .matrix-hint{padding:9px 10px;border-radius:9px;background:#20284d;color:#bbc4f8;font-size:9px;line-height:1.8;margin-top:2px}.matrix-builder .matrix-flow{display:flex;gap:5px;flex-wrap:wrap;align-items:center;margin-top:10px}.matrix-builder .matrix-node{border:1px solid #2d3b56;border-radius:8px;background:#111a2c;color:#d2dbe8;padding:7px 8px;font-size:9px;font-weight:900}.matrix-builder .matrix-arrow{color:#ff4f8b}.matrix-builder .matrix-actions{display:flex;gap:8px;margin-top:15px}.matrix-builder .matrix-actions button{flex:1;height:44px;border-radius:11px;font-size:10px;font-weight:900;cursor:pointer}.matrix-builder .matrix-ghost{border:1px solid #2d3b56;background:#111a2c;color:#dae3f0}.matrix-builder .matrix-primary{border:0;background:linear-gradient(135deg,#ff4f8b,#ffad45);color:#1b1118}.matrix-builder .matrix-side h2{font-size:16px;margin:0}.matrix-builder .matrix-side .matrix-sub{font-size:10px;color:#9eabc0;line-height:1.8;margin:4px 0 14px}.matrix-builder .matrix-valid{display:inline-flex;align-items:center;gap:5px;color:#7af0bf;background:#102d2a;border-radius:7px;padding:5px 8px;font-size:9px;font-weight:900}.matrix-builder .matrix-valid i{width:6px;height:6px;border-radius:50%;background:#35d39b}.matrix-builder .matrix-line{display:flex;justify-content:space-between;gap:9px;border-bottom:1px solid #2d3b56;padding:10px 0;font-size:10px}.matrix-builder .matrix-line span{color:#9eabc0}.matrix-builder .matrix-url{margin-top:11px;padding:10px;border:1px solid #2d3b56;border-radius:10px;background:#0d1525;color:#bdc9da;font:9px/1.7 var(--mono);direction:ltr;word-break:break-all}.matrix-builder .matrix-alert{margin-top:11px;padding:10px;border:1px solid #73504a;border-radius:10px;background:#2a211f;color:#f0c5a4;font-size:9px;line-height:1.8}@media(max-width:780px){.matrix-builder .matrix-layout{display:block}.matrix-builder .matrix-side{position:static;margin-top:13px}.matrix-builder .matrix-main{padding:14px}.matrix-builder .matrix-protos{grid-template-columns:repeat(2,1fr)}.matrix-builder .matrix-fields{grid-template-columns:1fr}}
 </style>
 <section class="page" id="page-create">
-  <style>
-    /* ONEX selected template: guided config wizard */
-    .onex-wizard{max-width:760px;margin:0 auto;padding-bottom:28px}
-    .onex-wizard .wiz-head{margin-bottom:18px}
-    .onex-wizard .wiz-head h1{font-size:clamp(20px,3vw,30px);margin:0 0 5px}
-    .onex-wizard .wiz-head p{color:var(--t3);font-size:11px}
-    .onex-wizard .wiz-kicker{display:inline-flex;align-items:center;gap:6px;padding:5px 10px;border-radius:999px;background:rgba(56,189,248,.1);border:1px solid rgba(56,189,248,.28);color:#55d9ff;font-size:10px;font-weight:900;margin-bottom:10px}
-    .onex-wizard .wiz-steps{display:flex;align-items:center;gap:4px;overflow:auto;margin:0 0 14px;padding:3px 0;scrollbar-width:none}
-    .onex-wizard .wiz-steps::-webkit-scrollbar{display:none}
-    .onex-wizard .wiz-step{display:flex;align-items:center;gap:7px;flex:1;min-width:max-content;padding:8px 10px;border-radius:10px;color:var(--t3);cursor:pointer;font-size:10px;font-weight:800}
-    .onex-wizard .wiz-step.active{background:rgba(56,189,248,.11);color:var(--t1)}
-    .onex-wizard .wiz-step.done{color:#55e7b0}
-    .onex-wizard .wiz-num{width:24px;height:24px;display:grid;place-items:center;border-radius:7px;background:rgba(96,165,250,.1);border:1px solid rgba(96,165,250,.16);font:800 10px var(--mono);flex:0 0 24px}
-    .onex-wizard .wiz-step.active .wiz-num{background:#36c9e8;color:#06101f;border-color:#36c9e8}
-    .onex-wizard .wiz-step.done .wiz-num{background:#31d49a;color:#06101f;border-color:#31d49a}
-    .onex-wizard .wiz-line{height:1px;min-width:10px;background:rgba(96,165,250,.15);flex:0 0 14px}
-    .onex-wizard .wiz-line.done{background:#31d49a}
-    .onex-wizard .wiz-panel{padding:18px;border:1px solid rgba(96,165,250,.16);border-radius:18px;background:linear-gradient(145deg,rgba(20,32,54,.98),rgba(10,18,34,.98))}
-    .onex-wizard .wiz-pane{display:none}.onex-wizard .wiz-pane.active{display:block;animation:wizIn .25s ease-out}
-    @keyframes wizIn{from{opacity:0;transform:translateY(7px)}to{opacity:1;transform:none}}
-    .onex-wizard .wiz-section-title{font-size:14px;font-weight:900;margin-bottom:3px}.onex-wizard .wiz-section-sub{color:var(--t3);font-size:10px;margin-bottom:14px}
-    .onex-wizard .wiz-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
-    .onex-wizard .wiz-proto{position:relative;text-align:right;padding:11px;border:1px solid rgba(96,165,250,.15);border-radius:12px;background:rgba(7,16,31,.72);color:var(--t1);cursor:pointer}
-    .onex-wizard .wiz-proto:hover{border-color:rgba(56,189,248,.45)}.onex-wizard .wiz-proto.sel{border-color:#ff4f8b;background:linear-gradient(145deg,rgba(83,31,75,.55),rgba(24,31,59,.88));box-shadow:0 0 0 1px rgba(255,79,139,.25)}
-    .onex-wizard .wiz-proto:after{content:'✓';display:none;position:absolute;left:8px;top:8px;width:18px;height:18px;place-items:center;border-radius:50%;background:#ff4f8b;color:#fff;font-size:9px}.onex-wizard .wiz-proto.sel:after{display:grid}
-    .onex-wizard .wiz-mark{width:30px;height:30px;display:grid;place-items:center;border-radius:9px;background:#26385f;color:#55d9ff;font:900 10px var(--mono);margin-bottom:7px}.onex-wizard .wiz-proto b{display:block;font-size:10px}.onex-wizard .wiz-proto small{display:block;color:var(--t3);font-size:8px;margin-top:3px}
-    .onex-wizard .wiz-form{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.onex-wizard .wiz-field.wide{grid-column:1/-1}.onex-wizard .wiz-field label{display:block;color:#cbd8ea;font-size:10px;font-weight:800;margin-bottom:5px}.onex-wizard .wiz-input{width:100%;height:40px;border:1px solid rgba(96,165,250,.18);border-radius:9px;background:rgba(5,14,28,.82);color:var(--t1);padding:0 10px;outline:0;font:500 11px var(--mono);direction:ltr}.onex-wizard .wiz-input:focus{border-color:#42d9e8;box-shadow:0 0 0 3px rgba(66,217,232,.12)}
-    .onex-wizard .wiz-toggle{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:11px 12px;border:1px solid rgba(96,165,250,.15);border-radius:10px;background:rgba(5,14,28,.65);font-size:10px;font-weight:800}.onex-wizard .wiz-switch{width:38px;height:21px;border:0;border-radius:999px;background:#4b5a70;padding:3px;cursor:pointer}.onex-wizard .wiz-switch i{display:block;width:15px;height:15px;border-radius:50%;background:#fff;transform:translateX(-17px);transition:.2s}.onex-wizard .wiz-switch.on{background:#ff4f8b}.onex-wizard .wiz-switch.on i{transform:translateX(0)}
-    .onex-wizard .wiz-ad{display:grid;gap:7px}.onex-wizard .wiz-ad-row{display:flex;align-items:center;gap:10px;padding:10px 12px;border:1px solid rgba(96,165,250,.14);border-radius:10px;background:rgba(5,14,28,.65);cursor:pointer}.onex-wizard .wiz-ad-row.on{border-color:rgba(255,79,139,.42);background:rgba(255,79,139,.07)}.onex-wizard .wiz-ad-row b{font-size:10px}.onex-wizard .wiz-ad-row small{display:block;color:var(--t3);font-size:8px;margin-top:2px}.onex-wizard .wiz-ad-check{margin-right:auto;width:18px;height:18px;border:1px solid #45556f;border-radius:5px}.onex-wizard .wiz-ad-row.on .wiz-ad-check{background:#ff4f8b;border-color:#ff4f8b}.onex-wizard .wiz-ad-row.on .wiz-ad-check:after{content:'✓';display:grid;place-items:center;height:100%;font-size:10px;color:#fff}
-    .onex-wizard .wiz-summary{display:grid;gap:7px}.onex-wizard .wiz-summary-row{display:flex;justify-content:space-between;gap:10px;padding:10px 12px;border-radius:9px;background:rgba(5,14,28,.66);font-size:10px}.onex-wizard .wiz-summary-row span{color:var(--t3)}.onex-wizard .wiz-summary-row b{font-family:var(--mono);font-size:10px;color:#55d9ff;direction:ltr}
-    .onex-wizard .wiz-status{display:flex;align-items:center;gap:7px;margin-top:12px;padding:9px 11px;border:1px solid rgba(49,212,154,.2);border-radius:9px;background:rgba(49,212,154,.06);color:#6ef0bf;font-size:10px}.onex-wizard .wiz-status i{width:6px;height:6px;border-radius:50%;background:#31d49a}
-    .onex-wizard .wiz-foot{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-top:16px;padding-top:14px;border-top:1px solid rgba(96,165,250,.13)}.onex-wizard .wiz-btn{height:40px;padding:0 17px;border:0;border-radius:9px;font:800 11px Vazirmatn;cursor:pointer}.onex-wizard .wiz-btn.prev{background:transparent;color:var(--t3)}.onex-wizard .wiz-btn.next{background:#42d9e8;color:#06101f}.onex-wizard .wiz-btn.create{background:#31d49a;color:#06101f}
-    .matrix-builder{display:none!important}.matrix-legacy-form{display:block!important;position:absolute;inset:auto;width:1px;height:1px;overflow:hidden;opacity:0;pointer-events:none}
-    @media(max-width:640px){.onex-wizard .wiz-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.onex-wizard .wiz-form{grid-template-columns:1fr}.onex-wizard .wiz-field.wide{grid-column:auto}.onex-wizard .wiz-step{padding:7px 8px}.onex-wizard .wiz-step span:last-child{display:none}.onex-wizard .wiz-panel{padding:14px}}
-  </style>
-  <div class="onex-wizard" id="onexCreateWizard">
-    <div class="wiz-head"><div class="wiz-kicker">✦ ویزارد ساخت کانفیگ</div><h1>کانفیگ حرفه‌ای ONEX</h1><p>انتخاب پروتکل، محدودیت‌ها، امنیت و خروجی را مرحله‌به‌مرحله تنظیم کن.</p></div>
-    <div class="wiz-steps" id="wizSteps">
-      <div class="wiz-step active" data-wiz="1" onclick="onexWizardGo(1)"><span class="wiz-num">1</span><span>پروتکل</span></div><i class="wiz-line"></i>
-      <div class="wiz-step" data-wiz="2" onclick="onexWizardGo(2)"><span class="wiz-num">2</span><span>پایه</span></div><i class="wiz-line"></i>
-      <div class="wiz-step" data-wiz="3" onclick="onexWizardGo(3)"><span class="wiz-num">3</span><span>ادبلاکر</span></div><i class="wiz-line"></i>
-      <div class="wiz-step" data-wiz="4" onclick="onexWizardGo(4)"><span class="wiz-num">4</span><span>امنیت</span></div><i class="wiz-line"></i>
-      <div class="wiz-step" data-wiz="5" onclick="onexWizardGo(5)"><span class="wiz-num">5</span><span>بررسی</span></div>
-    </div>
-    <div class="wiz-panel">
-      <section class="wiz-pane active" data-wiz-pane="1">
-        <h2 class="wiz-section-title">پروتکل را انتخاب کن</h2><p class="wiz-section-sub">پروتکل انتخابی مستقیماً به فرم اصلی ONEX متصل می‌شود.</p>
-        <div class="wiz-grid" id="wizProtocols"></div>
-        <div class="wiz-toggle"><span>همه پروتکل‌های Railway در یک Subscription</span><button class="wiz-switch on" id="wizAllProtocols" type="button" onclick="this.classList.toggle('on')"><i></i></button></div>
-      </section>
-      <section class="wiz-pane" data-wiz-pane="2">
-        <h2 class="wiz-section-title">تنظیمات پایه</h2><p class="wiz-section-sub">مقادیر خالی یا صفر یعنی تولید خودکار یا بدون محدودیت.</p>
-        <div class="wiz-form">
-          <div class="wiz-field wide"><label>نام کانفیگ</label><input class="wiz-input" id="wizName" value="ONEX-config"></div>
-          <div class="wiz-field"><label>گروه اشتراک</label><select class="wiz-input" id="wizGroup"><option value="">بدون گروه</option></select></div>
-          <div class="wiz-field"><label>انقضا (روز)</label><input class="wiz-input" id="wizDays" type="number" value="0" min="0"></div>
-          <div class="wiz-field"><label>محدودیت حجم</label><input class="wiz-input" id="wizLimit" type="number" value="0" min="0"></div>
-          <div class="wiz-field"><label>واحد</label><select class="wiz-input" id="wizUnit"><option>GB</option><option>MB</option><option>KB</option></select></div>
-          <div class="wiz-field"><label>محدودیت IP</label><input class="wiz-input" id="wizIp" type="number" value="0" min="0"></div>
-          <div class="wiz-field"><label>سرعت (Mbps)</label><input class="wiz-input" id="wizSpeed" type="number" value="0" min="0"></div>
-        </div>
-      </section>
-      <section class="wiz-pane" data-wiz-pane="3">
-        <h2 class="wiz-section-title">Ad Blocker</h2><p class="wiz-section-sub">دسته‌های مسدودسازی برای این کانفیگ ذخیره می‌شوند.</p>
-        <div class="wiz-toggle"><span>فعال‌سازی Ad Blocker</span><button class="wiz-switch" id="wizAdMaster" type="button" onclick="this.classList.toggle('on')"><i></i></button></div>
-        <div class="wiz-ad" id="wizAdCats">
-          <div class="wiz-ad-row on" data-ad="web-ads" onclick="this.classList.toggle('on')"><div><b>تبلیغات وب</b><small>بنر، پاپ‌آپ و تبلیغات سایت‌ها</small></div><span class="wiz-ad-check"></span></div>
-          <div class="wiz-ad-row on" data-ad="youtube-ads" onclick="this.classList.toggle('on')"><div><b>تبلیغات یوتیوب</b><small>تبلیغات ویدیویی و بنری</small></div><span class="wiz-ad-check"></span></div>
-          <div class="wiz-ad-row" data-ad="trackers" onclick="this.classList.toggle('on')"><div><b>ردیاب‌ها و ترکرها</b><small>Google، Facebook و سرویس‌های تحلیلی</small></div><span class="wiz-ad-check"></span></div>
-          <div class="wiz-ad-row" data-ad="malware" onclick="this.classList.toggle('on')"><div><b>بدافزار و فیشینگ</b><small>دامنه‌های خطرناک و جعلی</small></div><span class="wiz-ad-check"></span></div>
-          <div class="wiz-ad-row" data-ad="social-ads" onclick="this.classList.toggle('on')"><div><b>تبلیغات شبکه‌های اجتماعی</b><small>Instagram، TikTok و Twitter</small></div><span class="wiz-ad-check"></span></div>
-        </div>
-        <div class="wiz-field" style="margin-top:10px"><label>بلاکلیست سفارشی DNS</label><input class="wiz-input" id="wizAdCustom" placeholder="https://example.com/list.txt"></div>
-      </section>
-      <section class="wiz-pane" data-wiz-pane="4">
-        <h2 class="wiz-section-title">TLS و شبکه</h2><p class="wiz-section-sub">تنظیمات پیشرفته فعلی ONEX از همین فرم پشتیبانی می‌شوند.</p>
-        <div class="wiz-form">
-          <div class="wiz-field"><label>حالت TLS</label><select class="wiz-input" id="wizTls"><option value="tls">TLS</option><option value="reality">Reality</option><option value="none">None</option></select></div>
-          <div class="wiz-field"><label>SNI / Server Name</label><input class="wiz-input" id="wizSni" placeholder="example.com"></div>
-          <div class="wiz-field"><label>Fingerprint</label><select class="wiz-input" id="wizFp"><option>chrome</option><option>firefox</option><option>safari</option><option>random</option></select></div>
-          <div class="wiz-field"><label>Network</label><select class="wiz-input" id="wizNetwork"><option>ws</option><option>grpc</option><option>tcp</option><option>http</option><option>quic</option></select></div>
-          <div class="wiz-field"><label>Path</label><input class="wiz-input" id="wizPath" value="/"></div>
-          <div class="wiz-field"><label>پورت اصلی</label><input class="wiz-input" id="wizPort" type="number" value="443" min="1" max="65535"></div>
-        </div>
-        <div class="wiz-toggle" style="margin-top:12px"><span>Sniffing فعال</span><button class="wiz-switch on" id="wizSniff" type="button" onclick="this.classList.toggle('on')"><i></i></button></div>
-      </section>
-      <section class="wiz-pane" data-wiz-pane="5">
-        <h2 class="wiz-section-title">بررسی نهایی</h2><p class="wiz-section-sub">قبل از ساخت، خلاصه تنظیمات را چک کن.</p>
-        <div class="wiz-summary">
-          <div class="wiz-summary-row"><span>پروتکل</span><b id="wizReviewProto">VLESS WS</b></div>
-          <div class="wiz-summary-row"><span>نام</span><b id="wizReviewName">ONEX-config</b></div>
-          <div class="wiz-summary-row"><span>محدودیت</span><b id="wizReviewLimit">بدون محدودیت</b></div>
-          <div class="wiz-summary-row"><span>امنیت</span><b id="wizReviewSecurity">TLS · chrome</b></div>
-          <div class="wiz-summary-row"><span>شبکه / پورت</span><b id="wizReviewNetwork">ws · 443</b></div>
-          <div class="wiz-summary-row"><span>Ad Blocker</span><b id="wizReviewAd">غیرفعال</b></div>
-        </div>
-        <div class="wiz-status"><i></i><span>تنظیمات آماده اعتبارسنجی و ساخت است.</span></div>
-      </section>
-      <div class="wiz-foot"><button class="wiz-btn prev" id="wizPrev" type="button" onclick="onexWizardGo(onexWizardStep-1)" style="visibility:hidden">← قبلی</button><button class="wiz-btn next" id="wizNext" type="button" onclick="onexWizardNext()">بعدی →</button></div>
-    </div>
-  </div>
-  <div class="matrix-builder">
-    <div class="matrix-layout">
-      <main class="matrix-panel matrix-main">
-        <div class="matrix-infra"><button id="matrixRailway" class="active" type="button" onclick="setMatrixInfra('railway')">Railway Relay</button><button id="matrixVps" type="button" onclick="setMatrixInfra('vps')">VPS Native</button></div>
-        <section class="matrix-section">
-          <div class="matrix-head"><div><h2 id="matrixProtocolTitle">پروتکل‌های Railway</h2><p id="matrixProtocolSub">سه مسیر ONEX، قابل ترکیب در یک Subscription.</p></div><span class="matrix-count" id="matrixProtocolCount">3 available</span></div>
-          <div id="matrixProtocols" class="matrix-protos"></div>
-          <div id="matrixPack" class="matrix-pack"><div><b>همه پروتکل‌ها در یک Subscription</b><small>یک اکانت، سه کانفیگ Railway، یک لینک اشتراک</small></div><button id="matrixAllToggle" class="matrix-toggle on" type="button" onclick="toggleMatrixAll()"><i></i></button></div>
-        </section>
-        <section class="matrix-section"><div class="matrix-fields">
-          <div class="matrix-field"><label>نام کانفیگ / Subscription</label><input id="matrixName" class="matrix-input" value="Haj · Main Pack"></div>
-          <div class="matrix-field"><label>گروه اشتراک</label><select id="matrixGroup" class="matrix-input"><option value="">بدون گروه (عمومی)</option></select></div>
-          <div class="matrix-field"><label>انقضا (روز)</label><input id="matrixDays" class="matrix-input" type="number" value="30"></div>
-          <div class="matrix-field"><label>محدودیت حجم</label><input id="matrixLimit" class="matrix-input" type="number" value="100"></div>
-          <div class="matrix-field"><label>واحد</label><select id="matrixUnit" class="matrix-input"><option>GB</option><option>MB</option><option>KB</option></select></div>
-          <div class="matrix-field"><label>محدودیت IP</label><input id="matrixIp" class="matrix-input" type="number" value="0"></div>
-          <div class="matrix-field"><label>سرعت (Mbps)</label><input id="matrixSpeed" class="matrix-input" type="number" value="0"></div>
-          <div class="matrix-field"><label>Password / UUID</label><input class="matrix-input" placeholder="اختیاری یا تولید خودکار"></div>
-        </div></section>
-        <section class="matrix-section"><div class="matrix-manual">
-          <div class="matrix-manual-head"><div><b>Manual Lab هوشمند</b><small>فیلدهای ضروری همین پروتکل، با تنظیمات کامل اختیاری</small></div><span id="matrixBadge" class="matrix-badge">Railway essentials</span></div>
-          <div class="matrix-manual-body"><div id="matrixTabs" class="matrix-tabs"></div><div id="matrixPanes"></div><button id="matrixMore" class="matrix-ghost" type="button" onclick="toggleMatrixMore()">نمایش تنظیمات کامل</button></div>
-        </div><div id="matrixFlow" class="matrix-flow"></div></section>
-        <div class="matrix-actions"><button class="matrix-ghost" type="button" onclick="validateAdvancedConfig(true)">اعتبارسنجی تنظیمات</button><button class="matrix-primary" type="button" onclick="syncMatrixToForm();doManualCreate()">ساخت کانفیگ حرفه‌ای</button></div>
-      </main>
-      <aside class="matrix-panel matrix-side"><h2>Preview زنده</h2><p class="matrix-sub">با تغییر پروتکل یا هر فیلد، خروجی همین‌جا تغییر می‌کند.</p><span class="matrix-valid"><i></i><span id="matrixValidText">Valid preview</span></span><div class="matrix-line"><span>زیرساخت</span><b id="matrixSumInfra">Railway Relay</b></div><div class="matrix-line"><span>پروتکل</span><b id="matrixSumProtocol">ONEX WB</b></div><div class="matrix-line"><span>Network</span><b id="matrixSumNetwork">WebSocket</b></div><div class="matrix-line"><span>Security</span><b id="matrixSumSecurity">TLS</b></div><div class="matrix-line"><span>خروجی</span><b id="matrixSumOutput">۳ کانفیگ / ۱ ساب</b></div><div id="matrixUrl" class="matrix-url">vless://preview@domain.com:443?security=tls&amp;type=ws</div><div id="matrixTag" class="matrix-valid" style="margin-top:10px">۳ فیلد ضروری تکمیل</div><div id="matrixAlert" class="matrix-alert">پیشنهاد: تنظیمات پیشرفته فقط وقتی باز شود که واقعاً به آن نیاز داری.</div></aside>
-    </div>
-  </div>
-  <div class="matrix-legacy-form" style="display:none!important">
   <div class="page-head">
     <div><div class="page-title"><svg id="createPageTitleIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 5v14M5 12h14"/></svg><span id="createPageTitle" data-i18n="nav_create">ساخت کانفیگ</span></div><div class="page-sub" id="createPageSubtitle">ایجاد کانفیگ جدید با تنظیمات پایه و پیشرفته</div></div>
     <div class="create-edit-actions"><button type="button" class="btn btn-sm" id="cancelConfigEditBtn" onclick="cancelConfigEdit()" hidden>انصراف</button></div>
@@ -9847,13 +9575,6 @@ html:not(.light) #htmlRoot .page .metric strong,html:not(.light) #htmlRoot .page
   <div class="g2">
     <div class="card">
       <div class="card-title" data-i18n="manual_create">ساخت دستی</div>
-      <div class="create-flow">
-        <div class="create-target" role="tablist" aria-label="محل اجرا">
-          <button type="button" class="active" data-target="railway" onclick="setCreateTarget('railway',this)"><b>Railway Relay</b><small>ONEX WB · XHTTP · Gaming</small></button>
-          <button type="button" data-target="native" onclick="setCreateTarget('native',this)"><b>VPS Native</b><small>sing-box · Listener واقعی</small></button>
-        </div>
-        <div class="create-status-line"><span class="create-status-dot"></span><span id="createTargetStatus">Railway برای سه پروتکل اشتراکی آماده است.</span></div>
-      </div>
       <div class="field"><label data-i18n="label_name">نام</label>
         <div style="display:flex;gap:8px;align-items:center">
           <input id="cName" placeholder="ONEX PANEL" style="flex:1">
@@ -9875,10 +9596,6 @@ html:not(.light) #htmlRoot .page .metric strong,html:not(.light) #htmlRoot .page
       <div class="form-row">
         <div class="field"><label data-i18n="label_ip">محدودیت IP</label><input id="cIp" type="number" value="0" min="0"></div>
         <div class="field"><label data-i18n="label_speed">سرعـت (Mbps)</label><input id="cSpeed" type="number" value="0" min="0"></div>
-      </div>
-      <div class="manual-lab">
-        <div class="manual-lab-head"><b>Protocol Lab</b><small id="protocolSpecificHint">فیلدهای مؤثر همین پروتکل را تکمیل کنید</small></div>
-        <div id="protocolSpecificFields" class="manual-fields"></div>
       </div>
       <button id="manualConfigSubmit" class="btn btn-p" style="width:100%" onclick="doManualCreate()">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><path d="M12 5v14M5 12h14"/></svg>
@@ -10019,16 +9736,13 @@ Cache-Control: no-cache"></textarea></div>
         <div class="advanced-preview" id="advancedPreviewBox" hidden><div class="advanced-preview-head"><b>Config Preview</b><button type="button" class="btn btn-sm" onclick="copyAdvancedPreview()">کپی</button></div><pre id="advancedPreviewCode"></pre></div>
         <div class="advanced-actions">
           <button type="button" class="btn btn-p" onclick="validateAdvancedConfig(true)">✓ اعتبارسنجی و پیش‌نمایش</button>
-          <button type="button" class="btn" onclick="testAllProtocols()">🧪 تست خودکار همه پروتکل‌ها</button>
           <button type="button" class="btn" onclick="saveAdvancedDraft()">💾 ذخیره تنظیمات</button>
           <button type="button" class="btn" onclick="resetAdvancedConfig()">↺ بازنشانی</button>
           <button type="button" class="btn" onclick="copyAdvancedJson()">{ } کپی JSON</button>
         </div>
-        <div id="protocolTestResults" class="advanced-preview" hidden><div class="advanced-preview-head"><b>Protocol Test Results</b><button type="button" class="btn btn-sm" onclick="copyProtocolTestResults()">کپی</button></div><pre id="protocolTestCode"></pre></div>
       </div>
     </div>
 
-  </div>
   </div>
 </section>
 
@@ -12825,111 +12539,9 @@ function addAdvancedPort(value){
 }
 function removeAdvancedPort(port){const chip=[...document.querySelectorAll('#advancedPorts .advanced-port-chip')].find(x=>Number(x.dataset.port)===Number(port));if(chip)chip.remove();const chips=[...document.querySelectorAll('#advancedPorts .advanced-port-chip')];chips.forEach((x,i)=>{x.classList.toggle('primary',i===0);const b=x.querySelector('b');if(b)b.textContent=(i===0?'اصلی · ':'')+x.dataset.port})}
 function toggleAdvancedConfig(force){const panel=document.getElementById('advancedConfigPanel'),card=document.querySelector('.advanced-config-card');if(!panel||!card)return;const open=force===undefined?!card.classList.contains('open'):!!force;card.classList.toggle('open',open);panel.hidden=!open;document.getElementById('advancedToggleState').textContent=open?'بستن':'باز کردن';if(open)loadAdvancedDraft()}
-let __createTarget='railway';
-function setCreateTarget(target,btn){
-  __createTarget=target==='native'?'native':'railway';
-  document.querySelectorAll('.create-target button').forEach(x=>x.classList.toggle('active',x===btn));
-  const status=document.getElementById('createTargetStatus');
-  if(status)status.textContent=__createTarget==='native'?'VPS Native فقط یک پروتکل را با Listener واقعی می‌سازد.':'Railway برای سه پروتکل اشتراکی و یک Subscription مشترک آماده است.';
-  const all=document.getElementById('cAllProtocols');if(all){all.disabled=__createTarget==='native';if(__createTarget==='native')all.checked=false}
-  const sel=document.getElementById('cProto');
-  if(sel){
-    const preferred=__createTarget==='native'?((window.__protocolList||[]).find(p=>p.backend==='native')?.id||'trojan'):'vless-ws';
-    if([...sel.options].some(o=>o.value===preferred)){sel.value=preferred;syncProtocolPicker('cProto');sel.dispatchEvent(new Event('change',{bubbles:true}));syncAllProtocolToggle()}
-  }
-  renderProtocolSpecificFields(document.getElementById('cProto')?.value||'');
-}
-function protocolSpecificValue(id){return document.getElementById(id)?.value||''}
-function renderProtocolSpecificFields(protocol){
-  const box=document.getElementById('protocolSpecificFields'),hint=document.getElementById('protocolSpecificHint');if(!box)return;
-  const defs={
-    'shadowsocks':[['advSpecSsMethod','Encryption method','select','aes-256-gcm|chacha20-ietf-poly1305|2022-blake3-aes-128-gcm'],['advSpecSsPassword','Password','password','']],
-    'hysteria2':[['advSpecHyUp','Upload Mbps','number',''],['advSpecHyDown','Download Mbps','number',''],['advSpecHyObfsType','Obfuscation','select','|salamander'],['advSpecHyObfsPassword','Obfs password','password',''],['advSpecHyMasquerade','Masquerade URL','text','https://example.com']],
-    'vless-grpc-reality':[['advGrpcServiceName','gRPC service name','text','ONEX'],['advGrpcAuthority','Authority','text','example.com']],
-    'vless-ws':[['advWsPath','WebSocket path','text','/ws'],['advWsHost','WebSocket host','text','example.com']],
-    'xhttp-packet-up':[['advXhttpMode','XHTTP mode','select','packet-up|stream-up|stream-one']],
-    'xhttp-stream-up':[['advXhttpMode','XHTTP mode','select','stream-up|packet-up|stream-one']],
-    'xhttp-stream-one':[['advXhttpMode','XHTTP mode','select','stream-one|stream-up|packet-up']]
-  };
-  const rows=defs[protocol]||[];
-  hint.textContent=rows.length?'فیلدهای اختصاصی '+(protocol||'پروتکل'):'پروتکل تنظیم اختصاصی دیگری ندارد';
-  box.innerHTML=rows.length?rows.map(([id,label,type,opts])=>{
-    if(type==='select')return `<div class="field"><label>${label}</label><select id="${id}">${opts.split('|').map(x=>`<option value="${x}">${x||'Auto'}</option>`).join('')}</select></div>`;
-    return `<div class="field"><label>${label}</label><input id="${id}" type="${type}" placeholder="${opts}" ${type==='number'?'min="0"':''}></div>`;
-  }).join(''):'<div class="protocol-specific-empty">تنظیمات عمومی و بخش پیشرفته برای این پروتکل کافی است. قبل از ساخت، اعتبارسنجی را اجرا کنید.</div>';
-}
-function protocolSpecificObject(protocol){
-  const get=id=>protocolSpecificValue(id);
-  const out={protocol};
-  if(protocol==='shadowsocks')out.shadowsocks={method:get('advSpecSsMethod')||get('advSsMethod')||'aes-256-gcm',password:get('advSpecSsPassword')};
-  if(protocol==='hysteria2')out.hysteria2={up_mbps:Number(get('advSpecHyUp')||get('advHyUp'))||0,down_mbps:Number(get('advSpecHyDown')||get('advHyDown'))||0,obfs_type:get('advSpecHyObfsType')||get('advHyObfsType'),obfs_password:get('advSpecHyObfsPassword')||get('advHyObfsPassword'),masquerade:get('advSpecHyMasquerade')||get('advHyMasquerade')};
-  if(protocol==='vless-grpc-reality')out.grpc={service_name:get('advGrpcServiceName'),authority:get('advGrpcAuthority')};
-  if(protocol==='vless-ws')out.websocket={path:get('advWsPath'),host:get('advWsHost')};
-  if(protocol.startsWith('xhttp-'))out.xhttp={mode:get('advXhttpMode')||protocol.replace('xhttp-','')};
-  return out;
-}
-let onexWizardStep=1;
-const ONEX_WIZ_PROTOCOLS=[['vless-ws','WB','VLESS WS','WebSocket'],['xhttp-packet-up','X','XHTTP Packet','Packet-Up'],['xhttp-stream-up','G','XHTTP Stream','Stream-Up']];
-let onexWizardProtocol='vless-ws';
-function renderOnexWizardProtocols(){const box=document.getElementById('wizProtocols');if(!box)return;box.innerHTML=ONEX_WIZ_PROTOCOLS.map(p=>`<button type="button" class="wiz-proto ${p[0]===onexWizardProtocol?'sel':''}" onclick="onexWizardPick('${p[0]}')"><span class="wiz-mark">${p[1]}</span><b>${p[2]}</b><small>${p[3]}</small></button>`).join('')}
-function onexWizardPick(id){onexWizardProtocol=id;renderOnexWizardProtocols()}
-function onexWizardSync(){__createTarget='railway';const set=(id,v)=>{const e=document.getElementById(id);if(e)e.value=v??''};set('cName',document.getElementById('wizName')?.value||'');set('cSubGroup',document.getElementById('wizGroup')?.value||'');set('cDays',document.getElementById('wizDays')?.value||0);set('cLimit',document.getElementById('wizLimit')?.value||0);set('cUnit',document.getElementById('wizUnit')?.value||'GB');set('cIp',document.getElementById('wizIp')?.value||0);set('cSpeed',document.getElementById('wizSpeed')?.value||0);set('advTlsMode',document.getElementById('wizTls')?.value||'tls');set('advSni',document.getElementById('wizSni')?.value||'');set('advFp',document.getElementById('wizFp')?.value||'chrome');set('advNetwork',document.getElementById('wizNetwork')?.value||'ws');set('advPath',document.getElementById('wizPath')?.value||'/');set('cPort',document.getElementById('wizPort')?.value||443);const chk=(id,on)=>{const e=document.getElementById(id);if(e)e.checked=!!on};chk('cAllProtocols',document.getElementById('wizAllProtocols')?.classList.contains('on'));chk('advSniff',document.getElementById('wizSniff')?.classList.contains('on'));const proto=document.getElementById('cProto');if(proto){if(![...proto.options].some(o=>o.value===onexWizardProtocol)){const o=document.createElement('option');o.value=onexWizardProtocol;o.textContent=onexWizardProtocol;proto.appendChild(o)}proto.value=onexWizardProtocol;proto.dispatchEvent(new Event('change',{bubbles:true}))}const advanced=advancedFormObject();advanced.ad_blocker={enabled:document.getElementById('wizAdMaster')?.classList.contains('on'),categories:[...document.querySelectorAll('#wizAdCats .wiz-ad-row.on')].map(x=>x.dataset.ad),custom_blocklist:document.getElementById('wizAdCustom')?.value||''};fillAdvancedForm(advanced)}
-function onexWizardReview(){const val=id=>(document.getElementById(id)?.value||'').trim();const p=ONEX_WIZ_PROTOCOLS.find(x=>x[0]===onexWizardProtocol)||ONEX_WIZ_PROTOCOLS[0];const limit=Number(val('wizLimit'))||0,unit=val('wizUnit')||'GB',days=Number(val('wizDays'))||0,ip=Number(val('wizIp'))||0;document.getElementById('wizReviewProto').textContent=p[2];document.getElementById('wizReviewName').textContent=val('wizName')||'(خودکار)';document.getElementById('wizReviewLimit').textContent=(limit?limit+' '+unit:'بدون محدودیت')+' · '+(days?days+' روز':'بدون انقضا')+' · IP '+(ip||'نامحدود');document.getElementById('wizReviewSecurity').textContent=(val('wizTls')||'tls').toUpperCase()+' · '+(val('wizFp')||'chrome');document.getElementById('wizReviewNetwork').textContent=(val('wizNetwork')||'ws')+' · '+(val('wizPort')||'443');const cats=[...document.querySelectorAll('#wizAdCats .wiz-ad-row.on')].length,ad=document.getElementById('wizAdMaster')?.classList.contains('on');document.getElementById('wizReviewAd').textContent=ad&&cats?`فعال · ${cats} دسته`:'غیرفعال'}
-function onexWizardGo(n){if(n<1||n>5)return;onexWizardStep=n;document.querySelectorAll('#onexCreateWizard .wiz-pane').forEach(x=>x.classList.toggle('active',+x.dataset.wizPane===n));document.querySelectorAll('#onexCreateWizard .wiz-step').forEach(x=>{const s=+x.dataset.wiz;x.classList.toggle('active',s===n);x.classList.toggle('done',s<n);const num=x.querySelector('.wiz-num');if(num)num.textContent=s<n?'✓':s});document.querySelectorAll('#onexCreateWizard .wiz-line').forEach((x,i)=>x.classList.toggle('done',i<n-1));document.getElementById('wizPrev').style.visibility=n===1?'hidden':'visible';const next=document.getElementById('wizNext');if(n===5){onexWizardReview();next.className='wiz-btn create';next.textContent='ساخت کانفیگ'}else{next.className='wiz-btn next';next.textContent='بعدی →'}}
-function onexWizardNext(){if(onexWizardStep<5){if(onexWizardStep===4)onexWizardSync();onexWizardGo(onexWizardStep+1);return}onexWizardSync();doManualCreate()}
-renderOnexWizardProtocols();
-const MATRIX_PROTOCOLS={
-  railway:[['vless-ws','WB','ONEX WB','VLESS + WebSocket','WebSocket','TLS'],['xhttp-packet-up','X','ONEX Xhttp','VLESS + XHTTP · packet-up','XHTTP','TLS'],['xhttp-stream-up','G','ONEX Gaming','VLESS + XHTTP · stream-up','XHTTP','TLS']],
-  vps:[['trojan','TR','Trojan','Trojan + TLS','TCP','TLS'],['shadowsocks','SS','Shadowsocks','Shadowsocks','TCP','None'],['socks5','5','SOCKS5','SOCKS5 Proxy','TCP','None'],['http','HTTP','HTTP Proxy','HTTP Proxy','TCP','None'],['hysteria2','HY','Hysteria 2','QUIC / UDP','QUIC','TLS'],['vless-reality','VR','VLESS Reality','TCP / Reality','TCP','Reality'],['vless-grpc-reality','GR','VLESS gRPC Reality','gRPC / Reality','gRPC','Reality'],['vmess','VM','VMess','TCP / WS','WebSocket','TLS'],['tuic','TU','TUIC','QUIC / UDP','QUIC','TLS'],['anytls','AT','AnyTLS','Native TLS','TCP','TLS'],['naive','NP','NaiveProxy','HTTP/2 Proxy','TCP','TLS'],['shadowtls','ST','ShadowTLS','TLS camouflage','TCP','TLS'],['snell','SN','Snell','Native','TCP','TLS'],['hysteria','HY','Hysteria','QUIC / UDP','QUIC','TLS']]
-};
-let __matrixInfra='railway',__matrixProto='vless-ws',__matrixMore=false;
-function setMatrixInfra(kind){
-  __matrixInfra=kind==='vps'?'vps':'railway';
-  const list=MATRIX_PROTOCOLS[__matrixInfra],exists=list.some(x=>x[0]===__matrixProto);
-  if(!exists)__matrixProto=list[0][0];
-  document.getElementById('matrixRailway')?.classList.toggle('active',__matrixInfra==='railway');
-  document.getElementById('matrixVps')?.classList.toggle('active',__matrixInfra==='vps');
-  const old=document.querySelector('.matrix-legacy-form [data-target="'+(__matrixInfra==='vps'?'native':'railway')+'"]');
-  if(old)setCreateTarget(__matrixInfra==='vps'?'native':'railway',old);
-  renderMatrixBuilder();
-}
-function chooseMatrixProtocol(id){
-  __matrixProto=id;
-  const sel=document.getElementById('cProto');if(sel&&[...sel.options].some(o=>o.value===id)){sel.value=id;sel.dispatchEvent(new Event('change',{bubbles:true}));syncProtocolPicker('cProto');syncAllProtocolToggle()}
-  renderMatrixBuilder();
-}
-function toggleMatrixAll(){const b=document.getElementById('matrixAllToggle');b?.classList.toggle('on');const old=document.getElementById('cAllProtocols');if(old)old.checked=b?.classList.contains('on')&&__matrixInfra==='railway';updateMatrixPreview()}
-function syncMatrixToForm(){
-  const set=(a,b)=>{const x=document.getElementById(a),y=document.getElementById(b);if(x&&y)x.value=y.value};
-  set('cName','matrixName');set('cSubGroup','matrixGroup');set('cDays','matrixDays');set('cLimit','matrixLimit');set('cUnit','matrixUnit');set('cIp','matrixIp');set('cSpeed','matrixSpeed');
-  const old=document.getElementById('cProto');if(old){old.value=__matrixProto;old.dispatchEvent(new Event('change',{bubbles:true}))}
-}
-function renderMatrixBuilder(){
-  const list=MATRIX_PROTOCOLS[__matrixInfra],p=list.find(x=>x[0]===__matrixProto)||list[0],box=document.getElementById('matrixProtocols');if(!box)return;
-  document.getElementById('matrixProtocolTitle').textContent=__matrixInfra==='railway'?'پروتکل‌های Railway':'پروتکل‌های VPS Native';
-  document.getElementById('matrixProtocolSub').textContent=__matrixInfra==='railway'?'سه مسیر ONEX، قابل ترکیب در یک Subscription.':'هر پروتکل مستقل، با Listener واقعی sing-box.';
-  document.getElementById('matrixProtocolCount').textContent=list.length+' available';
-  document.getElementById('matrixBadge').textContent=__matrixInfra==='railway'?'Railway essentials':'Native essentials';
-  document.getElementById('matrixPack').style.display=__matrixInfra==='railway'?'flex':'none';
-  box.innerHTML=list.map(x=>`<button type="button" class="matrix-proto ${x[0]===__matrixProto?'active':''}" onclick="chooseMatrixProtocol('${x[0]}')"><span class="matrix-mark">${x[1]}</span><b>${x[2]}</b><small>${x[3]}</small></button>`).join('');
-  const tabs=[['security','TLS / Reality'],['host','Host / Header'],['network','Network / Transport'],['specific','Protocol Specific'],['listener','Listener / Ports']];
-  document.getElementById('matrixTabs').innerHTML=tabs.map((x,i)=>`<button type="button" class="${i?'':'active'}" onclick="activateMatrixTab('${x[0]}',this)">${x[1]}</button>`).join('');
-  document.getElementById('matrixPanes').innerHTML=tabs.map((x,i)=>`<div class="matrix-pane ${i?'':'active'}" id="matrixPane_${x[0]}"><div class="matrix-hint">${matrixPaneText(x[0],p)}</div></div>`).join('');
-  document.getElementById('matrixFlow').innerHTML=['Client',p[5],p[4],__matrixInfra==='railway'?'Relay':'Listener','Output'].map((x,i)=>i?'<span class="matrix-arrow">→</span><span class="matrix-node">'+x+'</span>':'<span class="matrix-node">'+x+'</span>').join('');
-  updateMatrixPreview();
-}
-function activateMatrixTab(id,btn){document.querySelectorAll('#matrixTabs button').forEach(x=>x.classList.toggle('active',x===btn));document.querySelectorAll('#matrixPanes .matrix-pane').forEach(x=>x.classList.toggle('active',x.id==='matrixPane_'+id))}
-function matrixPaneText(id,p){
-  const x={security:`Security Mode: ${p[5]} · SNI، ALPN، Fingerprint و Reality در تنظیمات پیشرفته قابل کنترل است.`,host:'Server Address، Host Header، Path، Authority و Extra Headers را برای همین Transport وارد کنید.',network:`Network: ${p[4]} · HTTP Version، Packet Encoding و Early Data فقط در صورت پشتیبانی اعمال می‌شوند.`,specific:`تنظیمات اختصاصی ${p[2]} در بخش Protocol Lab و تنظیمات کامل در پنل پیشرفته متصل است.`,listener:'Listen Address، پورت اصلی، پورت‌های جایگزین، Routing، Sniff و Socket مستقیماً اعتبارسنجی می‌شوند.'};return x[id]}
-function updateMatrixPreview(){
-  const p=(MATRIX_PROTOCOLS[__matrixInfra]||[]).find(x=>x[0]===__matrixProto)||MATRIX_PROTOCOLS.railway[0];
-  const set=(id,v)=>{const e=document.getElementById(id);if(e)e.textContent=v};
-  set('matrixSumInfra',__matrixInfra==='railway'?'Railway Relay':'VPS Native');set('matrixSumProtocol',p[2]);set('matrixSumNetwork',p[4]);set('matrixSumSecurity',p[5]);set('matrixSumOutput',__matrixInfra==='railway'?'۳ کانفیگ / ۱ ساب':'۱ کانفیگ مستقل');set('matrixUrl',(__matrixProto==='shadowsocks'?'ss://preview@domain:443':__matrixProto==='hysteria2'?'hysteria2://preview@domain:443':'vless://preview@domain:443?security='+p[5].toLowerCase()+'&type='+p[4].toLowerCase()));set('matrixTag',__matrixInfra==='railway'?'فیلدهای مشترک + ضروری Railway':'فیلدهای اختصاصی Native آماده');set('matrixAlert',__matrixInfra==='railway'?'پیشنهاد: هر سه پروتکل را فقط با گزینه Subscription مشترک فعال کن.':'این پروتکل مستقل روی Listener واقعی sing-box ساخته و اعتبارسنجی می‌شود.')
-}
-function toggleMatrixMore(){__matrixMore=!__matrixMore;const e=document.getElementById('advancedToggle');if(e)toggleAdvancedConfig(__matrixMore);document.getElementById('matrixMore').textContent=__matrixMore?'پنهان کردن تنظیمات کامل':'نمایش تنظیمات کامل'}
 function advancedFormObject(){
   const g=id=>document.getElementById(id); const val=id=>(g(id)?.value??'').trim(); const num=id=>Number(g(id)?.value)||0; const chk=id=>!!g(id)?.checked;
-  const protocol=g('cProto')?.value||''; const adMaster=g('wizAdMaster'); const adBlocker={enabled:!!adMaster?.classList.contains('on'),categories:[...document.querySelectorAll('#wizAdCats .wiz-ad-row.on')].map(x=>x.dataset.ad),custom_blocklist:val('wizAdCustom')}; return {target:__createTarget,ad_blocker:adBlocker,tls:{enabled:val('advTlsMode')!=='none',mode:val('advTlsMode'),sni:val('advSni'),server_name:val('advSni'),alpn:val('advAlpn'),certificate_path:val('advCertPath'),key_path:val('advKeyPath'),allow_insecure:chk('advAllowInsecure'),min_version:val('advTlsMin'),max_version:val('advTlsMax'),reality:{public_key:val('advRealityPk'),private_key:val('advRealitySk'),short_id:val('advRealitySid'),spider_x:val('advRealitySpider'),fingerprint:val('advRealityFp'),handshake_server:val('advRealityHandshake'),handshake_port:num('advRealityHandshakePort'),max_time_difference:val('advRealityMaxDiff')}},host:{address:val('advAddress'),host:val('advHost'),path:val('advPath'),service_name:val('advServiceName'),authority:val('advAuthority')},fingerprint:{enabled:chk('advFpEnabled'),value:val('advFp'),randomize:chk('advFpRandom')},network:{type:val('advNetwork'),mode:val('advNetworkMode'),path:val('advPath'),service_name:val('advServiceName'),http_version:val('advHttpVersion')},headers:{host:val('advHost'),user_agent:val('advUserAgent'),extra:(g('advExtraHeaders')?.value||'').split(/\r?\n/).map(x=>x.trim()).filter(Boolean)},routing:{domain_strategy:val('advDomainStrategy'),route:val('advRoute'),proxy_protocol:chk('advProxyProtocol'),sniff:chk('advSniff'),sniff_override:chk('advSniffOverride'),sniff_timeout:val('advSniffTimeout')},transport:{packet_encoding:val('advPacketEncoding'),early_data:num('advEarlyData'),max_early_data:num('advEarlyData'),early_data_header_name:val('advEarlyDataHeader'),padding:chk('advPadding')},listener:{listen:val('advListen')||'0.0.0.0',bind_interface:val('advBindInterface'),routing_mark:num('advRoutingMark'),netns:val('advNetns'),reuse_addr:chk('advReuseAddr'),tcp_fast_open:chk('advTfo'),tcp_multi_path:chk('advMptcp'),disable_tcp_keep_alive:chk('advDisableKeepAlive'),tcp_keep_alive:val('advTcpKeepAlive'),tcp_keep_alive_interval:val('advTcpKeepAliveInterval'),udp_fragment:chk('advUdpFragment'),udp_timeout:val('advUdpTimeout')},shadowsocks:{method:val('advSsMethod')||'aes-256-gcm'},hysteria2:{up_mbps:num('advHyUp'),down_mbps:num('advHyDown'),obfs_type:val('advHyObfsType'),obfs_password:val('advHyObfsPassword'),masquerade:val('advHyMasquerade')},protocol_specific:protocolSpecificObject(protocol),ports:getAdvancedPorts()};
+  return {tls:{enabled:val('advTlsMode')!=='none',mode:val('advTlsMode'),sni:val('advSni'),server_name:val('advSni'),alpn:val('advAlpn'),certificate_path:val('advCertPath'),key_path:val('advKeyPath'),allow_insecure:chk('advAllowInsecure'),min_version:val('advTlsMin'),max_version:val('advTlsMax'),reality:{public_key:val('advRealityPk'),private_key:val('advRealitySk'),short_id:val('advRealitySid'),spider_x:val('advRealitySpider'),fingerprint:val('advRealityFp'),handshake_server:val('advRealityHandshake'),handshake_port:num('advRealityHandshakePort'),max_time_difference:val('advRealityMaxDiff')}},host:{address:val('advAddress'),host:val('advHost'),path:val('advPath'),service_name:val('advServiceName'),authority:val('advAuthority')},fingerprint:{enabled:chk('advFpEnabled'),value:val('advFp'),randomize:chk('advFpRandom')},network:{type:val('advNetwork'),mode:val('advNetworkMode'),path:val('advPath'),service_name:val('advServiceName'),http_version:val('advHttpVersion')},headers:{host:val('advHost'),user_agent:val('advUserAgent'),extra:(g('advExtraHeaders')?.value||'').split(/\r?\n/).map(x=>x.trim()).filter(Boolean)},routing:{domain_strategy:val('advDomainStrategy'),route:val('advRoute'),proxy_protocol:chk('advProxyProtocol'),sniff:chk('advSniff'),sniff_override:chk('advSniffOverride'),sniff_timeout:val('advSniffTimeout')},transport:{packet_encoding:val('advPacketEncoding'),early_data:num('advEarlyData'),max_early_data:num('advEarlyData'),early_data_header_name:val('advEarlyDataHeader'),padding:chk('advPadding')},listener:{listen:val('advListen')||'0.0.0.0',bind_interface:val('advBindInterface'),routing_mark:num('advRoutingMark'),netns:val('advNetns'),reuse_addr:chk('advReuseAddr'),tcp_fast_open:chk('advTfo'),tcp_multi_path:chk('advMptcp'),disable_tcp_keep_alive:chk('advDisableKeepAlive'),tcp_keep_alive:val('advTcpKeepAlive'),tcp_keep_alive_interval:val('advTcpKeepAliveInterval'),udp_fragment:chk('advUdpFragment'),udp_timeout:val('advUdpTimeout')},shadowsocks:{method:val('advSsMethod')||'aes-256-gcm'},hysteria2:{up_mbps:num('advHyUp'),down_mbps:num('advHyDown'),obfs_type:val('advHyObfsType'),obfs_password:val('advHyObfsPassword'),masquerade:val('advHyMasquerade')},ports:getAdvancedPorts()};
 }
 function fillAdvancedForm(a){
   a=a||{}; const tls=a.tls||{},host=a.host||{},fp=a.fingerprint||{},net=a.network||{},routing=a.routing||{},transport=a.transport||{},listener=a.listener||{},reality=tls.reality||{},headers=a.headers||{},ss=a.shadowsocks||{},hy=a.hysteria2||{};
@@ -12946,22 +12558,6 @@ function resetAdvancedConfig(){fillAdvancedForm({ports:[Number(document.getEleme
 function saveAdvancedDraft(){try{localStorage.setItem('onex_advanced_draft',JSON.stringify(advancedFormObject()));toast(lang==='fa'?'تنظیمات ذخیره شد':'Settings saved')}catch(e){toast(lang==='fa'?'ذخیره انجام نشد':'Save failed')}}
 function loadAdvancedDraft(){try{const raw=localStorage.getItem('onex_advanced_draft');if(raw)fillAdvancedForm(JSON.parse(raw));else if(!getAdvancedPorts().length)fillAdvancedForm({ports:[Number(document.getElementById('cPort')?.value)||443]})}catch(e){fillAdvancedForm({ports:[443]})}}
 function copyAdvancedJson(){copyText(JSON.stringify(advancedFormObject(),null,2))}
-let __protocolTestResults = null;
-async function testAllProtocols(){
-  const box=document.getElementById('protocolTestResults'),pre=document.getElementById('protocolTestCode');
-  if(!box||!pre)return;
-  box.hidden=false;pre.textContent=lang==='fa'?'در حال ساخت لینک و تست اتصال همه پروتکل‌ها...':'Generating links and probing every protocol...';
-  const r=await api('/api/protocols/test',{method:'POST',headers:{'Content-Type':'application/json'},body:'{}'});
-  if(!r){pre.textContent=lang==='fa'?'تست اجرا نشد':'Test failed';return}
-  __protocolTestResults=r;
-  const rows=(r.results||[]).map(x=>{
-    const link=x.link?`\n  ${x.link}`:'';
-    const conn=x.connection?.tested?(x.connection.ok?'اتصال TCP موفق':'اتصال TCP ناموفق'): 'اتصال بررسی نشد';
-    return `${x.index}. ${x.label} [${x.backend}] · لینک ${x.link_ok?'OK':'FAIL'} · تنظیمات ${x.config_ok?'OK':'FAIL'} · ${conn}${link}`;
-  }).join('\n\n');
-  pre.textContent=`${r.ok?'✓':'⚠'} ${lang==='fa'?'تعداد تست':'Tests'}: ${r.tested}\n\n${rows}`;
-}
-function copyProtocolTestResults(){if(__protocolTestResults)copyText(JSON.stringify(__protocolTestResults,null,2))}
 let __advancedPreview = null;
 function setAdvancedValidation(kind, html){const el=document.getElementById('advancedValidationStatus');if(!el)return;el.className='advanced-validation-status '+kind;el.innerHTML=html;}
 async function validateAdvancedConfig(showPreview=false){const protocol=document.getElementById('cProto')?.value||'';const advanced=advancedFormObject();setAdvancedValidation('warn',lang==='fa'?'در حال اعتبارسنجی...':'Validating...');const r=await api('/api/advanced/validate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({protocol,advanced})});if(!r){setAdvancedValidation('err',lang==='fa'?'اعتبارسنجی انجام نشد':'Validation failed');return false}const parts=[];if(r.ok)parts.push('✓ '+(lang==='fa'?'تنظیمات معتبر است':'Configuration is valid'));if(r.native)parts.push('• '+(lang==='fa'?'Native sing-box فعال است':'Native sing-box is available'));(r.warnings||[]).forEach(x=>parts.push('⚠ '+esc(x)));(r.errors||[]).forEach(x=>parts.push('✕ '+esc(x)));setAdvancedValidation(r.ok?(r.warnings?.length?'warn':'ok'):'err',parts.join('<br>'));__advancedPreview=r.preview||null;const box=document.getElementById('advancedPreviewBox'),pre=document.getElementById('advancedPreviewCode');if(box&&pre){box.hidden=!showPreview||!__advancedPreview;if(__advancedPreview)pre.textContent=JSON.stringify(__advancedPreview,null,2)}await loadAdvancedCapabilities(protocol);return !!r.ok}
@@ -13031,7 +12627,7 @@ async function doManualCreate(){
   const body=collectConfigFormBody();
   const r=await api('/api/links',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}); if(r){showResult(r);refreshAll();saveAdvancedDraft()}
 }
-document.addEventListener('change',e=>{if(e.target?.id==='advTlsMode')updateRealityVisibility();if(e.target?.id==='cProto'){renderProtocolSpecificFields(e.target.value);loadAdvancedCapabilities(e.target.value)}});
+document.addEventListener('change',e=>{if(e.target?.id==='advTlsMode')updateRealityVisibility();if(e.target?.id==='cProto')loadAdvancedCapabilities(e.target.value)});
 
 async function doChangePw(){
   const user=document.getElementById('newUser').value.trim(),cur=document.getElementById('pwCur').value,nw=document.getElementById('pwNew').value,cf=document.getElementById('pwCf').value;
@@ -13258,8 +12854,7 @@ async function panelUpdate(){
   const r=await checkPanelUpdate(false);
   if(!r||!r.ok){
     t.textContent=updateText('بررسی بروزرسانی','Update check');
-    const detail=r&&r.message||updateText('در حال حاضر امکان بررسی نسخه جدید وجود ندارد.','The update server could not be reached right now.');
-    b.innerHTML=`<div class="update-error"><strong>${esc(detail)}</strong><p>${updateText('اتصال GitHub یا تنظیمات استقرار Railway را بررسی کنید.','Check GitHub connectivity and the Railway deployment settings.')}</p></div>`;
+    b.innerHTML=`<p>${updateText('در حال حاضر امکان بررسی نسخه جدید وجود ندارد.','The update server could not be reached right now.')}</p>`;
     return;
   }
   if(!r.update_available){
@@ -13899,14 +13494,14 @@ function syncProtocolPicker(id){const sel=document.getElementById(id),trigger=do
 function syncAllProtocolToggle(){const sel=document.getElementById('cProto'),all=document.getElementById('cAllProtocols'),wrap=all?.closest('.all-proto-toggle');if(!sel||!all)return;const railway=RAILWAY_SUB_PROTOCOLS.includes(sel.value);if(!railway){all.checked=false;all.disabled=true;if(wrap){wrap.style.opacity='0.48';wrap.style.cursor='not-allowed';wrap.title=lang==='fa'?'این گزینه فقط برای پروتکل‌های Railway است':'This option is only for Railway protocols';}}else{all.disabled=false;if(wrap){wrap.style.opacity='1';wrap.style.cursor='pointer';wrap.title=lang==='fa'?'فقط سه پروتکل Railway در یک ساب':'Only the three Railway protocols in one subscription';}}}
 
 function ensureProtocolPicker(){let bg=document.getElementById('protocolPickerBg');if(bg)return bg;bg=document.createElement('div');bg.id='protocolPickerBg';bg.className='protocol-picker-bg';bg.innerHTML=`<div class="protocol-picker" role="dialog" aria-modal="true"><div class="protocol-picker-head"><div class="protocol-picker-head-icon"><span>✦</span></div><div class="protocol-picker-head-text"><div class="protocol-picker-title">${lang==='fa'?'انتخاب پروتکل':'Select Protocol'}</div><div class="protocol-picker-subtitle">${lang==='fa'?'پروتکل موردنظر را انتخاب کنید':'Choose the protocol you want to use'}</div></div><button type="button" class="protocol-picker-close" id="protocolPickerClose">×</button></div><div class="protocol-picker-scroll" id="protocolPickerScroll"></div><div class="protocol-picker-foot"><div class="protocol-selected-info" id="protocolSelectedInfo">—</div><button type="button" class="protocol-picker-confirm" id="protocolPickerConfirm">${lang==='fa'?'تأیید و ادامه →':'Confirm & Continue →'}</button></div></div>`;document.body.appendChild(bg);bg.addEventListener('click',e=>{if(e.target===bg)closeProtocolPicker()});bg.querySelector('#protocolPickerClose').onclick=closeProtocolPicker;bg.querySelector('#protocolPickerConfirm').onclick=confirmProtocolPicker;return bg}
-function openProtocolPicker(targetId){const sel=document.getElementById(targetId);if(!sel)return;const bg=ensureProtocolPicker();__protocolPickerTarget=targetId;const current=sel.value||'vless-ws';const available=new Set([...sel.options].map(o=>o.value));const groups=targetId==='cProto'?PROTOCOL_PICKER_GROUPS.filter(g=>__createTarget==='native'?g.kind==='vps':g.kind==='railway'):PROTOCOL_PICKER_GROUPS;const sections=groups.map(g=>{const ids=g.ids.filter(id=>available.has(id));if(!ids.length)return '';return `<section class="protocol-picker-section ${g.kind||''}"><div class="protocol-picker-section-head"><div><b>${esc(g.title)}</b><small>${esc(g.subtitle||'')}</small></div><span>${ids.length}</span></div><div class="protocol-grid protocol-grid-all">${ids.map(id=>`<button type="button" class="protocol-option ${id===current?'selected':''}" data-proto="${id}"><span class="protocol-option-radio"></span>${protocolIconMarkup(id)}<span class="protocol-option-name">${esc(protocolPickerShort(id))}</span><span class="protocol-option-desc">${id===current?(lang==='fa'?'انتخاب‌شده · ':'Selected · ')+(PROTOCOL_PICKER_DESCS[id]||''):(PROTOCOL_PICKER_DESCS[id]|| (lang==='fa'?'برای انتخاب کلیک کنید':'Tap to choose'))}</span></button>`).join('')}</div></section>`}).join('');const scroll=bg.querySelector('#protocolPickerScroll');scroll.innerHTML=sections;scroll.querySelectorAll('.protocol-option').forEach(btn=>btn.addEventListener('click',()=>chooseProtocol(btn.dataset.proto)));bg.querySelector('#protocolSelectedInfo').textContent=(lang==='fa'?'پروتکل انتخاب‌شده: ':'Selected: ')+protocolPickerShort(current);bg.classList.add('open');document.body.style.overflow='hidden'}
+function openProtocolPicker(targetId){const sel=document.getElementById(targetId);if(!sel)return;const bg=ensureProtocolPicker();__protocolPickerTarget=targetId;const current=sel.value||'vless-ws';const available=new Set([...sel.options].map(o=>o.value));const sections=PROTOCOL_PICKER_GROUPS.map(g=>{const ids=g.ids.filter(id=>available.has(id));if(!ids.length)return '';return `<section class="protocol-picker-section ${g.kind||''}"><div class="protocol-picker-section-head"><div><b>${esc(g.title)}</b><small>${esc(g.subtitle||'')}</small></div><span>${ids.length}</span></div><div class="protocol-grid protocol-grid-all">${ids.map(id=>`<button type="button" class="protocol-option ${id===current?'selected':''}" data-proto="${id}"><span class="protocol-option-radio"></span>${protocolIconMarkup(id)}<span class="protocol-option-name">${esc(protocolPickerShort(id))}</span><span class="protocol-option-desc">${id===current?(lang==='fa'?'انتخاب‌شده · ':'Selected · ')+(PROTOCOL_PICKER_DESCS[id]||''):(PROTOCOL_PICKER_DESCS[id]|| (lang==='fa'?'برای انتخاب کلیک کنید':'Tap to choose'))}</span></button>`).join('')}</div></section>`}).join('');const scroll=bg.querySelector('#protocolPickerScroll');scroll.innerHTML=sections;scroll.querySelectorAll('.protocol-option').forEach(btn=>btn.addEventListener('click',()=>chooseProtocol(btn.dataset.proto)));bg.querySelector('#protocolSelectedInfo').textContent=(lang==='fa'?'پروتکل انتخاب‌شده: ':'Selected: ')+protocolPickerShort(current);bg.classList.add('open');document.body.style.overflow='hidden'}
 function chooseProtocol(id){const sel=document.getElementById(__protocolPickerTarget),bg=document.getElementById('protocolPickerBg');if(!sel||!bg)return;sel.value=id;bg.querySelectorAll('.protocol-option').forEach(x=>x.classList.toggle('selected',x.dataset.proto===id));bg.querySelector('#protocolSelectedInfo').textContent=(lang==='fa'?'پروتکل انتخاب‌شده: ':'Selected: ')+protocolPickerShort(id);syncProtocolPicker(__protocolPickerTarget);sel.dispatchEvent(new Event('change',{bubbles:true}));if(__protocolPickerTarget==='cProto')syncAllProtocolToggle()}
 function confirmProtocolPicker(){if(__protocolPickerTarget){const sel=document.getElementById(__protocolPickerTarget);if(sel)sel.dispatchEvent(new Event('change',{bubbles:true}))}closeProtocolPicker()}
 function closeProtocolPicker(){const bg=document.getElementById('protocolPickerBg');if(bg)bg.classList.remove('open');document.body.style.overflow=''}
 document.addEventListener('keydown',e=>{if(e.key==='Escape')closeProtocolPicker()});
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',()=>{setupProtocolPickers();syncAllProtocolToggle()});else {setupProtocolPickers();syncAllProtocolToggle();}setTimeout(setupProtocolPickers,300);setTimeout(setupProtocolPickers,1000);
 
-applyLang();loadMe();loadProtocols();loadCategories();loadGroups();refreshAll();setTimeout(()=>{if(document.getElementById('advancedPorts')&&!getAdvancedPorts().length)fillAdvancedForm({ports:[443]});renderProtocolSpecificFields(document.getElementById('cProto')?.value||'vless-ws');renderMatrixBuilder();loadAdvancedCapabilities(document.getElementById('cProto')?.value||'vless-ws')},250);
+applyLang();loadMe();loadProtocols();loadCategories();loadGroups();refreshAll();setTimeout(()=>{if(document.getElementById('advancedPorts')&&!getAdvancedPorts().length)fillAdvancedForm({ports:[443]});loadAdvancedCapabilities(document.getElementById('cProto')?.value||'vless-ws')},250);
 setTimeout(()=>{startUpdateNotificationPolling()},1200);
 setTimeout(()=>checkPanelUpdate(true),2500);
 setInterval(()=>checkPanelUpdate(false),10*60*1000);
@@ -14236,8 +13831,6 @@ window.addEventListener('storage',e=>{if(e.key==='onex_theme_v2')loadOnexTheme()
 <script>
 (()=>{
   const cv=document.getElementById('onexDashScene'),ctx=cv&&cv.getContext('2d');if(!cv||!ctx)return;
-  cv.style.display='none';
-  return;
   let W=0,H=0,dpr=1,tm=0,last=performance.now(),mouse={x:0,y:0,tx:0,ty:0};
   const themes={aurora:['#38d9ff','#8b5cf6'],lime:['#d4f24a','#ffb84d'],rose:['#ff3d8b','#ff8a3d'],emerald:['#34f5a0','#22c1ee'],violet:['#b57bff','#ff5ecf'],gold:['#ffc94d','#ff7a45']};
   function rgb(h){h=(h||'').replace('#','');let n=parseInt(h,16)||0;return[(n>>16)&255,(n>>8)&255,n&255]}
