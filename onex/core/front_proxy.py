@@ -100,11 +100,14 @@ async def _pipe(a: asyncio.StreamReader, b: asyncio.StreamWriter, counter=None):
             pass
 
 
-async def _relay_to(host: str, port: int, head: bytes, client_r, client_w, counter=None):
+async def _relay_to(host: str, port: int, head: bytes, client_r, client_w, counter=None, fallback=None):
     try:
         up_r, up_w = await asyncio.wait_for(asyncio.open_connection(host, port), timeout=CONNECT_TIMEOUT)
     except Exception:
-        client_w.close()
+        if fallback is not None:
+            await fallback()
+        else:
+            client_w.close()
         return
     up_w.write(head)
     await up_w.drain()
@@ -251,10 +254,16 @@ def make_handler(ctx):
                 await _relay_to(internal_host, vmess_port, head, client_r, client_w)
             elif path.startswith("/siderail/xhttp"):
                 log_info(f"dispatch -> siderail xhttp core ({client_ip})")
-                await _relay_to(internal_host, xhttp_port, head, client_r, client_w)
+                async def _fallback_xhttp():
+                    log_info("siderail xhttp core unreachable; falling back to panel XHTTP")
+                    await _relay_to(internal_host, internal_port, head, client_r, client_w)
+                await _relay_to(internal_host, xhttp_port, head, client_r, client_w, fallback=_fallback_xhttp)
             elif path.startswith("/siderail/httpupgrade"):
                 log_info(f"dispatch -> siderail httpupgrade core ({client_ip})")
-                await _relay_to(internal_host, httpup_port, head, client_r, client_w)
+                async def _fallback_httpup():
+                    log_info("siderail httpupgrade core unreachable; falling back to python relay")
+                    await _httpupgrade_relay(path, upgrade, head, client_r, client_w, ctx, client_ip)
+                await _relay_to(internal_host, httpup_port, head, client_r, client_w, fallback=_fallback_httpup)
             elif path.startswith("/httpup/") and upgrade and not has_ws_key:
                 log_info(f"dispatch -> httpupgrade relay {path[:40]} ({client_ip})")
                 await _httpupgrade_relay(path, upgrade, head, client_r, client_w, ctx, client_ip)

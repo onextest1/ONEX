@@ -120,6 +120,7 @@ class SiderailCore:
     def status(self) -> dict[str, Any]:
         return {
             "installed": self.binary_exists(),
+            "bin_path": str(self._binary_helper.bin_path),
             "running": self.is_running(),
             "error": self.last_error,
             **self.last_status,
