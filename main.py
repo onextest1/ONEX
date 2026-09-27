@@ -6934,6 +6934,14 @@ except Exception as exc:
     logger.warning("SideRail bridge unavailable: %s", exc)
 
 
+try:
+    from onex.core.httpupgrade_bridge import router as httpupgrade_bridge_router
+    app.include_router(httpupgrade_bridge_router)
+    logger.info("HTTPUpgrade bridge route loaded (/httpup/<uuid>)")
+except Exception as exc:
+    logger.warning("HTTPUpgrade bridge unavailable: %s", exc)
+
+
 async def sync_siderail_core():
     if not SIDERAIL_CORE:
         return False
