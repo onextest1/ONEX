@@ -261,6 +261,27 @@ SUBS: dict = {}
 SESSIONS: dict = {}
 connections: dict = {}
 CATEGORIES: dict = {}
+AD_BLOCKER = {
+    "enabled": False,
+    "domains": [],
+}
+
+RELAY_PROTOCOLS = {
+    "vless-ws", "siderail-vless-xhttp", "xhttp-packet-up",
+    "xhttp-stream-up", "xhttp-stream-one", "vmess-ws",
+    "trojan-ws", "vless-httpupgrade",
+}
+
+def normalize_block_domain(value: str) -> str:
+    value = str(value or "").strip().lower()
+    value = value.replace("https://", "").replace("http://", "").split("/")[0]
+    return value.removeprefix("www.").strip(".")
+
+def is_destination_blocked(address: str) -> bool:
+    if not AD_BLOCKER.get("enabled"):
+        return False
+    host = normalize_block_domain(address)
+    return any(host == d or host.endswith("." + d) for d in AD_BLOCKER.get("domains", []))
 
 stats = {
     "total_bytes": 0,
@@ -1297,7 +1318,9 @@ def group_subscription_lines_for_link(
     # Previously this function always used the group's protocol list, which
     # meant a normal single-protocol link could unexpectedly appear as every
     # protocol in its subscription.
-    if link.get("all_protocols"):
+    if link.get("bundle_protocols"):
+        selected = [normalize_protocol(str(p)) for p in link.get("bundle_protocols")]
+    elif link.get("all_protocols"):
         selected = [normalize_protocol(str(p)) for p in RAILWAY_SUB_PROTOCOLS]
     else:
         selected = [normalize_protocol(str(link.get("protocol", DEFAULT_PROTOCOL)))]
@@ -1364,6 +1387,7 @@ def get_link_info(
         "name": link.get("label", ""),
         "label": link.get("label", ""),
         "protocol": link.get("protocol", DEFAULT_PROTOCOL),
+        "bundle_protocols": list(link.get("bundle_protocols") or []),
         "active": is_active,
         "used_bytes": used_b,
         "limit_bytes": limit_b,
@@ -1443,6 +1467,13 @@ async def load_state():
                 {},
             )
         )
+        AD_BLOCKER.update(data.get("ad_blocker") or {})
+        AD_BLOCKER["enabled"] = bool(AD_BLOCKER.get("enabled"))
+        AD_BLOCKER["domains"] = sorted({
+            normalize_block_domain(x)
+            for x in (AD_BLOCKER.get("domains") or [])
+            if normalize_block_domain(x)
+        })
 
         ADMIN_ACCOUNTS.clear()
         ADMIN_ACCOUNTS.update(data.get("admin_accounts") or {})
@@ -1562,6 +1593,9 @@ async def save_state():
                 "categories":
                     dict(CATEGORIES),
 
+                "ad_blocker":
+                    dict(AD_BLOCKER),
+
                 "admin_accounts":
                     dict(ADMIN_ACCOUNTS),
 
@@ -1656,6 +1690,7 @@ async def make_link(
     category_id: str = "0",
     config_count: int = 1,
     all_protocols: bool = False,
+    bundle_protocols=None,
     advanced: dict | None = None,
 ):
 
@@ -1764,6 +1799,10 @@ async def make_link(
         "category_id": str(category_id or "0"),
         "config_count": max(1, min(40, int(config_count or 1))),
         "all_protocols": bool(all_protocols),
+        "bundle_protocols": [
+            p for p in (bundle_protocols or [])
+            if p in RELAY_PROTOCOLS
+        ],
         "advanced": normalize_advanced_config(advanced),
         "native_protocols": [p for p in PROTOCOLS if p not in {"vless-ws", "xhttp-packet-up", "xhttp-stream-up", "xhttp-stream-one", "trojan-ws", "vmess-ws"}],
         "usage_history": [],
@@ -3431,6 +3470,16 @@ async def create_link_api(
         all_protocols = False
     if all_protocols:
         config_count = 1
+    raw_bundle = body.get("bundle_protocols") or []
+    if not isinstance(raw_bundle, list):
+        raw_bundle = []
+    bundle_protocols = []
+    for item in raw_bundle:
+        value = str(item)
+        if value in RELAY_PROTOCOLS and value in PROTOCOLS and value not in bundle_protocols:
+            bundle_protocols.append(value)
+    if bundle_protocols and protocol not in bundle_protocols:
+        bundle_protocols.insert(0, protocol)
     sub_id = str(body.get("sub_id") or "").strip() or None
     if sub_id:
         async with SUBS_LOCK:
@@ -3500,6 +3549,7 @@ async def create_link_api(
         category_id=category_id,
         config_count=config_count,
         all_protocols=all_protocols,
+        bundle_protocols=bundle_protocols,
         advanced=advanced,
     )
 
@@ -3596,6 +3646,33 @@ async def api_protocols(request: Request):
         "default": PROTOCOLS[0] if PROTOCOLS else DEFAULT_PROTOCOL,
         "native_core": {"installed": bool(NATIVE_CORE and NATIVE_CORE.binary_exists()), "running": native_ready, "error": getattr(NATIVE_CORE, "last_error", "") if NATIVE_CORE else ""},
     }
+
+@app.get("/api/ad-blocker")
+async def get_ad_blocker(_=Depends(require_auth)):
+    return {"ok": True, **AD_BLOCKER}
+
+@app.put("/api/ad-blocker")
+async def update_ad_blocker(request: Request, _=Depends(require_auth)):
+    try:
+        body = await request.json()
+    except Exception:
+        raise HTTPException(400, "JSON نامعتبر است")
+    raw = body.get("domains") or []
+    if isinstance(raw, str):
+        raw = raw.replace(",", "\n").splitlines()
+    domains = sorted({
+        normalize_block_domain(x)
+        for x in raw
+        if normalize_block_domain(x)
+    })
+    if len(domains) > 2000:
+        raise HTTPException(400, "حداکثر ۲۰۰۰ دامنه مجاز است")
+    AD_BLOCKER["enabled"] = bool(body.get("enabled", AD_BLOCKER.get("enabled")))
+    AD_BLOCKER["domains"] = domains
+    await save_state()
+    if NATIVE_CORE:
+        asyncio.create_task(sync_native_core())
+    return {"ok": True, **AD_BLOCKER}
 
 
 # ============================================================
@@ -6806,6 +6883,7 @@ async def sync_native_core():
     if not NATIVE_CORE:
         return False
     try:
+        NATIVE_CORE.ad_blocker = deepcopy(AD_BLOCKER)
         return await NATIVE_CORE.sync(LINKS, CONFIG.get("host") or os.getenv("RAILWAY_PUBLIC_DOMAIN", "localhost"))
     except Exception as exc:
         logger.warning("Native core sync failed: %s", exc)
@@ -9615,6 +9693,11 @@ html.light .onex-topbar-brand{background:#fff;border-color:rgba(37,99,235,.16);b
         <label class="all-proto-toggle" title="یک اکانت با همه پروتکل‌ها و یک ساب"><span><b>همه پروتکل‌ها در یک ساب</b><small>یک اکانت · فقط ۳ پروتکل Railway · یک لینک اشتراک</small></span><input id="cAllProtocols" type="checkbox"><i aria-hidden="true"></i></label>
         <div class="field"><label data-i18n="label_days">انقضـا (روز)</label><input id="cDays" type="number" value="0" min="0"></div>
       </div>
+      <div class="field">
+        <label>انتخاب چند پروتکل برای یک ساب</label>
+        <div id="protocolBundleOptions" style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px"></div>
+        <small style="display:block;margin-top:5px;color:var(--t3);font-size:9px">هرکدام را علامت بزنید، با همان اکانت در یک Subscription ساخته می‌شود.</small>
+      </div>
       <div class="form-row">
         <div class="field"><label data-i18n="label_limit">محدودیت حجم</label><input id="cLimit" type="number" value="0" min="0"></div>
         <div class="field"><label data-i18n="label_unit">واحد</label><select id="cUnit"><option>GB</option><option>MB</option><option>KB</option></select></div>
@@ -9978,6 +10061,13 @@ Cache-Control: no-cache"></textarea></div>
     <div class="field"><label data-i18n="pw_new">رمـز جدیـد</label><input type="password" id="pwNew"></div>
     <div class="field"><label data-i18n="pw_cf">تکـرار رمـز</label><input type="password" id="pwCf"></div>
     <button class="btn btn-p" onclick="doChangePw()"><span data-i18n="btn_save">ذخیـره</span></button>
+  </div>
+  <div class="card">
+    <div class="card-title">Ad Blocker / مسدودکننده تبلیغات</div>
+    <p style="font-size:11px;color:var(--t3);line-height:1.8">دامنه‌های تبلیغاتی را هر خط یک مورد وارد کنید. روی لینک‌های رله‌ای و هسته native اعمال می‌شود، نه فقط داخل مرورگر.</p>
+    <label class="all-proto-toggle" style="margin:12px 0"><span><b>فعال‌سازی مسدودکننده</b><small>مسدودکردن دامنه و زیردامنه</small></span><input id="adBlockEnabled" type="checkbox"><i aria-hidden="true"></i></label>
+    <textarea id="adBlockDomains" rows="7" placeholder="doubleclick.net&#10;googlesyndication.com&#10;ads.youtube.com&#10;ads.google.com" style="width:100%;resize:vertical"></textarea>
+    <button class="btn btn-p" style="margin-top:10px" onclick="saveAdBlocker()">ذخیره و اعمال</button>
   </div>
   
   <div class="card onex-security-card">
@@ -12630,7 +12720,8 @@ async function openConfigEditor(e,uid){
 }
 function collectConfigFormBody(){
   const advanced=advancedFormObject(),ports=advanced.ports.length?advanced.ports:[Number(configEditValue('cPort'))||443];
-  return {label:configEditValue('cName').trim()||undefined,protocol:configEditValue('cProto')||undefined,category_id:'0',sub_id:configEditValue('cSubGroup')||undefined,limit_value:Number(configEditValue('cLimit'))||0,limit_unit:configEditValue('cUnit')||'GB',expires_days:Number(configEditValue('cDays'))||0,ip_limit:Number(configEditValue('cIp'))||0,speed_limit_value:Number(configEditValue('cSpeed'))||0,speed_limit_unit:'MBIT',all_protocols:!!document.getElementById('cAllProtocols')?.checked,port:ports[0],fingerprint:advanced.fingerprint.value,alpn:advanced.tls.alpn,advanced};
+  const bundle=[...document.querySelectorAll('#protocolBundleOptions input:checked')].map(x=>x.value);
+  return {label:configEditValue('cName').trim()||undefined,protocol:configEditValue('cProto')||undefined,bundle_protocols:bundle,category_id:'0',sub_id:configEditValue('cSubGroup')||undefined,limit_value:Number(configEditValue('cLimit'))||0,limit_unit:configEditValue('cUnit')||'GB',expires_days:Number(configEditValue('cDays'))||0,ip_limit:Number(configEditValue('cIp'))||0,speed_limit_value:Number(configEditValue('cSpeed'))||0,speed_limit_unit:'MBIT',all_protocols:!!document.getElementById('cAllProtocols')?.checked,port:ports[0],fingerprint:advanced.fingerprint.value,alpn:advanced.tls.alpn,advanced};
 }
 async function saveEditedConfig(){
   const uid=__configEditUid;if(!uid)return false;
@@ -13164,6 +13255,21 @@ async function loadProtocols(){
       ||'<option value="vless-ws">ONEX WB</option>';
   });
   setupProtocolPickers();
+  const bundle=document.getElementById('protocolBundleOptions');
+  if(bundle){
+    const ids=['vless-ws','siderail-vless-xhttp','vmess-ws','trojan-ws','vless-httpupgrade'];
+    bundle.innerHTML=ids.filter(id=>list.some(p=>p.id===id)).map(id=>`<label style="display:flex;align-items:center;gap:6px;padding:8px;border:1px solid rgba(96,165,250,.2);border-radius:10px;font-size:10px"><input type="checkbox" value="${id}"> <span>${esc(protocolPickerShort(id))}</span></label>`).join('');
+  }
+}
+async function loadAdBlocker(){
+  const r=await api('/api/ad-blocker');if(!r)return;
+  const e=document.getElementById('adBlockEnabled'),d=document.getElementById('adBlockDomains');
+  if(e)e.checked=!!r.enabled;if(d)d.value=(r.domains||[]).join('\n');
+}
+async function saveAdBlocker(){
+  const e=document.getElementById('adBlockEnabled'),d=document.getElementById('adBlockDomains');
+  const r=await api('/api/ad-blocker',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({enabled:!!e?.checked,domains:d?.value||''})});
+  if(r)toast('مسدودکننده تبلیغات ذخیره شد');
 }
 let __allLinks=[];
 let cfgStatusFilter='all',cfgSortMode='newest';
@@ -13529,6 +13635,7 @@ document.addEventListener('keydown',e=>{if(e.key==='Escape')closeProtocolPicker(
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',()=>{setupProtocolPickers();syncAllProtocolToggle()});else {setupProtocolPickers();syncAllProtocolToggle();}setTimeout(setupProtocolPickers,300);setTimeout(setupProtocolPickers,1000);
 
 applyLang();loadMe();loadProtocols();loadCategories();loadGroups();refreshAll();setTimeout(()=>{if(document.getElementById('advancedPorts')&&!getAdvancedPorts().length)fillAdvancedForm({ports:[443]});loadAdvancedCapabilities(document.getElementById('cProto')?.value||'vless-ws')},250);
+loadAdBlocker();
 setTimeout(()=>{startUpdateNotificationPolling()},1200);
 setTimeout(()=>checkPanelUpdate(true),2500);
 setInterval(()=>checkPanelUpdate(false),10*60*1000);
