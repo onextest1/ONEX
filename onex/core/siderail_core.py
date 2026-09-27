@@ -29,15 +29,12 @@ logger = logging.getLogger("ONEX.SideRail")
 
 VMESS_PORT = int(os.environ.get("ONEX_SR_VMESS_PORT", "18501"))
 XHTTP_PORT = int(os.environ.get("ONEX_SR_XHTTP_PORT", "18503"))
-HTTPUP_PORT = int(os.environ.get("ONEX_SR_HTTPUP_PORT", "18504"))
 
 VMESS_PATH = "/siderail/vmess"
 XHTTP_PATH = "/siderail/xhttp"
-HTTPUP_PATH = "/httpup"
 
 VMESS_PROTOCOLS = {"vmess-ws"}
 XHTTP_PROTOCOLS = {"siderail-vless-xhttp"}
-HTTPUP_PROTOCOLS = {"vless-httpupgrade"}
 
 XRAY_VERSION = os.environ.get("ONEX_XRAY_VERSION", os.environ.get("XRAY_VERSION", "v26.9.9")).strip()
 if XRAY_VERSION and not XRAY_VERSION.startswith("v"):
@@ -140,7 +137,6 @@ class SiderailCore:
     def build_config(self, links: dict[str, dict[str, Any]]) -> dict[str, Any]:
         vmess_users = _uuids_for(links, VMESS_PROTOCOLS)
         xhttp_users = _uuids_for(links, XHTTP_PROTOCOLS)
-        httpup_users = _uuids_for(links, HTTPUP_PROTOCOLS)
         inbounds: list[dict[str, Any]] = []
         if vmess_users:
             inbounds.append({
@@ -163,22 +159,6 @@ class SiderailCore:
                     "decryption": "none",
                 },
                 "streamSettings": {"network": "xhttp", "xhttpSettings": {"path": XHTTP_PATH, "mode": "auto"}},
-                "sniffing": {"enabled": False},
-            })
-        if httpup_users:
-            inbounds.append({
-                "tag": "siderail-vless-httpupgrade",
-                "listen": "127.0.0.1",
-                "port": HTTPUP_PORT,
-                "protocol": "vless",
-                "settings": {
-                    "clients": [{"id": u, "email": u, "flow": ""} for u in httpup_users],
-                    "decryption": "none",
-                },
-                "streamSettings": {
-                    "network": "httpupgrade",
-                    "httpupgradeSettings": {"path": HTTPUP_PATH},
-                },
                 "sniffing": {"enabled": False},
             })
         outbounds: list[dict[str, Any]] = [
@@ -213,8 +193,8 @@ class SiderailCore:
             "running": self.is_running(),
             "error": self.last_error,
             **self.last_status,
-            "ports": {"vmess_ws": VMESS_PORT, "vless_xhttp": XHTTP_PORT, "vless_httpupgrade": HTTPUP_PORT},
-            "paths": {"vmess_ws": VMESS_PATH, "vless_xhttp": XHTTP_PATH, "vless_httpupgrade": HTTPUP_PATH},
+            "ports": {"vmess_ws": VMESS_PORT, "vless_xhttp": XHTTP_PORT},
+            "paths": {"vmess_ws": VMESS_PATH, "vless_xhttp": XHTTP_PATH},
         }
 
     async def stop(self) -> None:
