@@ -2,7 +2,7 @@
 
 Owns the public port and dispatches raw connections:
   * /siderail/*        -> uvicorn (siderail_bridge -> local Xray)
-  * /httpup/<uuid>     -> uvicorn (httpupgrade_bridge -> VLESS stream)
+  * /httpup/<uuid>     -> pure-python VLESS HTTPUpgrade relay (101 + raw stream)
   * everything else    -> uvicorn (panel, WS relay, XHTTP)
 
 Byte-transparent for anything it does not recognize, so panel behaviour is
@@ -245,9 +245,7 @@ def make_handler(ctx):
         try:
             # /siderail/* is now served per-request by uvicorn (siderail_bridge),
             # so no raw connection is ever pinned to Xray.
-            if path.startswith("/siderail/"):
-                await _relay_to(internal_host, internal_port, head, client_r, client_w)
-            elif path.startswith("/httpup/") and not has_ws_key:
+            if path.startswith("/httpup/") and upgrade and not has_ws_key:
                 await _httpupgrade_relay(path, upgrade, head, client_r, client_w, ctx)
             else:
                 await _relay_to(internal_host, internal_port, head, client_r, client_w)
