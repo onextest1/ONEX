@@ -9759,24 +9759,12 @@ html.light .onex-topbar-brand{background:#fff;border-color:rgba(37,99,235,.16);b
 
 <style>
 .create-edit-actions{display:flex;gap:8px;align-items:center}.config-edit-banner{display:flex;align-items:center;gap:10px;margin:0 0 12px;padding:11px 13px;border:1px solid rgba(255,71,120,.28);border-radius:15px;background:linear-gradient(135deg,rgba(255,31,92,.10),rgba(37,99,235,.08));color:#dcecff}.config-edit-banner-icon{width:34px;height:34px;display:grid;place-items:center;border-radius:10px;background:rgba(255,71,120,.12);border:1px solid rgba(255,71,120,.24);color:#ff7092;font-size:16px}.config-edit-banner div{min-width:0;display:flex;flex-direction:column;gap:2px}.config-edit-banner b{font-size:11px;color:#fff}.config-edit-banner small{font-size:9px;color:#ff9ab0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:48vw}.config-edit-banner-hint{margin-right:auto;color:var(--t3);font-size:8px}@media(max-width:560px){.config-edit-banner{align-items:flex-start}.config-edit-banner-hint{display:none}.create-edit-actions{margin-top:2px}.create-edit-actions .btn{font-size:9px;height:36px;padding:0 10px}}
-</style>
-
-<style id="onex-config-wizard-css">
-#page-create .config-wizard{display:grid;grid-template-columns:minmax(0,1fr) 330px;gap:18px;align-items:start}
-#page-create .wizard-main{min-width:0}
-#page-create .wizard-stepper{display:grid;grid-template-columns:repeat(7,minmax(70px,1fr));gap:7px;padding:10px;margin-bottom:14px;border:1px solid rgba(96,165,250,.16);border-radius:18px;background:linear-gradient(145deg,rgba(13,25,48,.86),rgba(6,13,27,.92));box-shadow:0 18px 45px rgba(0,0,0,.18)}
-#page-create .wizard-step{position:relative;border:0;background:transparent;color:var(--t3);padding:7px 4px;cursor:pointer;font:700 10px Vazirmatn;display:flex;flex-direction:column;align-items:center;gap:6px;min-width:0}
-#page-create .wizard-step:before{content:attr(data-step);width:28px;height:28px;display:grid;place-items:center;border-radius:50%;border:1px solid rgba(148,163,184,.24);background:rgba(15,23,42,.72);color:var(--t3);font:800 10px var(--mono);transition:.25s}
-#page-create .wizard-step.active{color:#fff}.wizard-step.done{color:#8ee7c0}.wizard-step.active:before{background:linear-gradient(135deg,#2563eb,#7c3aed);border-color:rgba(96,165,250,.8);box-shadow:0 0 0 4px rgba(37,99,235,.12),0 8px 24px rgba(37,99,235,.28);color:#fff}.wizard-step.done:before{content:'✓';border-color:rgba(52,211,153,.5);color:#7ee7b5;background:rgba(16,185,129,.12)}
-#page-create .wizard-content{border:1px solid rgba(96,165,250,.13);border-radius:20px;background:linear-gradient(145deg,rgba(10,20,39,.88),rgba(5,12,25,.94));padding:18px;min-height:620px}
-#page-create .wizard-panel{display:none}.wizard-panel.active{display:block;animation:wizIn .28s ease-out}.wizard-panel h3{margin:0 0 4px;font-size:17px;color:#f7fbff}.wizard-panel>p{margin:0 0 16px;color:var(--t3);font-size:10px}.wizard-grid-2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.wizard-card{padding:15px;border:1px solid rgba(148,163,184,.12);border-radius:16px;background:rgba(15,23,42,.52)}.wizard-card .card-title{margin-bottom:13px}.wizard-card .field{margin-bottom:10px}.wizard-card .field:last-child{margin-bottom:0}
-#page-create .wizard-content .field label{font-size:10px}.wizard-proto-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.wizard-proto-grid .field{margin:0}.wizard-panel .advanced-section{margin-bottom:12px}.wizard-panel .advanced-section:last-child{margin-bottom:0}
-#page-create .config-wizard-preview{position:sticky;top:16px;border:1px solid rgba(96,165,250,.17);border-radius:20px;background:linear-gradient(145deg,rgba(11,24,47,.92),rgba(5,12,25,.97));padding:15px;box-shadow:0 24px 60px rgba(0,0,0,.22)}
-.wiz-preview-head{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:12px}.wiz-preview-head b{font-size:13px}.wiz-live{font-size:8px;color:#7ee7b5;display:flex;align-items:center;gap:5px}.wiz-live i{width:6px;height:6px;border-radius:50%;background:#34d399;box-shadow:0 0 10px #34d399}.wiz-summary{padding:12px;border-radius:15px;background:rgba(2,6,23,.5);border:1px solid rgba(148,163,184,.1);margin-bottom:10px}.wiz-summary-title{font-size:14px;font-weight:900;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.wiz-summary-sub{font-size:9px;color:var(--t3);margin-top:3px}.wiz-kv{display:grid;gap:7px;margin-top:12px}.wiz-kv div{display:flex;justify-content:space-between;gap:10px;font-size:9px}.wiz-kv span:first-child{color:var(--t3)}.wiz-kv span:last-child{color:#dbeafe;font-weight:800;text-align:end;max-width:60%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.wiz-status{margin-top:10px;padding:10px;border-radius:12px;font-size:9px;line-height:1.8;background:rgba(16,185,129,.08);border:1px solid rgba(52,211,153,.18);color:#a7f3d0}.wiz-actions{display:flex;justify-content:space-between;gap:8px;margin-top:14px;padding-top:13px;border-top:1px solid rgba(148,163,184,.1)}.wiz-actions .btn{min-width:110px}.wiz-actions .wiz-next{margin-inline-start:auto}.wiz-draft{font-size:8px;color:var(--t3);text-align:center;margin-top:8px}.wizard-review-box{padding:13px;border:1px solid rgba(96,165,250,.14);border-radius:16px;background:rgba(15,23,42,.45);margin-bottom:12px}.wizard-review-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}.wizard-review-item{padding:10px;border-radius:12px;background:rgba(2,6,23,.4);border:1px solid rgba(148,163,184,.08)}.wizard-review-item small{display:block;color:var(--t3);font-size:8px;margin-bottom:4px}.wizard-review-item b{font-size:10px;color:#e5edff}.wizard-create{width:100%;height:44px;font-size:11px;margin-top:10px}
-#page-create .wizard-panel .config-edit-banner{margin-bottom:12px}.wizard-hidden-source{display:none!important}
-@keyframes wizIn{from{opacity:.25;transform:translateY(5px)}to{opacity:1;transform:none}}
-@media(max-width:1050px){#page-create .config-wizard{grid-template-columns:1fr}.config-wizard-preview{position:relative!important;top:auto!important;order:-1}.wizard-content{min-height:0!important}}
-@media(max-width:700px){#page-create .wizard-stepper{grid-template-columns:repeat(4,1fr)}#page-create .wizard-step:nth-child(n+5){display:none}.wizard-grid-2,.wizard-review-grid{grid-template-columns:1fr}.wizard-proto-grid{grid-template-columns:1fr}.wizard-content{padding:12px!important}}
+.config-wizard-shell{display:grid;grid-template-columns:minmax(0,1fr) 285px;gap:16px;align-items:start;margin-bottom:16px}
+.config-wizard-main,.config-wizard-side{background:linear-gradient(145deg,rgba(10,30,62,.92),rgba(5,16,37,.96));border:1px solid rgba(80,150,255,.22);border-radius:18px;box-shadow:0 16px 45px rgba(0,0,0,.22),inset 0 1px rgba(255,255,255,.05)}
+.config-wizard-main{padding:20px}.config-wizard-side{padding:16px;position:sticky;top:18px}
+.wizard-kicker{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:18px}.wizard-kicker b{font-size:18px}.wizard-kicker small{color:#7fa0c6;font-size:11px}
+.wizard-steps{display:grid;grid-template-columns:repeat(7,1fr);gap:6px;margin-bottom:22px}.wizard-step{border:0;background:transparent;color:#6682a8;cursor:pointer;padding:5px 2px;font:700 10px Vazirmatn;position:relative}.wizard-step i{display:grid;place-items:center;width:27px;height:27px;border-radius:50%;margin:0 auto 6px;background:#0c2346;border:1px solid #234b80;color:#7fa0c6;font-style:normal;font-family:ui-monospace}.wizard-step.on{color:#b9d6ff}.wizard-step.on i{background:#2563eb;border-color:#5ca2ff;color:#fff;box-shadow:0 0 0 4px rgba(37,99,235,.16),0 0 20px rgba(37,99,235,.42)}.wizard-step.done i{background:#0e8f71;border-color:#38e5b0;color:#d7fff2}.wizard-panel{display:none;min-height:310px}.wizard-panel.on{display:block;animation:wzIn .25s ease-out}.wizard-panel h3{font-size:16px;margin-bottom:4px}.wizard-panel>p{color:#80a0c5;font-size:11px;margin-bottom:18px}.wz-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.wz-field{display:flex;flex-direction:column;gap:6px}.wz-field.full{grid-column:1/-1}.wz-field label{font-size:11px;color:#86a8ce}.wz-field input,.wz-field select{height:42px;border-radius:10px;border:1px solid rgba(96,150,220,.25);background:#071a36;color:#e7f1ff;padding:0 11px;outline:none;font:500 12px Vazirmatn}.wz-field input:focus,.wz-field select:focus{border-color:#3b82f6;box-shadow:0 0 0 3px rgba(59,130,246,.14)}.wz-field input::placeholder{color:#4c6a8f}.wz-toggle{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px;border:1px solid rgba(96,150,220,.20);border-radius:12px;background:rgba(6,23,48,.7);color:#c8dbf3;font-size:11px}.wz-toggle input{accent-color:#3b82f6}.wz-protocol-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}.wz-proto{min-height:96px;border:1px solid rgba(96,150,220,.24);border-radius:13px;background:#071b39;color:#dcecff;text-align:left;padding:12px;cursor:pointer;transition:transform .2s,border-color .2s,background .2s}.wz-proto:hover{transform:translateY(-2px);border-color:#4f9cff}.wz-proto.on{background:linear-gradient(145deg,rgba(37,99,235,.34),rgba(21,53,108,.72));border-color:#4f9cff;box-shadow:0 0 0 2px rgba(59,130,246,.18)}.wz-proto b{display:block;font-size:12px}.wz-proto small{display:block;color:#7898bd;font-size:9px;margin-top:8px}.wz-proto span{display:block;font-size:18px;margin-bottom:8px}.wz-actions{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-top:20px;padding-top:14px;border-top:1px solid rgba(96,150,220,.16)}.wz-actions button{min-width:106px}.wz-side-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:13px}.wz-side-head b{font-size:12px}.wz-live{font-size:9px;color:#38e5b0}.wz-live:before{content:'';display:inline-block;width:6px;height:6px;border-radius:50%;background:#38e5b0;margin-left:5px;box-shadow:0 0 9px #38e5b0}.wz-preview{border:1px solid rgba(96,150,220,.18);border-radius:12px;background:#06152d;padding:12px;margin-bottom:12px}.wz-preview strong{display:block;color:#dcecff;font-size:12px;margin-bottom:10px}.wz-preview dl{display:grid;grid-template-columns:1fr auto;gap:8px;font-size:10px}.wz-preview dt{color:#6e8eaf}.wz-preview dd{color:#d7e8ff;margin:0;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.wz-valid{font-size:10px;line-height:1.8;color:#7fa0c6;padding:10px;border-radius:10px;background:rgba(14,143,113,.08);border:1px solid rgba(56,229,176,.18)}.wz-valid.bad{color:#ff9ead;background:rgba(220,38,78,.10);border-color:rgba(255,92,120,.24)}.wz-review{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.wz-review div{padding:11px;border-radius:10px;background:#071a36;border:1px solid rgba(96,150,220,.16)}.wz-review small{display:block;color:#6e8eaf;font-size:9px}.wz-review b{display:block;color:#e3efff;font-size:11px;margin-top:4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}@keyframes wzIn{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:none}}.config-wizard-shell + .g2{display:none}.wizard-show-legacy .config-wizard-shell + .g2{display:grid}
+@media(max-width:980px){.config-wizard-shell{grid-template-columns:1fr}.config-wizard-side{position:static}.wz-protocol-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}@media(max-width:560px){.config-wizard-main{padding:14px}.wizard-steps{gap:0}.wizard-step{font-size:8px}.wizard-step i{width:23px;height:23px}.wz-grid,.wz-review{grid-template-columns:1fr}.wz-protocol-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.wz-actions{flex-wrap:wrap}}
 </style>
 <section class="page" id="page-create">
   <div class="page-head">
@@ -9784,6 +9772,23 @@ html.light .onex-topbar-brand{background:#fff;border-color:rgba(37,99,235,.16);b
     <div class="create-edit-actions"><button type="button" class="btn btn-sm" id="cancelConfigEditBtn" onclick="cancelConfigEdit()" hidden>انصراف</button></div>
   </div>
   <div class="config-edit-banner" id="configEditBanner" hidden><span class="config-edit-banner-icon">✎</span><div><b>در حال ویرایش کانفیگ</b><small id="configEditBannerName">—</small></div><span class="config-edit-banner-hint">تغییرات فقط با «ذخیره تغییرات» اعمال می‌شود</span></div>
+  <div class="config-wizard-shell" id="configWizard">
+    <div class="config-wizard-main">
+      <div class="wizard-kicker"><div><b>ساخت کانفیگ جدید</b><small>مرحله‌به‌مرحله، با پیش‌نمایش زنده و اعتبارسنجی قبل از ساخت</small></div><span class="wz-live">Auto Save</span></div>
+      <div class="wizard-steps" id="wizardSteps">
+        <button class="wizard-step on" type="button" data-step="0"><i>1</i>پایه</button><button class="wizard-step" type="button" data-step="1"><i>2</i>پروتکل</button><button class="wizard-step" type="button" data-step="2"><i>3</i>امنیت</button><button class="wizard-step" type="button" data-step="3"><i>4</i>شبکه</button><button class="wizard-step" type="button" data-step="4"><i>5</i>مسیر</button><button class="wizard-step" type="button" data-step="5"><i>6</i>پیشرفته</button><button class="wizard-step" type="button" data-step="6"><i>7</i>مرور</button>
+      </div>
+      <div class="wizard-panel on" data-panel="0"><h3>اطلاعات پایه</h3><p>نام، محدودیت‌ها و گروه اشتراک را همین‌جا تنظیم کن.</p><div class="wz-grid"><div class="wz-field full"><label>نام کانفیگ</label><input id="wzName" placeholder="ONEX-IRAN-01"></div><div class="wz-field"><label>گروه اشتراک</label><select id="wzSubGroup"><option value="">بدون گروه (عمومی)</option></select></div><div class="wz-field"><label>انقضا، روز</label><input id="wzDays" type="number" min="0" value="0"></div><div class="wz-field"><label>محدودیت حجم</label><input id="wzLimit" type="number" min="0" value="0"></div><div class="wz-field"><label>واحد حجم</label><select id="wzUnit"><option>GB</option><option>MB</option><option>KB</option></select></div><label class="wz-toggle full"><span>همه پروتکل‌های Railway در یک Subscription</span><input id="wzAllProtocols" type="checkbox"></label></div></div>
+      <div class="wizard-panel" data-panel="1"><h3>انتخاب پروتکل</h3><p>پروتکل را انتخاب کن؛ تنظیمات اختصاصی در مراحل بعدی فعال می‌شوند.</p><div class="wz-protocol-grid" id="wzProtocolGrid"></div><div class="wz-actions"><button type="button" class="btn" onclick="openProtocolPicker('cProto')">لیست کامل پروتکل‌ها</button><span id="wzProtoHint" style="color:#7898bd;font-size:10px">VLESS</span></div></div>
+      <div class="wizard-panel" data-panel="2"><h3>امنیت اتصال</h3><p>TLS، Reality و fingerprint را بدون گم‌شدن در تنظیمات ریز کنترل کن.</p><div class="wz-grid"><div class="wz-field"><label>حالت امنیت</label><select id="wzSecurity"><option value="tls">TLS</option><option value="reality">Reality</option><option value="none">بدون TLS</option></select></div><div class="wz-field"><label>Fingerprint</label><select id="wzFingerprint"><option>chrome</option><option>firefox</option><option>safari</option><option>ios</option><option>android</option><option>edge</option><option>randomized</option></select></div><div class="wz-field full"><label>SNI / Server Name</label><input id="wzSni" placeholder="example.com"></div></div></div>
+      <div class="wizard-panel" data-panel="3"><h3>تنظیمات شبکه</h3><p>نوع انتقال، مسیر و پورت اصلی را مشخص کن.</p><div class="wz-grid"><div class="wz-field"><label>Transport</label><select id="wzNetwork"><option value="ws">WebSocket</option><option value="xhttp">XHTTP</option><option value="grpc">gRPC</option><option value="tcp">TCP</option><option value="http">HTTP</option><option value="h2">HTTP/2</option><option value="quic">QUIC</option><option value="kcp">mKCP</option></select></div><div class="wz-field"><label>پورت اصلی</label><input id="wzPort" type="number" min="1" max="65535" value="443"></div><div class="wz-field full"><label>Path / Service Name</label><input id="wzPath" placeholder="/ws یا ONEX"></div></div></div>
+      <div class="wizard-panel" data-panel="4"><h3>مسیریابی و کنترل</h3><p>رفتار DNS، sniffing و محدودیت‌های مصرف را انتخاب کن.</p><div class="wz-grid"><div class="wz-field"><label>Domain Strategy</label><select id="wzDomain"><option value="">Auto</option><option value="prefer_ipv4">Prefer IPv4</option><option value="prefer_ipv6">Prefer IPv6</option><option value="ipv4_only">IPv4 Only</option><option value="ipv6_only">IPv6 Only</option></select></div><div class="wz-field"><label>Route / Outbound</label><input id="wzRoute" placeholder="direct"></div><label class="wz-toggle"><span>Sniff مقصد</span><input id="wzSniff" type="checkbox"></label><label class="wz-toggle"><span>Ad Blocker</span><input id="wzAdBlock" type="checkbox"></label></div></div>
+      <div class="wizard-panel" data-panel="5"><h3>تنظیمات پیشرفته</h3><p>قبل از ساخت اعتبارسنجی کن؛ تنظیمات کامل سرور هم همچنان در دسترس است.</p><div class="wz-review"><div><small>Reality</small><b id="wzRealityState">TLS</b></div><div><small>Fingerprint</small><b id="wzFpState">chrome</b></div><div><small>Transport</small><b id="wzNetworkState">WebSocket</b></div><div><small>Port</small><b id="wzPortState">443</b></div></div><div class="wz-actions"><button type="button" class="btn btn-p" onclick="validateAdvancedConfig(true)">✓ اعتبارسنجی و پیش‌نمایش</button><button type="button" class="btn" onclick="toggleWizardLegacy()">باز کردن ویرایشگر کامل</button></div><div id="wzValidation" class="wz-valid" style="margin-top:14px">برای بررسی نهایی، روی اعتبارسنجی بزن.</div></div>
+      <div class="wizard-panel" data-panel="6"><h3>مرور و ساخت</h3><p>یک نگاه آخر، بعد ساخت کانفیگ واقعی و همگام‌سازی سرویس.</p><div class="wz-review"><div><small>نام</small><b id="wzReviewName">—</b></div><div><small>پروتکل</small><b id="wzReviewProto">—</b></div><div><small>امنیت</small><b id="wzReviewSecurity">—</b></div><div><small>شبکه</small><b id="wzReviewNetwork">—</b></div><div><small>پورت</small><b id="wzReviewPort">—</b></div><div><small>محدودیت</small><b id="wzReviewLimit">—</b></div></div><div class="wz-actions"><button type="button" class="btn" onclick="wizardStep(-1)">قبلی</button><button type="button" class="btn btn-p" onclick="wizardCreate()">ساخت Configuration</button></div></div>
+      <div class="wz-actions" id="wizardNav"><button type="button" class="btn" onclick="wizardStep(-1)">قبلی</button><button type="button" class="btn btn-p" onclick="wizardStep(1)">بعدی ⟶</button></div>
+    </div>
+    <aside class="config-wizard-side"><div class="wz-side-head"><b>Live Configuration Preview</b><span class="wz-live">Ready</span></div><div class="wz-preview"><strong id="wzSideName">ONEX-IRAN-01</strong><dl><dt>Protocol</dt><dd id="wzSideProto">VLESS</dd><dt>Security</dt><dd id="wzSideSecurity">TLS</dd><dt>Network</dt><dd id="wzSideNetwork">WebSocket</dd><dt>Port</dt><dd id="wzSidePort">443</dd><dt>Group</dt><dd id="wzSideGroup">Default</dd></dl></div><div class="wz-valid">● همه تغییرات قبل از ساخت به API فعلی متصل می‌مانند و Preview از همان payload نهایی ساخته می‌شود.</div></aside>
+  </div>
   <div class="g2">
     <div class="card">
       <div class="card-title" data-i18n="manual_create">ساخت دستی</div>
@@ -9961,28 +9966,6 @@ Cache-Control: no-cache"></textarea></div>
       </div>
     </div>
 
-  </div>
-  <div class="config-wizard" id="configWizard">
-    <div class="wizard-main">
-      <div class="wizard-stepper" id="configWizardStepper">
-        <button class="wizard-step active" data-step="1" data-wizard="0" type="button">پایه</button><button class="wizard-step" data-step="2" data-wizard="1" type="button">پروتکل</button><button class="wizard-step" data-step="3" data-wizard="2" type="button">امنیت</button><button class="wizard-step" data-step="4" data-wizard="3" type="button">شبکه</button><button class="wizard-step" data-step="5" data-wizard="4" type="button">مسیریابی</button><button class="wizard-step" data-step="6" data-wizard="5" type="button">پیشرفته</button><button class="wizard-step" data-step="7" data-wizard="6" type="button">بررسی</button>
-      </div>
-      <div class="wizard-content">
-        <div class="wizard-panel active" data-panel="0"><h3>اطلاعات پایه</h3><p>هویت کانفیگ، گروه، محدودیت‌ها و مدت اعتبار را مشخص کنید.</p><div id="wizBasic"></div></div>
-        <div class="wizard-panel" data-panel="1"><h3>انتخاب پروتکل</h3><p>پروتکل اصلی و پروتکل‌های اشتراکی را انتخاب کنید.</p><div id="wizProtocol" class="wizard-proto-grid"></div></div>
-        <div class="wizard-panel" data-panel="2"><h3>امنیت و TLS</h3><p>TLS، Reality، SNI و fingerprint را در یک مرحله کنترل کنید.</p><div id="wizSecurity"></div></div>
-        <div class="wizard-panel" data-panel="3"><h3>Network & Transport</h3><p>نوع شبکه، Host، Path، gRPC، XHTTP و پارامترهای انتقال.</p><div id="wizNetwork"></div></div>
-        <div class="wizard-panel" data-panel="4"><h3>Routing & Listener</h3><p>مسیریابی، sniffing، پورت‌ها و تنظیمات Listener سرور.</p><div id="wizRouting"></div></div>
-        <div class="wizard-panel" data-panel="5"><h3>تنظیمات پیشرفته</h3><p>تنظیمات اختصاصی پروتکل و Headerهای سفارشی را تکمیل کنید.</p><div id="wizAdvanced"></div></div>
-        <div class="wizard-panel" data-panel="6"><h3>بررسی و ساخت</h3><p>قبل از ساخت، خلاصه تنظیمات و Preview نهایی را بررسی و اعتبارسنجی کنید.</p><div id="wizReview"></div></div>
-        <div class="wiz-actions"><button type="button" class="btn" id="wizPrev">← قبلی</button><span class="wiz-draft" id="wizDraftStatus">ذخیره خودکار فعال است</span><button type="button" class="btn btn-p wiz-next" id="wizNext">بعدی →</button></div>
-      </div>
-    </div>
-    <aside class="config-wizard-preview">
-      <div class="wiz-preview-head"><b>Live Configuration Preview</b><span class="wiz-live"><i></i> LIVE</span></div>
-      <div class="wiz-summary"><div class="wiz-summary-title" id="wizPreviewName">ONEX CONFIG</div><div class="wiz-summary-sub" id="wizPreviewSub">VLESS · TLS · WebSocket</div><div class="wiz-kv"><div><span>Protocol</span><span id="wizPvProto">—</span></div><div><span>Security</span><span id="wizPvSecurity">—</span></div><div><span>Network</span><span id="wizPvNetwork">—</span></div><div><span>Port</span><span id="wizPvPort">443</span></div><div><span>Group</span><span id="wizPvGroup">—</span></div><div><span>Expiry</span><span id="wizPvExpiry">Unlimited</span></div></div></div>
-      <div class="wiz-status" id="wizPvStatus">✓ آماده تنظیمات اولیه — در مرحله بررسی اعتبارسنجی نهایی انجام می‌شود.</div>
-    </aside>
   </div>
 </section>
 
@@ -12878,6 +12861,51 @@ async function doManualCreate(){
   const body=collectConfigFormBody();
   const r=await api('/api/links',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}); if(r){showResult(r);refreshAll();saveAdvancedDraft()}
 }
+let __wizardStep=0;
+function wz(id){return document.getElementById(id)}
+function wzVal(id){return wz(id)?.value||''}
+function wzSet(id,v){if(wz(id))wz(id).value=v??''}
+function wizardSyncToLegacy(){
+  wzSet('cName',wzVal('wzName'));wzSet('cSubGroup',wzVal('wzSubGroup'));wzSet('cDays',wzVal('wzDays'));wzSet('cLimit',wzVal('wzLimit'));wzSet('cUnit',wzVal('wzUnit'));wz('cAllProtocols').checked=!!wz('wzAllProtocols')?.checked;
+  wzSet('advTlsMode',wzVal('wzSecurity'));wzSet('advSni',wzVal('wzSni'));wzSet('advFp',wzVal('wzFingerprint'));wzSet('advNetwork',wzVal('wzNetwork'));wzSet('advPath',wzVal('wzPath'));wzSet('advDomainStrategy',wzVal('wzDomain'));wzSet('advRoute',wzVal('wzRoute'));wz('advSniff').checked=!!wz('wzSniff')?.checked;wz('cAdBlockEnabled').checked=!!wz('wzAdBlock')?.checked;
+  const p=Number(wzVal('wzPort'))||443;wzSet('cPort',p);wzSet('advPortInput',p);fillAdvancedForm({...advancedFormObject(),ports:[p]});
+}
+function wizardProtoLabel(id){const p=(window.__protocolList||[]).find(x=>x.id===id);return p?.label||id||'VLESS'}
+function renderWizardProtocols(){
+  const box=wz('wzProtocolGrid'),sel=wz('cProto');if(!box||!sel)return;
+  const ids=[...sel.options].map(o=>o.value),current=sel.value||ids[0]||'vless-ws';
+  const visible=ids.slice(0,9);
+  box.innerHTML=visible.map((id,i)=>`<button type="button" class="wz-proto ${id===current?'on':''}" data-proto="${esc(id)}"><span>${['◈','◉','◌','✦','⬡','◍','◇','◎','◈'][i%9]}</span><b>${esc(wizardProtoLabel(id))}</b><small>${id===current?'انتخاب‌شده':'برای انتخاب کلیک کن'}</small></button>`).join('');
+  box.querySelectorAll('.wz-proto').forEach(btn=>btn.onclick=()=>{sel.value=btn.dataset.proto;syncProtocolPicker('cProto');syncAllProtocolToggle();renderWizardProtocols();wizardRender();});
+  wzSet('wzProtoHint',wizardProtoLabel(current));
+}
+function wizardCopyGroups(){
+  const src=wz('cSubGroup'),dst=wz('wzSubGroup');if(!src||!dst)return;
+  dst.innerHTML=src.innerHTML;dst.value=src.value||'';
+}
+function wizardRender(){
+  const proto=wizardProtoLabel(wzVal('cProto')),security=wzVal('wzSecurity')||'TLS',network=wzVal('wzNetwork')||'ws',name=wzVal('wzName')||'ONEX-IRAN-01',port=wzVal('wzPort')||'443',group=wzVal('wzSubGroup')||'Default',limit=wzVal('wzLimit')?`${wzVal('wzLimit')} ${wzVal('wzUnit')}`:'بدون محدودیت';
+  ['wzSideName','wzReviewName'].forEach(id=>{if(wz(id))wz(id).textContent=name});['wzSideProto','wzReviewProto','wzProtoHint'].forEach(id=>{if(wz(id))wz(id).textContent=proto});['wzSideSecurity','wzReviewSecurity','wzRealityState'].forEach(id=>{if(wz(id))wz(id).textContent=security});['wzSideNetwork','wzReviewNetwork','wzNetworkState'].forEach(id=>{if(wz(id))wz(id).textContent=network});['wzSidePort','wzReviewPort','wzPortState'].forEach(id=>{if(wz(id))wz(id).textContent=port});if(wz('wzSideGroup'))wz('wzSideGroup').textContent=group;if(wz('wzReviewLimit'))wz('wzReviewLimit').textContent=limit;if(wz('wzFpState'))wz('wzFpState').textContent=wzVal('wzFingerprint')||'chrome';
+}
+function wizardShowStep(next){
+  __wizardStep=Math.max(0,Math.min(6,__wizardStep+next));
+  wizardSyncToLegacy();
+  document.querySelectorAll('#configWizard .wizard-panel').forEach(x=>x.classList.toggle('on',Number(x.dataset.panel)===__wizardStep));
+  document.querySelectorAll('#wizardSteps .wizard-step').forEach((x,i)=>{x.classList.toggle('on',i===__wizardStep);x.classList.toggle('done',i<__wizardStep)});
+  if(wz('wizardNav'))wz('wizardNav').style.display=__wizardStep===6?'none':'flex';
+  wizardRender();if(__wizardStep===1)renderWizardProtocols();if(__wizardStep===6)wizardSyncToLegacy();
+}
+function wizardStep(delta){if(delta>0&&__wizardStep===0&&!wzVal('wzName').trim()){wz('wzName').focus();toast(lang==='fa'?'نام کانفیگ را وارد کن':'Enter a config name');return}wizardShowStep(delta)}
+function toggleWizardLegacy(){document.getElementById('page-create')?.classList.toggle('wizard-show-legacy');document.getElementById('advancedToggle')?.click()}
+async function wizardCreate(){wizardSyncToLegacy();const valid=await validateAdvancedConfig(false);if(!valid){wizardShowStep( -1);return}await doManualCreate()}
+function initConfigWizard(){
+  if(!wz('configWizard'))return;
+  wz('wzName').value=wz('cName')?.value||'ONEX-IRAN-01';
+  wz('wzSecurity').value=wz('advTlsMode')?.value||'tls';wz('wzFingerprint').value=wz('advFp')?.value||'chrome';wz('wzNetwork').value=wz('advNetwork')?.value||'ws';wz('wzPath').value=wz('advPath')?.value||'';wz('wzPort').value=wz('cPort')?.value||'443';
+  ['wzName','wzSubGroup','wzDays','wzLimit','wzUnit','wzAllProtocols','wzSecurity','wzFingerprint','wzSni','wzNetwork','wzPort','wzPath','wzDomain','wzRoute','wzSniff','wzAdBlock'].forEach(id=>wz(id)?.addEventListener('input',()=>{wizardSyncToLegacy();wizardRender()}));
+  document.querySelectorAll('#wizardSteps .wizard-step').forEach(btn=>btn.onclick=()=>{__wizardStep=Number(btn.dataset.step);wizardShowStep(0)});
+  wizardCopyGroups();renderWizardProtocols();wizardRender();
+}
 document.addEventListener('change',e=>{if(e.target?.id==='advTlsMode')updateRealityVisibility();if(e.target?.id==='cProto')loadAdvancedCapabilities(e.target.value)});
 
 async function doChangePw(){
@@ -13766,7 +13794,7 @@ function chooseProtocol(id){const sel=document.getElementById(__protocolPickerTa
 function confirmProtocolPicker(){if(__protocolPickerTarget){const sel=document.getElementById(__protocolPickerTarget);if(sel)sel.dispatchEvent(new Event('change',{bubbles:true}))}closeProtocolPicker()}
 function closeProtocolPicker(){const bg=document.getElementById('protocolPickerBg');if(bg)bg.classList.remove('open');document.body.style.overflow=''}
 document.addEventListener('keydown',e=>{if(e.key==='Escape')closeProtocolPicker()});
-if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',()=>{setupProtocolPickers();syncAllProtocolToggle()});else {setupProtocolPickers();syncAllProtocolToggle();}setTimeout(setupProtocolPickers,300);setTimeout(setupProtocolPickers,1000);
+if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',()=>{setupProtocolPickers();syncAllProtocolToggle();initConfigWizard()});else {setupProtocolPickers();syncAllProtocolToggle();initConfigWizard();}setTimeout(setupProtocolPickers,300);setTimeout(setupProtocolPickers,1000);setTimeout(()=>{wizardCopyGroups();renderWizardProtocols();wizardRender()},700);
 
 applyLang();loadMe();loadProtocols();loadCategories();loadGroups();refreshAll();setTimeout(()=>{if(document.getElementById('advancedPorts')&&!getAdvancedPorts().length)fillAdvancedForm({ports:[443]});loadAdvancedCapabilities(document.getElementById('cProto')?.value||'vless-ws')},250);
 loadAdBlocker();
@@ -14113,46 +14141,6 @@ window.addEventListener('storage',e=>{if(e.key==='onex_theme_v2')loadOnexTheme()
     for(const o of objs){o.y-=dt*.025;if(o.y<-7)o.y=7;drawShape(o,tm)}requestAnimationFrame(frame)}requestAnimationFrame(frame);
 })();
 </script>
-<script id="onex-config-wizard-js">
-(function(){
-  function initConfigWizard(){
-    const page=document.getElementById('page-create'); if(!page||page.dataset.wizardReady)return;
-    const source=page.querySelector('.g2'); const basic=source?.querySelector('.card'); const advanced=source?.querySelector('.advanced-config-card');
-    if(!source||!basic||!advanced)return;
-    page.dataset.wizardReady='1';
-    const $=(q)=>document.querySelector(q), $$=(q)=>Array.from(document.querySelectorAll(q));
-    const move=(node,target)=>{if(node&&target)target.appendChild(node)};
-    const closest=(id,sel)=>document.getElementById(id)?.closest(sel);
-    const panels=$$('.wizard-panel'); const steps=$$('.wizard-step'); let current=0;
-    const basicBox=$('#wizBasic'), protoBox=$('#wizProtocol'), secBox=$('#wizSecurity'), netBox=$('#wizNetwork'), routeBox=$('#wizRouting'), advBox=$('#wizAdvanced'), reviewBox=$('#wizReview');
-    // Move real controls into the new wizard; IDs remain untouched so all existing API/form logic keeps working.
-    move(closest('cName','.field'),basicBox); move(closest('cSubGroup','.field'),basicBox); move(closest('cDays','.field'),basicBox); move(closest('cLimit','.field'),basicBox); move(closest('cUnit','.field'),basicBox); move(closest('cIp','.field'),basicBox); move(closest('cSpeed','.field'),basicBox);
-    move(closest('cProto','.protocol-field'),protoBox); move(closest('cAllProtocols','.all-proto-toggle'),protoBox); move(closest('protocolBundleOptions','.field'),protoBox);
-    const secs=$$('.advanced-config-card .advanced-section');
-    [0,2].forEach(i=>move(secs[i],secBox)); [1,3].forEach(i=>move(secs[i],netBox)); [4,5,6].forEach(i=>move(secs[i],routeBox)); [7,8].forEach(i=>move(secs[i],advBox));
-    move(closest('cAdBlockEnabled','.all-proto-toggle'),advBox);
-    move($('#advancedValidationStatus'),reviewBox); move($('#advancedCapabilityStatus'),reviewBox); move($('#advancedPreviewBox'),reviewBox); move(advanced.querySelector('.advanced-actions'),reviewBox);
-    const submit=$('#manualConfigSubmit'); if(submit){reviewBox.appendChild(submit);submit.classList.add('wizard-create')}
-    source.classList.add('wizard-hidden-source');
-    if($('#advancedConfigPanel'))$('#advancedConfigPanel').hidden=false;
-    function text(id,fallback='—'){return document.getElementById(id)?.value?.trim()||fallback}
-    function updatePreview(){
-      const name=text('cName','ONEX CONFIG'),proto=text('cProto','—'),tls=text('advTlsMode','tls'),net=text('advNetwork','ws'),port=(typeof getAdvancedPorts==='function'&&getAdvancedPorts()[0])||text('cPort','443');
-      const group=document.getElementById('cSubGroup'); const groupText=group?.selectedOptions?.[0]?.textContent?.trim()||'عمومی';
-      const days=Number(text('cDays','0'))||0;
-      $('#wizPreviewName').textContent=name; $('#wizPvProto').textContent=proto; $('#wizPvSecurity').textContent=tls==='reality'?'Reality':tls==='tls'?'TLS':'None'; $('#wizPvNetwork').textContent=net; $('#wizPvPort').textContent=port; $('#wizPvGroup').textContent=groupText; $('#wizPvExpiry').textContent=days?days+' روز':'نامحدود'; $('#wizPreviewSub').textContent=[proto,tls==='none'?'None':tls.toUpperCase(),net].join(' · ');
-      const valid=document.getElementById('advancedValidationStatus'); if(valid&&valid.textContent.trim()){$('#wizPvStatus').innerHTML=valid.innerHTML}
-      const summary=$('#wizReview'); if(summary){let old=summary.querySelector('.wizard-review-box');if(!old){old=document.createElement('div');old.className='wizard-review-box';summary.prepend(old)}old.innerHTML='<div class="wizard-review-grid">'+[['نام',name],['پروتکل',proto],['امنیت',tls],['شبکه',net],['پورت',port],['انقضا',days?days+' روز':'نامحدود']].map(x=>'<div class="wizard-review-item"><small>'+x[0]+'</small><b>'+String(x[1]).replace(/[&<>]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[m]))+'</b></div>').join('')+'</div>'}
-    }
-    function setStep(n){current=Math.max(0,Math.min(6,n));panels.forEach((p,i)=>p.classList.toggle('active',i===current));steps.forEach((b,i)=>{b.classList.toggle('active',i===current);b.classList.toggle('done',i<current)});$('#wizPrev').disabled=current===0;const next=$('#wizNext');next.textContent=current===6?'✓ اعتبارسنجی':'بعدی →';updatePreview();window.scrollTo({top:0,behavior:'smooth'})}
-    steps.forEach((b,i)=>b.addEventListener('click',()=>setStep(i))); $('#wizPrev').addEventListener('click',()=>setStep(current-1)); $('#wizNext').addEventListener('click',async()=>{if(current<6){setStep(current+1);return} await validateAdvancedConfig(true);updatePreview()});
-    page.addEventListener('input',()=>{updatePreview();const d=$('#wizDraftStatus');if(d)d.textContent='تغییرات ذخیره‌نشده · Auto Save';}); page.addEventListener('change',()=>{updatePreview();loadAdvancedCapabilities(document.getElementById('cProto')?.value||'')});
-    const oldGo=window.goPage; if(oldGo&&!oldGo.__wizWrapped){const wrap=function(name){const r=oldGo.apply(this,arguments);if(name==='create')setTimeout(()=>{setStep(0);updatePreview()},40);return r};wrap.__wizWrapped=true;window.goPage=wrap}
-    setStep(0);updatePreview();
-  }
-  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',()=>setTimeout(initConfigWizard,50));else setTimeout(initConfigWizard,50);
-})();
-</script>
 </body>
 </html>
 """
@@ -14280,8 +14268,7 @@ h2{font-size:22px;font-weight:900}p{margin-top:10px;color:#a3abc6;font-size:13.5
 a{display:inline-block;margin-top:20px;padding:12px 20px;border-radius:14px;text-decoration:none;font-weight:800;color:#0b0d14;background:linear-gradient(135deg,#38d9ff,#8b5cf6)}
 small{display:block;margin-top:16px;font:500 11px "JetBrains Mono",monospace;color:#6d7594}
 </style></head>
-<body><div class="box"><div class="ic">!</div><h2>خطای داخلی پنل ONEX</h2><p>مشکلی پیش آمد. لطفاً لاگ سرور (Railway) را بررسی کنید و دوباره تلاش کنید.</p><a href="/dashboard">بازگشت به پنل</a><small>ONEX · internal error</small></div>
-</body>
+<body><div class="box"><div class="ic">!</div><h2>خطای داخلی پنل ONEX</h2><p>مشکلی پیش آمد. لطفاً لاگ سرور (Railway) را بررسی کنید و دوباره تلاش کنید.</p><a href="/dashboard">بازگشت به پنل</a><small>ONEX · internal error</small></div></body>
 </html>
 """,
         status_code=500,
