@@ -1194,13 +1194,13 @@ def generate_vless_link(
         if adv["tls"].get("allow_insecure"): q["allowInsecure"] = "1"
         return "vless://" + uuid + "@" + host + ":" + str(port_value) + "?" + "&".join(f"{k}={quote(str(v), safe=',/') }" for k,v in q.items()) + "#" + label
     if protocol == "vless-httpupgrade":
-        # Served by the local sing-box HTTPUpgrade inbound (SideRail shape).
-        path = adv_path or "/siderail/httpupgrade"
+        # Real HTTPUpgrade relay on the front proxy; uuid in path for quota/auth.
+        path = adv_path or f"/httpup/{uuid}"
         q = {"encryption":"none","security":security,"type":"httpupgrade","host":adv_host,"path":path,"sni":adv_sni,"fp":adv_fp,"alpn":adv_alpn}
         if adv["tls"].get("allow_insecure"): q["allowInsecure"] = "1"
         return "vless://" + uuid + "@" + host + ":" + str(port_value) + "?" + "&".join(f"{k}={quote(str(v), safe=',/') }" for k,v in q.items()) + "#" + label
     if protocol == "vmess-ws":
-        # Exact SideRail VMess-WS shape; traffic is piped to the local sing-box
+        # Exact SideRail VMess-WS shape; traffic is piped to the local Xray
         # VMess listener which owns the VMess handshake (alterId 0 / AEAD).
         raw = {"v":"2","ps":remark,"add":host,"port":port_value,"id":uuid,"aid":0,"scy":"auto","net":"ws","type":"none","host":host,"path":"/siderail/vmess","tls":"tls","sni":host,"alpn":"http/1.1","fp":fp}
         return "vmess://" + base64.b64encode(json.dumps(raw,separators=(",",":"),ensure_ascii=False).encode()).decode()
@@ -1568,13 +1568,6 @@ async def load_state():
             link.setdefault("bundle_protocols", [])
             link.setdefault("ad_block_enabled", False)
             link["advanced"] = normalize_advanced_config(link.get("advanced"))
-
-            # Railway migration: configs created as native "vmess" bind a local
-            # TCP port that Railway's edge never exposes, so they can never
-            # ping there. Convert them to the SideRail VMess-WS transport.
-            if (os.environ.get("RAILWAY_ENVIRONMENT_ID") or os.environ.get("RAILWAY_PUBLIC_DOMAIN")) and link.get("protocol") == "vmess":
-                link["protocol"] = "vmess-ws"
-                link["protocol_label"] = PROTOCOL_LABELS.get("vmess-ws", "SideRail VMess WS")
 
         logger.info(
             "State loaded: %d links / %d subscriptions",
@@ -6948,15 +6941,6 @@ async def sync_siderail_core():
 async def start_siderail_core():
     if SIDERAIL_CORE:
         asyncio.create_task(sync_siderail_core())
-        async def _log_status():
-            await asyncio.sleep(2)
-            st = SIDERAIL_CORE.status()
-            logger.info("SideRail core status: running=%s installed=%s listeners=%s error=%s",
-                        st.get("running"), st.get("installed"), st.get("listeners"), st.get("error") or "-")
-            if not st.get("running"):
-                logger.warning("SideRail core NOT RUNNING (bin=%s): %s",
-                               st.get("bin_path"), st.get("error") or "no SideRail users yet")
-        asyncio.create_task(_log_status())
 
 
 @app.get("/api/siderail/status")
@@ -7134,7 +7118,7 @@ if "vless-httpupgrade" not in PROTOCOLS and "vless-ws" in PROTOCOLS:
     PROTOCOLS.append("vless-httpupgrade")
 
 if "vmess-ws" not in PROTOCOLS:
-    # VMess-WS is served by the SideRail sing-box core behind the front proxy.
+    # VMess-WS is served by the SideRail Xray core behind the front proxy.
     PROTOCOLS.append("vmess-ws")
 
 # Keep the panel/backend protocol order stable: the existing Railway-safe
@@ -14250,7 +14234,6 @@ def _front_proxy_ctx(internal_port: int) -> dict:
         "throttle": throttle,
         "is_blocked": is_destination_blocked,
         "log": lambda msg: logger.warning("front proxy: %s", msg),
-        "log_info": lambda msg: logger.info("front proxy: %s", msg),
     }
 
 
