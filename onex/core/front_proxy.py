@@ -1,8 +1,7 @@
 """Transparent TCP front proxy for ONEX (SideRail-style edge).
 
 Owns the public port and dispatches raw connections:
-  * /siderail/vmess*   -> local sing-box VMess-WS listener
-  * /siderail/xhttp*   -> local sing-box VLESS-XHTTP listener
+  * /siderail/*        -> uvicorn (siderail_bridge -> local Xray)
   * /httpup/<uuid>     -> pure-python VLESS HTTPUpgrade relay (101 + raw stream)
   * everything else    -> uvicorn (panel, WS relay, XHTTP)
 
@@ -244,11 +243,9 @@ def make_handler(ctx):
         ctx["client_ip"] = headers.get("x-forwarded-for", "").split(",")[0].strip() or (peer[0] if peer else "unknown")
 
         try:
-            if path.startswith("/siderail/vmess"):
-                await _relay_to(internal_host, vmess_port, head, client_r, client_w)
-            elif path.startswith("/siderail/xhttp"):
-                await _relay_to(internal_host, xhttp_port, head, client_r, client_w)
-            elif path.startswith("/httpup/") and upgrade and not has_ws_key:
+            # /siderail/* is now served per-request by uvicorn (siderail_bridge),
+            # so no raw connection is ever pinned to Xray.
+            if path.startswith("/httpup/") and upgrade and not has_ws_key:
                 await _httpupgrade_relay(path, upgrade, head, client_r, client_w, ctx)
             else:
                 await _relay_to(internal_host, internal_port, head, client_r, client_w)
