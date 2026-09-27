@@ -1,8 +1,8 @@
 """Transparent TCP front proxy for ONEX (SideRail-style edge).
 
 Owns the public port and dispatches raw connections:
-  * /siderail/vmess*   -> local sing-box VMess-WS listener
-  * /siderail/xhttp*   -> local sing-box VLESS-XHTTP listener
+  * /siderail/vmess*   -> local Xray VMess-WS listener
+  * /siderail/xhttp*   -> local Xray VLESS-XHTTP listener
   * /httpup/<uuid>     -> pure-python VLESS HTTPUpgrade relay (101 + raw stream)
   * everything else    -> uvicorn (panel, WS relay, XHTTP)
 
@@ -100,14 +100,29 @@ async def _pipe(a: asyncio.StreamReader, b: asyncio.StreamWriter, counter=None):
             pass
 
 
-async def _relay_to(host: str, port: int, head: bytes, client_r, client_w, counter=None, fallback=None):
+def _force_close(head: bytes) -> bytes:
+    """Rewrite a plain (non-Upgrade) HTTP request head to `Connection: close`.
+
+    FIX: routing is decided from the FIRST request on a TCP connection. The
+    Railway/CDN edge re-uses keep-alive connections, so later XHTTP requests
+    (/siderail/xhttp POST/GET) could ride a connection already pinned to
+    uvicorn (-> 404) or vice-versa. Forcing one request per connection makes
+    every request get routed on its own path, like SideRail's per-request proxy.
+    """
+    sep = head.find(b"\r\n\r\n")
+    if sep < 0:
+        return head
+    lines = head[:sep].split(b"\r\n")
+    kept = [lines[0]] + [l for l in lines[1:] if not l.lower().startswith((b"connection:", b"keep-alive:"))]
+    kept.append(b"Connection: close")
+    return b"\r\n".join(kept) + head[sep:]
+
+
+async def _relay_to(host: str, port: int, head: bytes, client_r, client_w, counter=None):
     try:
         up_r, up_w = await asyncio.wait_for(asyncio.open_connection(host, port), timeout=CONNECT_TIMEOUT)
     except Exception:
-        if fallback is not None:
-            await fallback()
-        else:
-            client_w.close()
+        client_w.close()
         return
     up_w.write(head)
     await up_w.drain()
@@ -118,7 +133,7 @@ async def _relay_to(host: str, port: int, head: bytes, client_r, client_w, count
         t.cancel()
 
 
-async def _httpupgrade_relay(path: str, upgrade_value: str, head: bytes, client_r, client_w, ctx, client_ip: str):
+async def _httpupgrade_relay(path: str, upgrade_value: str, head: bytes, client_r, client_w, ctx):
     """Serve a real xray-style HTTPUpgrade: 101 then raw VLESS stream."""
     parts = path.split("/")
     uuid = parts[2] if len(parts) > 2 else ""
@@ -126,7 +141,7 @@ async def _httpupgrade_relay(path: str, upgrade_value: str, head: bytes, client_
     if not ctx["is_link_allowed"](link):
         client_w.close()
         return
-    ip = client_ip
+    ip = ctx.get("client_ip", "unknown")
     if not ctx["is_ip_allowed"](link, uuid, ip):
         client_w.close()
         return
@@ -231,7 +246,6 @@ def make_handler(ctx):
     internal_port = int(ctx.get("internal_port"))
     vmess_port = int(ctx.get("siderail_vmess_port", 18501))
     xhttp_port = int(ctx.get("siderail_xhttp_port", 18503))
-    httpup_port = int(ctx.get("siderail_httpup_port", 18502))
     log = ctx.get("log") or (lambda *a, **k: None)
 
     async def handle(client_r: asyncio.StreamReader, client_w: asyncio.StreamWriter):
@@ -245,28 +259,18 @@ def make_handler(ctx):
         upgrade = (headers.get("upgrade") or "").lower()
         has_ws_key = "sec-websocket-key" in headers
         peer = client_w.get_extra_info("peername")
-        client_ip = headers.get("x-forwarded-for", "").split(",")[0].strip() or (peer[0] if peer else "unknown")
-        log_info = ctx.get("log_info") or log
+        ctx["client_ip"] = headers.get("x-forwarded-for", "").split(",")[0].strip() or (peer[0] if peer else "unknown")
+
+        if not upgrade:
+            head = _force_close(head)
 
         try:
             if path.startswith("/siderail/vmess"):
-                log_info(f"dispatch -> siderail vmess core ({client_ip})")
                 await _relay_to(internal_host, vmess_port, head, client_r, client_w)
             elif path.startswith("/siderail/xhttp"):
-                log_info(f"dispatch -> siderail xhttp core ({client_ip})")
-                async def _fallback_xhttp():
-                    log_info("siderail xhttp core unreachable; falling back to panel XHTTP")
-                    await _relay_to(internal_host, internal_port, head, client_r, client_w)
-                await _relay_to(internal_host, xhttp_port, head, client_r, client_w, fallback=_fallback_xhttp)
-            elif path.startswith("/siderail/httpupgrade"):
-                log_info(f"dispatch -> siderail httpupgrade core ({client_ip})")
-                async def _fallback_httpup():
-                    log_info("siderail httpupgrade core unreachable; falling back to python relay")
-                    await _httpupgrade_relay(path, upgrade, head, client_r, client_w, ctx, client_ip)
-                await _relay_to(internal_host, httpup_port, head, client_r, client_w, fallback=_fallback_httpup)
+                await _relay_to(internal_host, xhttp_port, head, client_r, client_w)
             elif path.startswith("/httpup/") and upgrade and not has_ws_key:
-                log_info(f"dispatch -> httpupgrade relay {path[:40]} ({client_ip})")
-                await _httpupgrade_relay(path, upgrade, head, client_r, client_w, ctx, client_ip)
+                await _httpupgrade_relay(path, upgrade, head, client_r, client_w, ctx)
             else:
                 await _relay_to(internal_host, internal_port, head, client_r, client_w)
         except Exception as exc:
