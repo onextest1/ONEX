@@ -56,7 +56,15 @@ def _uuids_for(links: dict[str, dict[str, Any]], wanted: set[str]) -> list[str]:
             continue
         proto = str(link.get("protocol") or "")
         bundle = {str(p) for p in (link.get("bundle_protocols") or [])}
-        if proto not in wanted and not (bundle & wanted):
+        # An ONEX VIP subscription is one record with all relay protocols
+        # selected through all_protocols=True, not a separate bundle list.
+        # Keep that UUID registered in every SideRail inbound as well.
+        vip_all = bool(link.get("all_protocols")) and bool(wanted & {
+            "vless-ws", "xhttp-packet-up", "xhttp-stream-up",
+            "xhttp-stream-one", "siderail-vless-xhttp",
+            "trojan-ws", "vmess-ws", "vless-httpupgrade",
+        })
+        if proto not in wanted and not (bundle & wanted) and not vip_all:
             continue
         uid = str(uid)
         if uid and uid not in seen:
