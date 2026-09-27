@@ -80,6 +80,37 @@ def _parse_head(head: bytes):
         return "/", {}
 
 
+def _rewrite_httpup_head(head: bytes) -> bytes:
+    """Normalize old per-user HTTPUpgrade paths to the shared Xray path.
+
+    Older ONEX links used /httpup/<uuid>, while the Xray inbound now owns the
+    transport on the shared /httpup path. Keep old client profiles working
+    without changing any other protocol or header.
+    """
+    try:
+        sep = head.find(b"\r\n")
+        if sep < 0:
+            return head
+        line = head[:sep].decode("latin-1", errors="replace")
+        parts = line.split(" ", 2)
+        if len(parts) < 3:
+            return head
+        target = parts[1]
+        suffix = ""
+        if "?" in target:
+            suffix = target[target.find("?"):]
+        if target == "/httpup" or target == "/httpup/":
+            normalized = "/httpup" + suffix
+        elif target.startswith("/httpup/"):
+            normalized = "/httpup" + suffix
+        else:
+            return head
+        new_line = f"{parts[0]} {normalized} {parts[2]}".encode("latin-1")
+        return new_line + head[sep:]
+    except Exception:
+        return head
+
+
 async def _pipe(a: asyncio.StreamReader, b: asyncio.StreamWriter, counter=None):
     try:
         while True:
@@ -251,7 +282,10 @@ def make_handler(ctx):
             elif path.startswith("/httpup"):
                 # HTTPUpgrade must remain byte-transparent. Let Xray parse the
                 # Upgrade request and VLESS header, exactly like SideRail.
-                await _relay_to(internal_host, httpup_port, head, client_r, client_w)
+                await _relay_to(
+                    internal_host, httpup_port, _rewrite_httpup_head(head),
+                    client_r, client_w,
+                )
             else:
                 await _relay_to(internal_host, internal_port, head, client_r, client_w)
         except Exception as exc:
