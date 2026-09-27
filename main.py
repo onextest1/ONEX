@@ -1194,8 +1194,9 @@ def generate_vless_link(
         if adv["tls"].get("allow_insecure"): q["allowInsecure"] = "1"
         return "vless://" + uuid + "@" + host + ":" + str(port_value) + "?" + "&".join(f"{k}={quote(str(v), safe=',/') }" for k,v in q.items()) + "#" + label
     if protocol == "vless-httpupgrade":
-        # Real HTTPUpgrade relay on the front proxy; uuid in path for quota/auth.
-        path = adv_path or f"/httpup/{uuid}"
+        # HTTPUpgrade is terminated by the local Xray inbound. Keep the path
+        # stable so the front proxy can pass the complete request through.
+        path = "/httpup"
         q = {"encryption":"none","security":security,"type":"httpupgrade","host":adv_host,"path":path,"sni":adv_sni,"fp":adv_fp,"alpn":adv_alpn}
         if adv["tls"].get("allow_insecure"): q["allowInsecure"] = "1"
         return "vless://" + uuid + "@" + host + ":" + str(port_value) + "?" + "&".join(f"{k}={quote(str(v), safe=',/') }" for k,v in q.items()) + "#" + label
@@ -14240,6 +14241,7 @@ def _front_proxy_ctx(internal_port: int) -> dict:
     return {
         "internal_host": "127.0.0.1",
         "internal_port": internal_port,
+        "siderail_httpup_port": int(os.environ.get("ONEX_SR_HTTPUP_PORT", "18504")),
         "get_link": get_link,
         "is_link_allowed": is_link_allowed,
         "is_ip_allowed": is_ip_allowed,
