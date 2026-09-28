@@ -13585,6 +13585,32 @@ function renderConfigCards(arr){const box=document.getElementById('cfgCards');if
   updateBulkBar();
   if(openMenuUid){const menu=document.getElementById('cfgMenu_'+openMenuUid);const btn=document.querySelector('.cfg-menu-btn[data-menu-uid="'+CSS.escape(openMenuUid)+'"]');if(menu&&btn){document.body.appendChild(menu);menu.dataset.portal='1';menu.classList.add('open');__openConfigMenuUid=openMenuUid;positionConfigMenu(menu,btn)}else{__openConfigMenuUid=''}}
 }
+function showConfigQr(uid){
+  const link=(window.__linksMap||{})[uid]||__allLinks.find(x=>String(x.uuid||x.id||'')===String(uid));
+  if(link)openGroupQr(getLinkUrl(link),link.label||link.name||'ONEX Config');
+}
+function renderConfigCards(arr){
+  const box=document.getElementById('cfgCards');if(!box)return;
+  if(!document.getElementById('cfgBStyle')){
+    const st=document.createElement('style');st.id='cfgBStyle';st.textContent=`.cfg-card-b{grid-template-columns:58px minmax(0,1fr) 190px;grid-template-rows:auto auto;align-items:center}.cfg-card-b .cfg-b-actions{grid-column:1/-1;display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:7px;padding-top:11px;border-top:1px solid rgba(var(--accent2-rgb),.12)}.cfg-card-b .cfg-b-actions button{min-height:36px;border:1px solid rgba(var(--accent2-rgb),.22);border-radius:10px;background:rgba(var(--accent-rgb),.09);color:var(--accent2);font:800 9px Vazirmatn,sans-serif;cursor:pointer;transition:.16s ease}.cfg-card-b .cfg-b-actions button:hover{transform:translateY(-1px);background:rgba(var(--accent-rgb),.18);border-color:rgba(var(--accent2-rgb),.55)}.cfg-card-b .cfg-b-actions button.danger{color:#ff7898;border-color:rgba(255,69,112,.30);background:rgba(255,45,95,.07)}.cfg-card-b .cfg-b-actions button.danger:hover{background:rgba(255,45,95,.15)}@media(max-width:800px){.cfg-card-b{grid-template-columns:50px minmax(0,1fr) 118px}}@media(max-width:560px){.cfg-card-b{grid-template-columns:43px minmax(0,1fr);grid-template-rows:auto auto auto}.cfg-card-b .cfg-side{grid-column:1/-1;grid-row:2;border-top:1px solid rgba(var(--accent2-rgb),.1);border-right:0;padding:8px 0 0;margin-top:2px}.cfg-card-b .cfg-b-actions{grid-column:1/-1;grid-row:3;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}.cfg-card-b .cfg-b-actions button{font-size:8px;min-height:34px}.cfg-card-b .cfg-b-actions button:nth-child(4),.cfg-card-b .cfg-b-actions button:nth-child(5){grid-column:span 1}}`;document.head.appendChild(st);
+  }
+  const selectedIds=new Set([...document.querySelectorAll('#cfgCards .cfg-chk:checked')].map(c=>String(c.value)));
+  updateConfigStats();
+  if(!arr.length){box.innerHTML='<div class="cfg-empty">'+(lang==='fa'?'کانفیگی با این فیلتر پیدا نشد':'No configs match the filter')+'</div>';updateBulkBar();return}
+  box.innerHTML=arr.map(l=>{
+    const uid=String(l.uuid||l.id||''),dead=configExpired(l),active=l.active!==false&&!dead,[pl,icon]=protocolUi(l.protocol);
+    const used=Number(l.used_bytes||0),lim=Number(l.limit_bytes||0),pct=lim>0?Math.min(100,Math.round(used/lim*100)):0,conn=Number(l.connected_ips||0),safeUid=esc(uid),usage=lim>0?`${fmtB(used)} / ${fmtB(lim)}`:fmtB(used),activeState=l.active!==false;
+    return `<article class="cfg-card cfg-card-b ${dead?'expired':''}" draggable="true" data-uid="${safeUid}" ondragstart="cfgDragStart(event)" ondragover="cfgDragOver(event)" ondrop="cfgDrop(event)" ondragend="cfgDragEnd(event)">
+      <label class="cfg-card-check"><input type="checkbox" class="cfg-chk" value="${safeUid}" onchange="updateBulkBar()"></label>
+      <div class="cfg-proto-icon"><img src="${icon}" alt=""></div>
+      <div class="cfg-main"><div class="cfg-name-row"><b>${esc(l.label||l.name||uid.slice(0,8))}</b></div><div class="cfg-proto">${esc(pl)}</div><div class="cfg-meta"><span><i>♧</i>${conn} اتصال</span><span><i>◷</i>${dead?'منقضی شده':(l.expires_at?'انقضا '+cfgDate(l.expires_at):'بدون انقضا')}</span></div></div>
+      <div class="cfg-side"><div class="cfg-side-top"><span class="cfg-status ${active?'':'bad'}"><i></i>${active?'فعال':'غیرفعال'}</span><button type="button" class="cfg-active-toggle ${activeState?'on':''}" onclick="toggleConfigActive(event,'${safeUid}',${activeState?'false':'true'})" aria-pressed="${activeState?'true':'false'}"><span class="cfg-active-dot"></span><span>${activeState?'فعال':'خاموش'}</span></button></div><div class="cfg-usage"><div class="cfg-usage-ring" style="--pct:${pct}%"><span>${pct}%</span></div><div class="cfg-usage-copy"><b>${esc(usage)}</b>${lim>0?`<div class="cfg-usage-track"><div class="cfg-usage-fill" style="width:${pct}%"></div></div>`:''}</div></div></div>
+      <div class="cfg-b-actions"><button type="button" onclick="copyLinkById('${safeUid}')">کپی کانفیگ</button><button type="button" onclick="copySubById('${safeUid}')">کپی ساب</button><button type="button" onclick="showConfigQr('${safeUid}')">QR</button><button type="button" onclick="openConfigEditor(event,'${safeUid}')">ویرایش</button><button type="button" class="danger" onclick="configMenuAction('delete','${safeUid}')">حذف</button></div>
+    </article>`;
+  }).join('');
+  document.querySelectorAll('#cfgCards .cfg-chk').forEach(c=>{c.checked=selectedIds.has(String(c.value))});
+  updateBulkBar();
+}
 function renderLinks(arr){window.__linksMap={};arr.forEach(l=>window.__linksMap[String(l.uuid||l.id||'')]=l);renderConfigCards(getFilteredConfigs())}
 function softUpdateLinks(arr){window.__linksMap={};arr.forEach(l=>window.__linksMap[String(l.uuid||l.id||'')]=l);renderConfigCards(getFilteredConfigs())}
 function patchLinkRow(tr,l){renderConfigCards(getFilteredConfigs())}
