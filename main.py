@@ -320,7 +320,104 @@ PROTOCOLS: list[str] = []
 
 # The "all protocols in one subscription" switch is intentionally Railway-only.
 # VPS/native protocols remain individually selectable and individually deployable.
-RAILWAY_SUB_PROTOCOLS = ("vless-ws", "xhttp-packet-up", "xhttp-stream-up")
+RAILWAY_SUB_PROTOCOLS = (
+    "vless-ws", "siderail-vless-xhttp", "xhttp-packet-up", "xhttp-stream-up",
+    "vmess-ws", "trojan-ws", "vless-httpupgrade", "xhttp-stream-one",
+)
+
+# Same names the panel shows on the protocol cards.
+PROTOCOL_SUB_NAMES = {
+    "vless-ws": "ONEX Base", "siderail-vless-xhttp": "ONEX XHTTP", "xhttp-packet-up": "ONEX Xhttp",
+    "xhttp-stream-up": "ONEX Gaming", "vmess-ws": "ONEX VMess", "trojan-ws": "ONEX Trojan",
+    "vless-httpupgrade": "ONEX HTTPUpgrade", "xhttp-stream-one": "ONEX Stream",
+}
+
+# Emoji icons shown next to every config name inside the subscription.
+PROTOCOL_SUB_ICONS = {
+    "vless-ws": "🌐", "siderail-vless-xhttp": "⚡", "xhttp-packet-up": "🚀",
+    "xhttp-stream-up": "🎮", "vmess-ws": "🛰️", "trojan-ws": "🛡️",
+    "vless-httpupgrade": "⬆️", "xhttp-stream-one": "📺",
+}
+
+
+def all_protocol_members() -> list[str]:
+    """Every ONEX VIP protocol that this server can really serve."""
+    return [p for p in RAILWAY_SUB_PROTOCOLS if p in PROTOCOLS]
+
+
+def link_sub_protocols(link: dict) -> list[str]:
+    """Exact protocol list a subscription must emit for this link."""
+    link = link or {}
+    if link.get("all_protocols"):
+        return all_protocol_members()
+    bundle = [str(p) for p in (link.get("bundle_protocols") or []) if str(p) in PROTOCOLS]
+    if bundle:
+        out = []
+        for p in bundle:
+            if p not in out:
+                out.append(p)
+        return out
+    return [normalize_protocol(str(link.get("protocol", DEFAULT_PROTOCOL)))]
+
+
+def _fa_digits(text) -> str:
+    return str(text).translate(str.maketrans("0123456789", "۰۱۲۳۴۵۶۷۸۹"))
+
+
+def subscription_usage_texts(link: dict) -> tuple[str, str]:
+    """Real remaining volume / time lines (with icons) for subscription clients."""
+    used = max(0, int(link.get("used_bytes", 0) or 0))
+    limit = max(0, int(link.get("limit_bytes", 0) or 0))
+    if limit > 0:
+        remaining = max(0, limit - used)
+        pct = max(0, min(100, round(remaining * 100 / limit)))
+        vol = f"📊 حجم باقی‌مانده: {fmt_bytes(remaining)} از {fmt_bytes(limit)} ({pct}%)" if remaining > 0 else f"⛔ حجم تمام شد ({fmt_bytes(used)} از {fmt_bytes(limit)})"
+    else:
+        vol = f"📊 حجم: نامحدود ♾️ (مصرف {fmt_bytes(used)})"
+    exp = link.get("expires_at")
+    if exp:
+        try:
+            exp_dt = datetime.fromisoformat(str(exp))
+            now_dt = datetime.now(exp_dt.tzinfo) if exp_dt.tzinfo else datetime.now()
+            secs = int((exp_dt - now_dt).total_seconds())
+            if secs <= 0:
+                tm = "⛔ زمان اشتراک تمام شد"
+            else:
+                days, rem = divmod(secs, 86400)
+                hours, rem = divmod(rem, 3600)
+                mins = rem // 60
+                if days:
+                    tm = f"⏳ زمان باقی‌مانده: {days} روز" + (f" و {hours} ساعت" if hours else "")
+                elif hours:
+                    tm = f"⏳ زمان باقی‌مانده: {hours} ساعت" + (f" و {mins} دقیقه" if mins else "")
+                else:
+                    tm = f"⏳ زمان باقی‌مانده: {max(1, mins)} دقیقه"
+        except Exception:
+            tm = f"⏳ انقضا: {str(exp)[:16]}"
+    else:
+        tm = "⏳ زمان: نامحدود ♾️"
+    return vol, tm
+
+
+def subscription_info_lines(uid: str, link: dict) -> list[str]:
+    """Two placeholder entries that only carry the usage text in their name."""
+    vol, tm = subscription_usage_texts(link)
+    proto = "vless-ws" if "vless-ws" in PROTOCOLS else (PROTOCOLS[0] if PROTOCOLS else DEFAULT_PROTOCOL)
+    return [generate_vless_link(uid, "0.0.0.0", remark=text, protocol=proto, port=443) for text in (vol, tm)]
+
+
+def subscription_config_name(link: dict, proto: str, used: set, index: int = 0) -> str:
+    label = str(link.get("label") or "Config")
+    name = f"{PROTOCOL_SUB_ICONS.get(proto, '🔹')} {PROTOCOL_SUB_NAMES.get(proto) or PROTOCOL_LABELS.get(proto, proto)} | {label}"
+    if index:
+        name += f" #{index}"
+    if name in used:
+        n = 2
+        while f"{name} ({n})" in used:
+            n += 1
+        name = f"{name} ({n})"
+    used.add(name)
+    return name
 
 PROTOCOL_LABELS = {
     # Railway-safe ONEX transports
@@ -1329,13 +1426,7 @@ def group_subscription_lines_for_link(
     # Previously this function always used the group's protocol list, which
     # meant a normal single-protocol link could unexpectedly appear as every
     # protocol in its subscription.
-    if link.get("bundle_protocols"):
-        selected = [normalize_protocol(str(p)) for p in link.get("bundle_protocols")]
-    elif link.get("all_protocols"):
-        selected = [normalize_protocol(str(p)) for p in RAILWAY_SUB_PROTOCOLS]
-    else:
-        selected = [normalize_protocol(str(link.get("protocol", DEFAULT_PROTOCOL)))]
-    selected = [p for p in selected if p in PROTOCOLS]
+    selected = [p for p in link_sub_protocols(link) if p in PROTOCOLS]
     if not selected:
         return []
     names = used_names if used_names is not None else set()
@@ -1352,7 +1443,7 @@ def group_subscription_lines_for_link(
     base_label = str(link.get("label") or "Config")
     for index, target_host in enumerate(hosts, 1):
         for proto in selected:
-            remark = f"{base_label} | {PROTOCOL_LABELS.get(proto, proto)}"
+            remark = f"{PROTOCOL_SUB_ICONS.get(proto, '🔹')} {PROTOCOL_SUB_NAMES.get(proto) or PROTOCOL_LABELS.get(proto, proto)} | {base_label}"
             if cfg_count > 1:
                 remark += f" #{index}"
             if remark in names:
@@ -1569,6 +1660,9 @@ async def load_state():
             link.setdefault("sort_order", 0)
             link.setdefault("usage_history", [])
             link.setdefault("bundle_protocols", [])
+            if link.get("all_protocols"):
+                # Upgrade old 3-protocol "all" links to the full ONEX VIP set.
+                link["bundle_protocols"] = [p for p in RAILWAY_SUB_PROTOCOLS]
             link.setdefault("ad_block_enabled", False)
             link["advanced"] = normalize_advanced_config(link.get("advanced"))
 
@@ -3499,6 +3593,8 @@ async def create_link_api(
             bundle_protocols.append(value)
     if bundle_protocols and protocol not in bundle_protocols:
         bundle_protocols.insert(0, protocol)
+    if all_protocols:
+        bundle_protocols = all_protocol_members()
     sub_id = str(body.get("sub_id") or "").strip() or None
     if sub_id:
         async with SUBS_LOCK:
@@ -3508,7 +3604,9 @@ async def create_link_api(
         allowed = set(target_sub.get("protocols") or PROTOCOLS)
         if not all_protocols and protocol not in allowed:
             raise HTTPException(status_code=400, detail="پروتکل انتخابی در این گروه فعال نیست؛ ابتدا آن را از مدیریت گروه فعال کنید")
-        for value in bundle_protocols:
+        if all_protocols:
+            bundle_protocols = [p for p in bundle_protocols if p in allowed] or bundle_protocols
+        for value in ([] if all_protocols else bundle_protocols):
             if value not in allowed:
                 raise HTTPException(status_code=400, detail=f"پروتکل {PROTOCOL_LABELS.get(value, value)} در این گروه فعال نیست")
     advanced = normalize_advanced_config(body.get("advanced"))
@@ -3647,6 +3745,7 @@ async def create_auto_link(
         alpn=DEFAULT_ALPN_BY_PROTOCOL.get(protocol, ""), port=443, fragment=cfg["fragment"],
         config_count=config_count,
         all_protocols=all_protocols,
+        bundle_protocols=all_protocol_members() if all_protocols else None,
     )
     link["security_profile"] = profile
     result = {**get_link_info(link, uid, host), "ok": True, "profile": profile}
@@ -4295,6 +4394,7 @@ async def update_link(
             link["all_protocols"] = bool(body.get("all_protocols")) and link.get("protocol") in RAILWAY_SUB_PROTOCOLS
             if link["all_protocols"]:
                 link["config_count"] = 1
+                link["bundle_protocols"] = all_protocol_members()
 
         if "fragment" in body:
 
@@ -4573,8 +4673,8 @@ def subscription_metadata_headers(used_bytes: int, limit_bytes: int, expires_at,
     if expires_at:
         try:
             dt = datetime.fromisoformat(str(expires_at))
-            if dt.tzinfo is None:
-                dt = dt.replace(tzinfo=IRAN_TZ) if IRAN_TZ else dt
+            # expires_at is written with naive datetime.now() (server local time),
+            # so .timestamp() on the naive value is the exact moment.
             expire_unix = max(0, int(dt.timestamp()))
         except Exception:
             expire_unix = 0
@@ -4635,38 +4735,26 @@ async def subscription_single(
     label = str(link.get("label") or "Config")
     stats_remark = f"{label} | {volume_text} | {time_text}"
     used_names = set()
-    if not link.get("all_protocols"):
-        stats_line = generate_vless_link(
-            uuid, "0.0.0.0", remark=stats_remark,
-            protocol=link.get("protocol", DEFAULT_PROTOCOL),
-            fingerprint=link.get("fingerprint", DEFAULT_FINGERPRINT),
-            alpn=link.get("alpn"),
-            port=protocol_public_port(link, link.get("protocol", DEFAULT_PROTOCOL), link.get("port", DEFAULT_PORT)),
-            link=link,
-        )
-        lines = [stats_line]
-    else:
-        lines = []
-    cfg_count = 1 if (link.get("all_protocols") or link.get("bundle_protocols")) else max(1, min(40, int(link.get("config_count") or 1)))
-    protocols = list(RAILWAY_SUB_PROTOCOLS) if link.get("all_protocols") else [link.get("protocol", DEFAULT_PROTOCOL)]
+    # 1) usage info (remaining volume + remaining time) with icons, always first
+    lines = subscription_info_lines(uuid, link)
+    # 2) one real config per selected protocol (all 8 when "all protocols" is on)
+    protocols = link_sub_protocols(link)
+    multi = bool(link.get("all_protocols") or link.get("bundle_protocols"))
+    cfg_count = 1 if multi else max(1, min(40, int(link.get("config_count") or 1)))
     if clean_ips:
         hosts = list(clean_ips)
         while len(hosts) < cfg_count:
             hosts.extend(clean_ips)
-        hosts = hosts[:cfg_count]
-        for cip in hosts:
-            for proto in protocols:
-                name = project_config_name(used_names)
-                used_names.add(name)
-                lines.append(generate_vless_link(uuid, cip, remark=name, protocol=proto, fingerprint=link.get("fingerprint", DEFAULT_FINGERPRINT), alpn=DEFAULT_ALPN_BY_PROTOCOL.get(proto, link.get("alpn")), port=protocol_public_port(link, proto, link.get("port", DEFAULT_PORT)), link=link))
+        hosts = hosts[:max(cfg_count, len(clean_ips) if multi else cfg_count)]
     else:
-        for i in range(cfg_count):
-            for proto in protocols:
-                name = project_config_name(used_names)
-                used_names.add(name)
-                lines.append(generate_vless_link(uuid, host, remark=name, protocol=proto, fingerprint=link.get("fingerprint", DEFAULT_FINGERPRINT), alpn=DEFAULT_ALPN_BY_PROTOCOL.get(proto, link.get("alpn")), port=protocol_public_port(link, proto, link.get("port", DEFAULT_PORT)), link=link))
+        hosts = [host] * cfg_count
+    for idx, target in enumerate(hosts, 1):
+        for proto in protocols:
+            name = subscription_config_name(link, proto, used_names, idx if len(hosts) > 1 else 0)
+            lines.append(generate_vless_link(uuid, target, remark=name, protocol=proto, fingerprint=link.get("fingerprint", DEFAULT_FINGERPRINT), alpn=DEFAULT_ALPN_BY_PROTOCOL.get(proto, link.get("alpn")), port=protocol_public_port(link, proto, link.get("port", DEFAULT_PORT)), link=link))
     content = base64.b64encode("\n".join(lines).encode()).decode()
-    profile_title = f"0.0.0.0 | {stats_remark}"
+    _vol_t, _time_t = subscription_usage_texts(link)
+    profile_title = f"{label} | {_vol_t} | {_time_t}"
     headers = subscription_metadata_headers(
         used,
         limit,
@@ -5893,6 +5981,8 @@ async def sub_group_subscription(
         for link_id in sub.get("link_ids", []):
             link = LINKS.get(link_id)
             if link and is_link_allowed(link):
+                if len(sub.get("link_ids", [])) == 1:
+                    lines.extend(subscription_info_lines(link_id, link))
                 lines.extend(group_subscription_lines_for_link(
                     link, link_id, host, group_protocols, used_names
                 ))
@@ -6374,7 +6464,9 @@ async def public_sub_data(
         # exposes only its selected protocol; an all-protocol link expands to
         # the protocols enabled for this subscription group.
         if link.get("all_protocols"):
-            protocols = [p for p in RAILWAY_SUB_PROTOCOLS if p in PROTOCOLS]
+            protocols = all_protocol_members()
+        elif link.get("bundle_protocols"):
+            protocols = link_sub_protocols(link)
         else:
             selected = normalize_protocol(str(link.get("protocol", DEFAULT_PROTOCOL)))
             protocols = [selected] if selected in PROTOCOLS else []
@@ -13367,7 +13459,7 @@ async function loadProtocols(){
   setupProtocolPickers();
   const bundle=document.getElementById('protocolBundleOptions');
   if(bundle){
-    const ids=['vless-ws','siderail-vless-xhttp','vmess-ws','trojan-ws','vless-httpupgrade'];
+    const ids=['vless-ws','siderail-vless-xhttp','xhttp-packet-up','xhttp-stream-up','vmess-ws','trojan-ws','vless-httpupgrade','xhttp-stream-one'].filter(id=>list.some(p=>p.id===id));
     bundle.innerHTML=ids.map(id=>`<label class="cfgx-chip"><input type="checkbox" value="${id}"><img src="${PROTOCOL_ICON_DATA[id]||PROTOCOL_ICON_DATA['vless-ws']}" alt="" loading="lazy" decoding="async"><b>${esc(protocolPickerShort(id))}</b><em>اصلی</em><i aria-hidden="true"></i></label>`).join('');
     if(window.cfgxSync)window.cfgxSync();
   }
@@ -13734,7 +13826,7 @@ function protocolIconMarkup(id){
 }
 function setupProtocolPickers(){['cProto','aProto'].forEach(id=>{const sel=document.getElementById(id);if(!sel)return;sel.classList.add('protocol-native');sel.style.setProperty('display','none','important');sel.setAttribute('aria-hidden','true');let trigger=sel.parentNode.querySelector(`.protocol-trigger[data-for="${id}"]`);if(!trigger){trigger=document.createElement('button');trigger.type='button';trigger.className='protocol-trigger';trigger.dataset.for=id;sel.parentNode.insertBefore(trigger,sel.nextSibling)}trigger.onclick=e=>{e.preventDefault();openProtocolPicker(id)};syncProtocolPicker(id)})}
 function syncProtocolPicker(id){const sel=document.getElementById(id),trigger=document.querySelector(`.protocol-trigger[data-for="${id}"]`);if(!sel||!trigger)return;const value=sel.value||'vless-ws';trigger.innerHTML=`<span class="protocol-trigger-main"><span class="protocol-trigger-icon">${protocolIconMarkup(value)}</span><span class="protocol-trigger-text"><span class="protocol-trigger-name">${esc(protocolPickerShort(value))}</span><span class="protocol-trigger-sub">${lang==='fa'?'برای تغییر، انتخاب کنید':'Tap to choose another protocol'}</span></span></span><span class="protocol-trigger-arrow">⌄</span>`}
-function syncAllProtocolToggle(){const sel=document.getElementById('cProto'),all=document.getElementById('cAllProtocols'),wrap=all?.closest('.all-proto-toggle');if(!sel||!all)return;const railway=RAILWAY_SUB_PROTOCOLS.includes(sel.value);if(!railway){all.checked=false;all.disabled=true;if(wrap){wrap.style.opacity='0.48';wrap.style.cursor='not-allowed';wrap.title=lang==='fa'?'این گزینه فقط برای پروتکل‌های Railway است':'This option is only for Railway protocols';}}else{all.disabled=false;if(wrap){wrap.style.opacity='1';wrap.style.cursor='pointer';wrap.title=lang==='fa'?'فقط سه پروتکل Railway در یک ساب':'Only the three Railway protocols in one subscription';}}}
+function syncAllProtocolToggle(){const sel=document.getElementById('cProto'),all=document.getElementById('cAllProtocols'),wrap=all?.closest('.all-proto-toggle');if(!sel||!all)return;const railway=RAILWAY_SUB_PROTOCOLS.includes(sel.value);if(!railway){all.checked=false;all.disabled=true;if(wrap){wrap.style.opacity='0.48';wrap.style.cursor='not-allowed';wrap.title=lang==='fa'?'این گزینه فقط برای پروتکل‌های Railway است':'This option is only for Railway protocols';}}else{all.disabled=false;if(wrap){wrap.style.opacity='1';wrap.style.cursor='pointer';wrap.title=lang==='fa'?'هر ۸ پروتکل ONEX VIP در یک ساب':'All 8 ONEX VIP protocols in one subscription';}}}
 
 function ensureProtocolPicker(){let bg=document.getElementById('protocolPickerBg');if(bg)return bg;bg=document.createElement('div');bg.id='protocolPickerBg';bg.className='protocol-picker-bg';bg.innerHTML=`<div class="protocol-picker" role="dialog" aria-modal="true"><div class="protocol-picker-head"><div class="protocol-picker-head-icon"><span>✦</span></div><div class="protocol-picker-head-text"><div class="protocol-picker-title">${lang==='fa'?'انتخاب پروتکل':'Select Protocol'}</div><div class="protocol-picker-subtitle">${lang==='fa'?'پروتکل موردنظر را انتخاب کنید':'Choose the protocol you want to use'}</div></div><button type="button" class="protocol-picker-close" id="protocolPickerClose">×</button></div><div class="protocol-picker-scroll" id="protocolPickerScroll"></div><div class="protocol-picker-foot"><div class="protocol-selected-info" id="protocolSelectedInfo">—</div><button type="button" class="protocol-picker-confirm" id="protocolPickerConfirm">${lang==='fa'?'تأیید و ادامه →':'Confirm & Continue →'}</button></div></div>`;document.body.appendChild(bg);bg.addEventListener('click',e=>{if(e.target===bg)closeProtocolPicker()});bg.querySelector('#protocolPickerClose').onclick=closeProtocolPicker;bg.querySelector('#protocolPickerConfirm').onclick=confirmProtocolPicker;return bg}
 function openProtocolPicker(targetId){const sel=document.getElementById(targetId);if(!sel)return;const bg=ensureProtocolPicker();__protocolPickerTarget=targetId;const current=sel.value||'vless-ws';const available=new Set([...sel.options].map(o=>o.value));const sections=PROTOCOL_PICKER_GROUPS.map(g=>{const ids=g.ids.filter(id=>available.has(id));if(!ids.length)return '';return `<section class="protocol-picker-section ${g.kind||''}"><div class="protocol-picker-section-head"><div><b>${esc(g.title)}</b><small>${esc(g.subtitle||'')}</small></div><span>${ids.length}</span></div><div class="protocol-grid protocol-grid-all">${ids.map(id=>`<button type="button" class="protocol-option ${id===current?'selected':''}" data-proto="${id}"><span class="protocol-option-radio"></span>${protocolIconMarkup(id)}<span class="protocol-option-name">${esc(protocolPickerShort(id))}</span><span class="protocol-option-desc">${id===current?(lang==='fa'?'انتخاب‌شده · ':'Selected · ')+(PROTOCOL_PICKER_DESCS[id]||''):(PROTOCOL_PICKER_DESCS[id]|| (lang==='fa'?'برای انتخاب کلیک کنید':'Tap to choose'))}</span></button>`).join('')}</div></section>`}).join('');const scroll=bg.querySelector('#protocolPickerScroll');scroll.innerHTML=sections;scroll.querySelectorAll('.protocol-option').forEach(btn=>btn.addEventListener('click',()=>chooseProtocol(btn.dataset.proto)));bg.querySelector('#protocolSelectedInfo').textContent=(lang==='fa'?'پروتکل انتخاب‌شده: ':'Selected: ')+protocolPickerShort(current);bg.classList.add('open');document.body.style.overflow='hidden'}
@@ -14252,7 +14344,7 @@ html.light #cfgx .advanced-section{background:color-mix(in srgb, rgb(23 23 23 / 
 (function(){
   'use strict';
   var $=function(id){return document.getElementById(id)};
-  var MAIN=['vless-ws','siderail-vless-xhttp','vmess-ws','trojan-ws','vless-httpupgrade','xhttp-stream-up'];
+  var MAIN=['vless-ws','siderail-vless-xhttp','xhttp-packet-up','xhttp-stream-up','vmess-ws','trojan-ws','vless-httpupgrade','xhttp-stream-one'];
   function h(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]})}
   function nameOf(id){try{return protocolPickerShort(id)}catch(e){return id}}
   function iconOf(id){try{return PROTOCOL_ICON_DATA[id]||PROTOCOL_ICON_DATA['vless-ws']}catch(e){return ''}}
@@ -14261,7 +14353,7 @@ html.light #cfgx .advanced-section{background:color-mix(in srgb, rgb(23 23 23 / 
   function renderGrid(){
     var sel=$('cProto'),grid=$('cfgxProtoGrid');if(!sel||!grid)return;
     var avail=[].map.call(sel.options,function(o){return o.value});if(!avail.length)return;
-    var ids=MAIN.filter(function(id){return avail.indexOf(id)>-1});if(!ids.length)ids=avail.slice(0,6);
+    var ids=MAIN.filter(function(id){return avail.indexOf(id)>-1});if(!ids.length)ids=avail.slice(0,8);
     var cur=sel.value;if(cur&&ids.indexOf(cur)<0)ids=[cur].concat(ids);
     var key=ids.join(',')+'|'+avail.length;
     if(key!==gridKey){
