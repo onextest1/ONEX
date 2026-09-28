@@ -271,6 +271,9 @@ RELAY_PROTOCOLS = {
     "xhttp-stream-up", "xhttp-stream-one",
     "trojan-ws", "vless-httpupgrade",
 }
+# Protocols that may be combined in one subscription ("bundle").  VMess-WS is
+# served by the SideRail core, which already registers bundle members.
+BUNDLE_PROTOCOLS = set(RELAY_PROTOCOLS) | {"vmess-ws"}
 
 def normalize_block_domain(value: str) -> str:
     value = str(value or "").strip().lower()
@@ -1813,7 +1816,7 @@ async def make_link(
         "all_protocols": bool(all_protocols),
         "bundle_protocols": [
             p for p in (bundle_protocols or [])
-            if p in RELAY_PROTOCOLS
+            if p in BUNDLE_PROTOCOLS
         ],
         "advanced": normalize_advanced_config(advanced),
         "native_protocols": [p for p in PROTOCOLS if p not in {"vless-ws", "xhttp-packet-up", "xhttp-stream-up", "xhttp-stream-one", "trojan-ws", "vmess-ws"}],
@@ -3492,7 +3495,7 @@ async def create_link_api(
     bundle_protocols = []
     for item in raw_bundle:
         value = str(item)
-        if value in RELAY_PROTOCOLS and value in PROTOCOLS and value not in bundle_protocols:
+        if value in BUNDLE_PROTOCOLS and value in PROTOCOLS and value not in bundle_protocols:
             bundle_protocols.append(value)
     if bundle_protocols and protocol not in bundle_protocols:
         bundle_protocols.insert(0, protocol)
@@ -4073,7 +4076,7 @@ async def update_link(
             raw_bundle = body.get("bundle_protocols") or []
             if not isinstance(raw_bundle, list):
                 raw_bundle = []
-            link["bundle_protocols"] = [str(p) for p in raw_bundle if str(p) in RELAY_PROTOCOLS]
+            link["bundle_protocols"] = [str(p) for p in raw_bundle if str(p) in BUNDLE_PROTOCOLS]
 
         if "active" in body:
             link["active"] = bool(
@@ -9752,95 +9755,53 @@ html.light .onex-topbar-brand{background:#fff;border-color:rgba(37,99,235,.16);b
 <style>
 .create-edit-actions{display:flex;gap:8px;align-items:center}.config-edit-banner{display:flex;align-items:center;gap:10px;margin:0 0 12px;padding:11px 13px;border:1px solid rgba(255,71,120,.28);border-radius:15px;background:linear-gradient(135deg,rgba(255,31,92,.10),rgba(37,99,235,.08));color:#dcecff}.config-edit-banner-icon{width:34px;height:34px;display:grid;place-items:center;border-radius:10px;background:rgba(255,71,120,.12);border:1px solid rgba(255,71,120,.24);color:#ff7092;font-size:16px}.config-edit-banner div{min-width:0;display:flex;flex-direction:column;gap:2px}.config-edit-banner b{font-size:11px;color:#fff}.config-edit-banner small{font-size:9px;color:#ff9ab0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:48vw}.config-edit-banner-hint{margin-right:auto;color:var(--t3);font-size:8px}@media(max-width:560px){.config-edit-banner{align-items:flex-start}.config-edit-banner-hint{display:none}.create-edit-actions{margin-top:2px}.create-edit-actions .btn{font-size:9px;height:36px;padding:0 10px}}
 </style>
-<style>
-/* ONEX Config Builder v2 — visual redesign only; existing IDs/API contracts stay intact. */
-.create-builder-grid{display:grid;grid-template-columns:minmax(0,1.22fr) minmax(340px,.78fr);gap:14px;align-items:start;margin-bottom:14px}
-.onex-create-builder{position:relative;overflow:hidden;padding:18px;background:linear-gradient(145deg,rgba(10,28,57,.88),rgba(4,13,29,.88));border:1px solid rgba(72,150,255,.22);box-shadow:0 24px 70px rgba(0,0,0,.28),inset 0 1px rgba(255,255,255,.07)}
-.onex-create-builder:before{content:"";position:absolute;inset:-35% 45% auto -20%;height:240px;background:radial-gradient(circle,rgba(236,72,153,.13),transparent 65%);pointer-events:none}
-.create-builder-head{position:relative;display:flex;align-items:center;gap:12px;padding-bottom:15px;border-bottom:1px solid rgba(96,165,250,.12)}
-.create-builder-icon{width:46px;height:46px;display:grid;place-items:center;border-radius:15px;background:linear-gradient(135deg,#ff176b,#7c3aed);box-shadow:0 10px 30px rgba(236,72,153,.25);font-size:21px;color:#fff}
-.create-builder-kicker{font:800 8px/1.2 "JetBrains Mono",monospace;letter-spacing:.13em;color:#70c7ff}.create-builder-title{font-size:17px;font-weight:900;margin-top:3px}.create-builder-sub{font-size:9px;color:var(--t3);margin-top:3px;line-height:1.7}.create-builder-status{margin-right:auto;padding:7px 10px;border-radius:999px;font-size:8px;font-weight:800;color:#67e8f9;background:rgba(34,211,238,.08);border:1px solid rgba(34,211,238,.18);white-space:nowrap}
-.create-section{position:relative;margin-top:13px;padding:13px;border:1px solid rgba(96,165,250,.12);border-radius:17px;background:rgba(2,10,24,.24)}
-.create-section-head{display:flex;align-items:center;gap:9px;margin-bottom:11px}.create-section-head>div{min-width:0;display:flex;flex-direction:column;gap:2px}.create-section-head b{font-size:11px}.create-section-head small{font-size:8px;color:var(--t3);line-height:1.6}.create-step{width:27px;height:27px;display:grid;place-items:center;border-radius:9px;color:#fff;font-size:9px;font-weight:900;background:linear-gradient(135deg,#ec4899,#6366f1);box-shadow:0 6px 18px rgba(139,92,246,.2)}.create-count{margin-right:auto;padding:5px 8px;border-radius:999px;background:rgba(96,165,250,.08);border:1px solid rgba(96,165,250,.14);color:#9bd7ff;font-size:8px}
-.create-fields-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}.create-field-wide{grid-column:span 1}.create-name-wrap{display:flex;gap:7px}.create-name-wrap input{flex:1}.create-icon-btn{width:42px;border:1px solid rgba(96,165,250,.18);border-radius:11px;background:rgba(96,165,250,.06);color:#a9d9ff;cursor:pointer}.create-icon-btn:hover{background:rgba(236,72,153,.12);border-color:rgba(236,72,153,.35)}
-.primary-protocol-box{display:flex;align-items:center;gap:10px;padding:10px;border-radius:14px;background:linear-gradient(135deg,rgba(37,99,235,.10),rgba(236,72,153,.06));border:1px solid rgba(96,165,250,.15)}.primary-protocol-copy{display:flex;align-items:center;gap:8px;min-width:145px}.primary-protocol-copy>div{display:flex;flex-direction:column;gap:2px}.primary-protocol-copy b{font-size:9px}.primary-protocol-copy small{font-size:7px;color:var(--t3);line-height:1.5}.primary-protocol-dot{width:9px;height:9px;border-radius:50%;background:#38bdf8;box-shadow:0 0 14px rgba(56,189,248,.7)}.create-protocol-field{flex:1;margin:0!important}.create-protocol-field .protocol-trigger{min-height:54px}
-.bundle-toolbar{display:flex;justify-content:space-between;align-items:center;gap:8px;margin:13px 0 8px}.bundle-toolbar>div{display:flex;flex-direction:column;gap:2px}.bundle-toolbar b{font-size:10px}.bundle-toolbar small{font-size:7px;color:var(--t3)}.bundle-clear-btn{border:0;background:transparent;color:#93c5fd;font-size:8px;cursor:pointer}.bundle-clear-btn:hover{color:#f472b6}.protocol-bundle-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}.protocol-bundle-card{position:relative;min-height:104px;padding:9px;border-radius:15px;border:1px solid rgba(96,165,250,.15);background:linear-gradient(145deg,rgba(8,28,59,.72),rgba(3,12,28,.72));cursor:pointer;transition:.18s ease;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;overflow:hidden}.protocol-bundle-card:hover{transform:translateY(-2px);border-color:rgba(96,165,250,.4)}.protocol-bundle-card.selected{border-color:rgba(236,72,153,.75);box-shadow:0 0 0 1px rgba(236,72,153,.15),0 12px 28px rgba(236,72,153,.12);background:linear-gradient(145deg,rgba(64,24,73,.48),rgba(5,18,38,.78))}.protocol-bundle-card input{position:absolute;opacity:0;pointer-events:none}.protocol-bundle-radio{position:absolute;top:8px;right:8px;width:16px;height:16px;border-radius:50%;border:1px solid rgba(147,197,253,.45);background:rgba(2,10,24,.5)}.protocol-bundle-card.selected .protocol-bundle-radio{border-color:#f472b6;background:linear-gradient(135deg,#ec4899,#8b5cf6);box-shadow:0 0 12px rgba(236,72,153,.35)}.protocol-bundle-radio:after{content:"✓";display:none;color:#fff;font-size:9px;font-weight:900;text-align:center;line-height:15px}.protocol-bundle-card.selected .protocol-bundle-radio:after{display:block}.protocol-bundle-card img{width:43px;height:43px;object-fit:contain;margin-bottom:5px}.protocol-bundle-card b{font-size:8px;line-height:1.4}.protocol-bundle-card small{font-size:6px;color:var(--t3);margin-top:2px}.bundle-mode-row{margin-top:8px}.bundle-mode-btn{width:100%;display:flex;align-items:center;gap:9px;padding:9px 10px;border-radius:13px;border:1px solid rgba(34,197,94,.18);background:rgba(34,197,94,.035);color:inherit;cursor:pointer;text-align:right}.bundle-mode-btn>span{width:29px;height:29px;display:grid;place-items:center;border-radius:9px;background:rgba(34,197,94,.08);color:#86efac;font-weight:900}.bundle-mode-btn>div{display:flex;flex-direction:column;gap:2px;flex:1}.bundle-mode-btn b{font-size:9px}.bundle-mode-btn small{font-size:7px;color:var(--t3)}.bundle-mode-btn i{font-style:normal;font-size:7px;padding:5px 7px;border-radius:999px;background:rgba(148,163,184,.1);color:var(--t3)}.bundle-mode-btn.on{border-color:rgba(34,197,94,.42);background:rgba(34,197,94,.08)}.bundle-mode-btn.on i{background:rgba(34,197,94,.16);color:#86efac}
-.limit-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}.limit-card{margin:0;padding:9px;border-radius:13px;background:rgba(2,10,24,.3);border:1px solid rgba(96,165,250,.1)}.limit-card label{font-size:8px!important}.limit-card small{font-size:7px!important;color:var(--t3);display:block;margin-top:4px}.limit-input{display:flex;gap:5px}.limit-input select{max-width:72px}.create-switch-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px}.create-switch-card,.create-info-card{display:flex;align-items:center;gap:8px;min-height:56px;padding:9px;border-radius:13px;border:1px solid rgba(96,165,250,.11);background:rgba(2,10,24,.3)}.create-switch-card{cursor:pointer}.create-switch-card>span:nth-child(2),.create-info-card>div{min-width:0;display:flex;flex-direction:column;gap:2px;flex:1}.create-switch-card b,.create-info-card b{font-size:8px}.create-switch-card small,.create-info-card small{font-size:7px;color:var(--t3);line-height:1.5}.switch-icon,.create-info-card>span{width:28px;height:28px;display:grid;place-items:center;border-radius:9px;background:rgba(236,72,153,.09);color:#f9a8d4;font-size:12px}.create-info-card>span{color:#4ade80;background:rgba(34,197,94,.08)}.create-switch-card input{position:absolute;opacity:0}.create-switch-card i{width:37px;height:21px;border-radius:99px;background:#334155;position:relative;flex:none}.create-switch-card i:after{content:"";position:absolute;width:15px;height:15px;top:3px;right:19px;border-radius:50%;background:#e2e8f0;transition:.18s}.create-switch-card:has(input:checked) i{background:#ec4899;box-shadow:0 0 14px rgba(236,72,153,.25)}.create-switch-card:has(input:checked) i:after{right:3px;background:#fff}
-.create-summary-card{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:11px;padding:11px 12px;border-radius:14px;background:linear-gradient(135deg,rgba(37,99,235,.08),rgba(236,72,153,.08));border:1px solid rgba(139,92,246,.16)}.create-summary-card>div{display:flex;align-items:center;gap:8px;min-width:0}.create-summary-card>div>div{display:flex;flex-direction:column;gap:2px}.create-summary-card b{font-size:8px}.create-summary-card small{font-size:7px;color:var(--t3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.create-summary-card>span:last-child{font-size:7px;color:#a5b4fc}.summary-pulse{width:8px;height:8px;border-radius:50%;background:#34d399;box-shadow:0 0 14px rgba(52,211,153,.65)}.create-submit-btn{height:52px!important;margin-top:10px!important;border-radius:15px!important;display:flex!important;align-items:center;justify-content:center;gap:8px;box-shadow:0 16px 35px rgba(236,72,153,.18)}.create-submit-icon{font-size:17px}.create-submit-arrow{margin-right:auto;font-size:15px;opacity:.8}
-@media(max-width:900px){.create-builder-grid{grid-template-columns:1fr}.protocol-bundle-grid{grid-template-columns:repeat(3,minmax(0,1fr))}}
-@media(max-width:560px){.onex-create-builder{padding:11px}.create-builder-head{align-items:flex-start}.create-builder-status{display:none}.create-fields-grid,.create-switch-grid{grid-template-columns:1fr}.create-field-wide{grid-column:auto}.primary-protocol-box{display:block}.primary-protocol-copy{margin-bottom:8px}.protocol-bundle-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.limit-grid{grid-template-columns:1fr 1fr}.protocol-bundle-card{min-height:98px}.create-summary-card small{max-width:52vw}.create-section{padding:10px}}
-</style>
 <section class="page" id="page-create">
   <div class="page-head">
     <div><div class="page-title"><svg id="createPageTitleIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 5v14M5 12h14"/></svg><span id="createPageTitle" data-i18n="nav_create">ساخت کانفیگ</span></div><div class="page-sub" id="createPageSubtitle">ایجاد کانفیگ جدید با تنظیمات پایه و پیشرفته</div></div>
     <div class="create-edit-actions"><button type="button" class="btn btn-sm" id="cancelConfigEditBtn" onclick="cancelConfigEdit()" hidden>انصراف</button></div>
   </div>
   <div class="config-edit-banner" id="configEditBanner" hidden><span class="config-edit-banner-icon">✎</span><div><b>در حال ویرایش کانفیگ</b><small id="configEditBannerName">—</small></div><span class="config-edit-banner-hint">تغییرات فقط با «ذخیره تغییرات» اعمال می‌شود</span></div>
-  <div class="create-builder-grid">
-    <div class="card onex-create-builder">
-      <div class="create-builder-head">
-        <div class="create-builder-icon">✦</div>
-        <div><div class="create-builder-kicker">ONEX CONFIG BUILDER</div><div class="create-builder-title">ساخت کانفیگ جدید</div><div class="create-builder-sub">تمام تنظیمات ساخت کانفیگ را در همین صفحه انجام دهید.</div></div>
-      </div>
-
-      <div class="create-stepper" aria-label="مراحل ساخت کانفیگ">
-        <div class="create-stepper-item on"><span>۱</span><b>پایه</b></div>
-        <i></i><div class="create-stepper-item"><span>۲</span><b>پروتکل</b></div>
-        <i></i><div class="create-stepper-item"><span>۳</span><b>محدودیت</b></div>
-        <i></i><div class="create-stepper-item"><span>۴</span><b>پیشرفته</b></div>
-        <i></i><div class="create-stepper-item"><span>۵</span><b>بررسی</b></div>
-      </div>
-
-      <div class="create-section create-base-section">
-        <div class="create-section-head"><span class="create-step">۱</span><div><b>نام کانفیگ و گروه اشتراک</b><small>اطلاعات پایه کانفیگ را مشخص کنید.</small></div></div>
-        <div class="create-fields-grid">
-          <div class="field create-field-wide"><label data-i18n="label_name">نام کانفیگ</label><div class="create-name-wrap"><input id="cName" placeholder="ONEX PANEL"><button type="button" class="create-icon-btn" onclick="randomName()" title="نام تصادفی">↗</button></div></div>
-          <div class="field"><label>گروه اشتراک</label><select id="cSubGroup"><option value="">بدون گروه (عمومی)</option></select><small>در صورت انتخاب، کانفیگ بعد از ساخت عضو همان گروه می‌شود.</small></div>
+  <div class="cfgx" id="cfgx">
+    <div class="cfgx-card cfgx-basic">
+      <div class="cfgx-head"><span class="cfgx-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L8 18l-4 1 1-4Z"/></svg></span><div><b>اطلاعات پایه</b><small>نام کانفیگ و گروه اشتراک</small></div></div>
+      <div class="cfgx-row2">
+        <div class="field cfgx-field"><label data-i18n="label_name">نام</label>
+          <div class="cfgx-inline">
+            <input id="cName" placeholder="ONEX PANEL" autocomplete="off">
+            <button type="button" class="cfgx-icon-btn" onclick="randomName()" title="Random" aria-label="نام تصادفی">
+              <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M16 3h5v5M4 20L21 3M21 16v5h-5M15 15l6 6M4 4l5 5"/></svg>
+            </button>
+          </div>
         </div>
+        <div class="field cfgx-field"><label>گروه اشتراک</label><select id="cSubGroup"><option value="">بدون گروه (عمومی)</option></select></div>
       </div>
-
-      <div class="create-section protocol-builder-section">
-        <div class="create-section-head"><span class="create-step">۲</span><div><b>انتخاب پروتکل‌ها</b><small>یک یا چند پروتکل را با همان UUID در یک Subscription قرار دهید.</small></div><span class="create-count" id="bundleCountBadge">۱ انتخاب</span></div>
-
-        <div class="primary-protocol-box create-primary-compact">
-          <div class="primary-protocol-copy"><span class="primary-protocol-dot"></span><div><b>پروتکل اصلی</b><small>پروتکل اصلی از بین انتخاب‌های زیر.</small></div></div>
-          <div class="field protocol-field create-protocol-field" data-protocol-picker="cProto"><select id="cProto" class="protocol-native" tabindex="-1" aria-hidden="true"></select><button type="button" class="protocol-trigger" data-for="cProto" onclick="window.openProtocolPicker&&window.openProtocolPicker('cProto')"><span class="protocol-trigger-main"><span class="protocol-trigger-icon">🚀</span><span class="protocol-trigger-text"><span class="protocol-trigger-name">ONEX WB</span><span class="protocol-trigger-sub">برای تغییر انتخاب کنید</span></span></span><span class="protocol-trigger-arrow">⌄</span></button></div>
-        </div>
-
-        <div class="create-protocol-toolbar"><div><b>پروتکل‌های قابل انتخاب</b><small>با انتخاب چند کارت، همه آن‌ها با یک UUID ساخته می‌شوند.</small></div><button type="button" class="bundle-clear-btn" onclick="clearBundleProtocols()">پاک کردن انتخاب‌ها</button></div>
-        <div class="create-protocol-filters" id="createProtocolFilters">
-          <button type="button" class="on" data-filter="all">همه</button><button type="button" data-filter="vless">VLESS</button><button type="button" data-filter="vmess">VMess</button><button type="button" data-filter="trojan">Trojan</button><button type="button" data-filter="other">سایر</button>
-        </div>
-        <div id="protocolBundleOptions" class="protocol-bundle-grid"></div>
-        <div class="create-selected-wrap"><div class="create-selected-title">پروتکل‌های انتخاب‌شده</div><div id="createSelectedProtocols" class="create-selected-chips"><span class="create-empty-chip">هنوز انتخابی انجام نشده</span></div></div>
-        <div class="bundle-mode-row"><button type="button" id="allRailwayModeBtn" class="bundle-mode-btn" onclick="toggleAllRailwayMode()"><span>∞</span><div><b>اشتراک کامل Railway</b><small>سه مسیر Railway با یک اکانت و یک لینک اشتراک</small></div><i id="allRailwayModeState">خاموش</i></button><input id="cAllProtocols" type="checkbox" hidden></div>
-      </div>
-
-      <div class="create-section">
-        <div class="create-section-head"><span class="create-step">۳</span><div><b>محدودیت‌ها و دسترسی</b><small>مصرف، انقضا، IP و سرعت را تنظیم کنید.</small></div></div>
-        <div class="limit-grid">
-          <div class="field limit-card"><label data-i18n="label_limit">محدودیت حجم</label><div class="limit-input"><input id="cLimit" type="number" value="0" min="0"><select id="cUnit"><option>GB</option><option>MB</option><option>KB</option></select></div><small>۰ یعنی بدون محدودیت</small></div>
-          <div class="field limit-card"><label data-i18n="label_days">انقضا (روز)</label><input id="cDays" type="number" value="0" min="0"><small>۰ یعنی بدون انقضا</small></div>
-          <div class="field limit-card"><label data-i18n="label_ip">محدودیت IP</label><input id="cIp" type="number" value="0" min="0"><small>۰ یعنی نامحدود</small></div>
-          <div class="field limit-card"><label data-i18n="label_speed">سرعت (Mbps)</label><input id="cSpeed" type="number" value="0" min="0"><small>۰ یعنی بدون محدودیت</small></div>
-        </div>
-        <div class="create-switch-grid">
-          <label class="create-switch-card"><span class="switch-icon">🛡</span><span><b>Ad Blocker اختصاصی</b><small>فقط روی همین کانفیگ اعمال می‌شود.</small></span><input id="cAdBlockEnabled" type="checkbox"><i></i></label>
-          <div class="create-info-card"><span>✓</span><div><b>اتصال مستقیم</b><small>تنظیمات هنگام ساخت به رکورد کانفیگ و Subscription متصل می‌شوند.</small></div></div>
-        </div>
-      </div>
-
-      <div class="create-section create-review-section">
-        <div class="create-section-head"><span class="create-step">۴</span><div><b>تنظیمات پیشرفته</b><small>TLS، SNI، پورت، شبکه، Header و Routing</small></div><button type="button" class="create-inline-open" onclick="toggleAdvancedConfig(true)">باز کردن</button></div>
-        <div class="create-advanced-summary">TLS / Reality · Fingerprint · Network · Port · Routing · Headers</div>
-      </div>
-
-      <div class="create-summary-card create-final-summary" id="createLiveSummary">
-        <div><span class="summary-pulse"></span><div><b>خلاصه و اعتبارسنجی</b><small id="createSummaryText">ONEX PANEL · ۱ پروتکل · بدون محدودیت</small></div></div><span id="createSummaryGroup">عمومی</span>
-      </div>
-      <button id="manualConfigSubmit" class="btn btn-p create-submit-btn" onclick="doManualCreate()"><span class="create-submit-icon">＋</span><span data-i18n="btn_create">ساخت کانفیگ</span><span class="create-submit-arrow">←</span></button>
+      <small class="cfgx-note">با انتخاب گروه، این کانفیگ بعد از ساخت خودکار عضو همان گروه می‌شود.</small>
+      <div class="field protocol-field cfgx-legacy-proto" data-protocol-picker="cProto"><label data-i18n="label_proto">پروتکـل</label><select id="cProto" class="protocol-native" tabindex="-1" aria-hidden="true"></select><button type="button" class="protocol-trigger" data-for="cProto" onclick="window.openProtocolPicker&&window.openProtocolPicker('cProto')"><span class="protocol-trigger-main"><span class="protocol-trigger-icon">🚀</span><span class="protocol-trigger-text"><span class="protocol-trigger-name">ONEX WB</span><span class="protocol-trigger-sub">برای تغییر پروتکل، اینجا بزنید</span></span></span><span class="protocol-trigger-arrow">⌄</span></button></div>
     </div>
 
+    <div class="cfgx-card">
+      <div class="cfgx-head"><span class="cfgx-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2 3 7l9 5 9-5-9-5Z"/><path d="m3 12 9 5 9-5"/><path d="m3 17 9 5 9-5"/></svg></span><div><b>انتخاب پروتکل</b><small>پروتکل اصلی کانفیگ</small></div><span class="cfgx-badge" id="cfgxProtoBadge">—</span></div>
+      <div class="cfgx-proto-grid" id="cfgxProtoGrid"><div class="cfgx-empty">در حال بارگذاری پروتکل‌ها...</div></div>
+    </div>
+
+    <div class="cfgx-card">
+      <div class="cfgx-head"><span class="cfgx-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="2"/><rect x="14" y="3" width="7" height="7" rx="2"/><rect x="3" y="14" width="7" height="7" rx="2"/><path d="M17.5 14v7M14 17.5h7"/></svg></span><div><b>ترکیب پروتکل‌ها</b><small>چند پروتکل با یک اکانت در یک ساب (اختیاری)</small></div><span class="cfgx-badge" id="cfgxBundleBadge">0</span></div>
+      <div id="protocolBundleOptions" class="cfgx-bundle"></div>
+      <small class="cfgx-note">پروتکل اصلی خودکار داخل ترکیب قرار می‌گیرد.</small>
+      <label class="all-proto-toggle cfgx-switch" title="یک اکانت با همه پروتکل‌ها و یک ساب"><span><b>همه پروتکل‌ها در یک ساب</b><small>یک اکانت · فقط ۳ پروتکل Railway · یک لینک اشتراک</small></span><input id="cAllProtocols" type="checkbox"><i aria-hidden="true"></i></label>
+    </div>
+
+    <div class="cfgx-card">
+      <div class="cfgx-head"><span class="cfgx-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a9 9 0 1 0 9 9"/><path d="M12 7v5l3 2"/></svg></span><div><b>محدودیت‌ها</b><small>۰ یعنی نامحدود</small></div></div>
+      <div class="cfgx-limits">
+        <div class="field cfgx-field"><label data-i18n="label_limit">محدودیت حجم</label><div class="cfgx-inline"><input id="cLimit" type="number" value="0" min="0" inputmode="decimal"><select id="cUnit" class="cfgx-unit"><option>GB</option><option>MB</option><option>KB</option></select></div></div>
+        <div class="field cfgx-field"><label data-i18n="label_days">انقضـا (روز)</label><div class="cfgx-inline"><input id="cDays" type="number" value="0" min="0" inputmode="numeric"><span class="cfgx-suffix">روز</span></div></div>
+        <div class="field cfgx-field"><label data-i18n="label_ip">محدودیت IP</label><div class="cfgx-inline"><input id="cIp" type="number" value="0" min="0" inputmode="numeric"><span class="cfgx-suffix">IP</span></div></div>
+        <div class="field cfgx-field"><label data-i18n="label_speed">سرعـت (Mbps)</label><div class="cfgx-inline"><input id="cSpeed" type="number" value="0" min="0" inputmode="decimal"><span class="cfgx-suffix">Mbps</span></div></div>
+      </div>
+    </div>
+
+    <label class="all-proto-toggle cfgx-switch cfgx-card cfgx-adb"><span><b>Ad Blocker برای همین کانفیگ</b><small>فقط روی این کانفیگ اعمال می‌شود</small></span><input id="cAdBlockEnabled" type="checkbox"><i aria-hidden="true"></i></label>
     <div class="card advanced-config-card">
       <button type="button" class="advanced-toggle" id="advancedToggle" onclick="toggleAdvancedConfig()">
         <span class="advanced-toggle-icon">⚙</span>
@@ -9979,6 +9940,22 @@ Cache-Control: no-cache"></textarea></div>
           <button type="button" class="btn" onclick="copyAdvancedJson()">{ } کپی JSON</button>
         </div>
       </div>
+    </div>
+
+    <div class="cfgx-card cfgx-summary" id="cfgxSummary">
+      <div class="cfgx-head"><span class="cfgx-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3 8-8"/><path d="M20 12v7a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h9"/></svg></span><div><b>خلاصه و اعتبارسنجی</b><small>پیش از ساخت بررسی کنید</small></div></div>
+      <div class="cfgx-sum-rows">
+        <div><span>نام</span><b id="cfgxSumName">—</b></div>
+        <div><span>گروه</span><b id="cfgxSumGroup">—</b></div>
+        <div><span>پروتکل‌ها</span><b id="cfgxSumProto">—</b></div>
+        <div><span>محدودیت‌ها</span><b id="cfgxSumLimits">—</b></div>
+        <div><span>Ad Blocker</span><b id="cfgxSumAdb">خاموش</b></div>
+      </div>
+      <div class="cfgx-valid" id="cfgxValid">✓ اطلاعات معتبر است</div>
+      <button id="manualConfigSubmit" class="btn btn-p cfgx-submit" type="button" onclick="doManualCreate()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><path d="M12 5v14M5 12h14"/></svg>
+        <span data-i18n="btn_create">ساخت</span>
+      </button>
     </div>
 
   </div>
@@ -12842,7 +12819,7 @@ async function openConfigEditor(e,uid){
   const speedBytes=Number(link.speed_limit_bytes||0);setConfigEditValue('cSpeed',speedBytes?Math.round((speedBytes*8/(1024*1024))*100)/100:0);
   const all=document.getElementById('cAllProtocols');if(all)all.checked=!!link.all_protocols;
   const bundleSelected=new Set(Array.isArray(link.bundle_protocols)?link.bundle_protocols:[link.protocol]);
-  document.querySelectorAll('#protocolBundleOptions input').forEach(x=>{x.checked=bundleSelected.has(x.value)}); renderBundleProtocolCards();
+  document.querySelectorAll('#protocolBundleOptions input').forEach(x=>{x.checked=bundleSelected.has(x.value)});
   const adb=document.getElementById('cAdBlockEnabled');if(adb)adb.checked=!!link.ad_block_enabled;
   fillAdvancedForm(link.advanced||{ports:[Number(link.port)||443]});
   document.getElementById('advancedValidationStatus')?.replaceChildren();
@@ -13389,23 +13366,10 @@ async function loadProtocols(){
   setupProtocolPickers();
   const bundle=document.getElementById('protocolBundleOptions');
   if(bundle){
-    const icon=id=>PROTOCOL_ICON_DATA[id]||'/api/protocol-icon/vless-ws.png?v=1.3.5';
-    const ids=list.map(p=>p.id).filter(Boolean);
-    bundle.innerHTML=ids.map(id=>`<label class="protocol-bundle-card" data-proto="${esc(id)}" data-kind="${esc((String(id).split('-')[0]||'other'))}"><input type="checkbox" value="${esc(id)}"><span class="protocol-bundle-radio"></span><img src="${icon(id)}" alt="" loading="eager" decoding="async"><b>${esc(protocolPickerShort(id))}</b><small>${esc(PROTOCOL_PICKER_DESCS[id]||protocolPickerLabel(id))}</small></label>`).join('');
-    const defaultCard=bundle.querySelector(`input[value="${CSS.escape(def)}"]`);if(defaultCard)defaultCard.checked=true;
-    const syncCards=()=>{renderBundleProtocolCards();syncAllProtocolToggle();updateCreateLiveSummary()};
-    bundle.querySelectorAll('input').forEach(inp=>inp.addEventListener('change',()=>{
-      if(inp.checked){
-        const all=document.getElementById('cAllProtocols');if(all)all.checked=false;
-        const sel=document.getElementById('cProto');if(sel){sel.value=inp.value;syncProtocolPicker('cProto');}
-      }
-      syncCards();
-    }));
-    bundle.querySelectorAll('.protocol-bundle-card').forEach(card=>card.addEventListener('click',e=>{if(e.target.tagName==='INPUT')return;const input=card.querySelector('input');if(!input)return; if(input.checked && bundle.querySelectorAll('input:checked').length===1)return; input.checked=!input.checked; input.dispatchEvent(new Event('change',{bubbles:true}))}));
-    renderBundleProtocolCards();syncAllProtocolToggle();
-    document.querySelectorAll('#createProtocolFilters button').forEach(btn=>{btn.onclick=()=>{document.querySelectorAll('#createProtocolFilters button').forEach(x=>x.classList.remove('on'));btn.classList.add('on');filterCreateProtocolCards(btn.dataset.filter||'all')}});
+    const ids=['vless-ws','siderail-vless-xhttp','vmess-ws','trojan-ws','vless-httpupgrade'];
+    bundle.innerHTML=ids.map(id=>`<label class="cfgx-chip"><input type="checkbox" value="${id}"><img src="${PROTOCOL_ICON_DATA[id]||PROTOCOL_ICON_DATA['vless-ws']}" alt="" loading="lazy" decoding="async"><b>${esc(protocolPickerShort(id))}</b><em>اصلی</em><i aria-hidden="true"></i></label>`).join('');
+    if(window.cfgxSync)window.cfgxSync();
   }
-
 }
 async function loadAdBlocker(){
   const r=await api('/api/ad-blocker');if(!r)return;
@@ -13770,11 +13734,7 @@ function protocolIconMarkup(id){
 }
 function setupProtocolPickers(){['cProto','aProto'].forEach(id=>{const sel=document.getElementById(id);if(!sel)return;sel.classList.add('protocol-native');sel.style.setProperty('display','none','important');sel.setAttribute('aria-hidden','true');let trigger=sel.parentNode.querySelector(`.protocol-trigger[data-for="${id}"]`);if(!trigger){trigger=document.createElement('button');trigger.type='button';trigger.className='protocol-trigger';trigger.dataset.for=id;sel.parentNode.insertBefore(trigger,sel.nextSibling)}trigger.onclick=e=>{e.preventDefault();openProtocolPicker(id)};syncProtocolPicker(id)})}
 function syncProtocolPicker(id){const sel=document.getElementById(id),trigger=document.querySelector(`.protocol-trigger[data-for="${id}"]`);if(!sel||!trigger)return;const value=sel.value||'vless-ws';trigger.innerHTML=`<span class="protocol-trigger-main"><span class="protocol-trigger-icon">${protocolIconMarkup(value)}</span><span class="protocol-trigger-text"><span class="protocol-trigger-name">${esc(protocolPickerShort(value))}</span><span class="protocol-trigger-sub">${lang==='fa'?'برای تغییر، انتخاب کنید':'Tap to choose another protocol'}</span></span></span><span class="protocol-trigger-arrow">⌄</span>`}
-function syncAllProtocolToggle(){const sel=document.getElementById('cProto'),all=document.getElementById('cAllProtocols'),btn=document.getElementById('allRailwayModeBtn');if(!sel||!all)return;const railway=RAILWAY_SUB_PROTOCOLS.includes(sel.value);if(!railway){all.checked=false;all.disabled=true}else{all.disabled=false}if(btn){btn.classList.toggle('on',!!all.checked&&!all.disabled);const st=document.getElementById('allRailwayModeState');if(st)st.textContent=all.checked&&!all.disabled?'فعال':'خاموش';btn.disabled=!railway;btn.style.opacity=railway?'1':'.48'}}
-function toggleAllRailwayMode(){const all=document.getElementById('cAllProtocols'),sel=document.getElementById('cProto');if(!all||!sel||!RAILWAY_SUB_PROTOCOLS.includes(sel.value))return;all.checked=!all.checked;if(all.checked){document.querySelectorAll('#protocolBundleOptions input').forEach(x=>x.checked=false);renderBundleProtocolCards();}syncAllProtocolToggle();updateCreateLiveSummary()}
-function clearBundleProtocols(){const all=document.getElementById('cAllProtocols');if(all)all.checked=false;document.querySelectorAll('#protocolBundleOptions input').forEach(x=>x.checked=false);renderBundleProtocolCards();syncAllProtocolToggle();updateCreateLiveSummary()}
-function renderBundleProtocolCards(){const box=document.getElementById('protocolBundleOptions');if(!box)return;const selected=new Set([...box.querySelectorAll('input:checked')].map(x=>x.value));box.querySelectorAll('.protocol-bundle-card').forEach(card=>card.classList.toggle('selected',selected.has(card.dataset.proto)));const badge=document.getElementById('bundleCountBadge');if(badge)badge.textContent=`${selected.size||1} انتخاب`;const all=document.getElementById('cAllProtocols');if(all&&all.checked)box.querySelectorAll('.protocol-bundle-card').forEach(card=>card.classList.remove('selected'))}
-function updateCreateLiveSummary(){const name=document.getElementById('cName')?.value?.trim()||'ONEX PANEL',all=document.getElementById('cAllProtocols')?.checked,sel=[...document.querySelectorAll('#protocolBundleOptions input:checked')].map(x=>x.value),primary=document.getElementById('cProto')?.value||'vless-ws',group=document.getElementById('cSubGroup'),days=Number(document.getElementById('cDays')?.value||0),limit=Number(document.getElementById('cLimit')?.value||0);let count=all?3:(sel.length||1);const summary=document.getElementById('createSummaryText');if(summary)summary.textContent=`${name} · ${count} پروتکل · ${limit>0?limit+' '+(document.getElementById('cUnit')?.value||'GB'):'بدون محدودیت'} · ${days>0?days+' روز':'بدون انقضا'}`;const gs=document.getElementById('createSummaryGroup');if(gs)gs.textContent=group?.selectedOptions?.[0]?.textContent||'عمومی';const st=document.getElementById('createBuilderStatus');if(st)st.textContent=all?'اشتراک کامل Railway':(sel.length?'ترکیبی · آماده ساخت':'آماده ساخت')}
+function syncAllProtocolToggle(){const sel=document.getElementById('cProto'),all=document.getElementById('cAllProtocols'),wrap=all?.closest('.all-proto-toggle');if(!sel||!all)return;const railway=RAILWAY_SUB_PROTOCOLS.includes(sel.value);if(!railway){all.checked=false;all.disabled=true;if(wrap){wrap.style.opacity='0.48';wrap.style.cursor='not-allowed';wrap.title=lang==='fa'?'این گزینه فقط برای پروتکل‌های Railway است':'This option is only for Railway protocols';}}else{all.disabled=false;if(wrap){wrap.style.opacity='1';wrap.style.cursor='pointer';wrap.title=lang==='fa'?'فقط سه پروتکل Railway در یک ساب':'Only the three Railway protocols in one subscription';}}}
 
 function ensureProtocolPicker(){let bg=document.getElementById('protocolPickerBg');if(bg)return bg;bg=document.createElement('div');bg.id='protocolPickerBg';bg.className='protocol-picker-bg';bg.innerHTML=`<div class="protocol-picker" role="dialog" aria-modal="true"><div class="protocol-picker-head"><div class="protocol-picker-head-icon"><span>✦</span></div><div class="protocol-picker-head-text"><div class="protocol-picker-title">${lang==='fa'?'انتخاب پروتکل':'Select Protocol'}</div><div class="protocol-picker-subtitle">${lang==='fa'?'پروتکل موردنظر را انتخاب کنید':'Choose the protocol you want to use'}</div></div><button type="button" class="protocol-picker-close" id="protocolPickerClose">×</button></div><div class="protocol-picker-scroll" id="protocolPickerScroll"></div><div class="protocol-picker-foot"><div class="protocol-selected-info" id="protocolSelectedInfo">—</div><button type="button" class="protocol-picker-confirm" id="protocolPickerConfirm">${lang==='fa'?'تأیید و ادامه →':'Confirm & Continue →'}</button></div></div>`;document.body.appendChild(bg);bg.addEventListener('click',e=>{if(e.target===bg)closeProtocolPicker()});bg.querySelector('#protocolPickerClose').onclick=closeProtocolPicker;bg.querySelector('#protocolPickerConfirm').onclick=confirmProtocolPicker;return bg}
 function openProtocolPicker(targetId){const sel=document.getElementById(targetId);if(!sel)return;const bg=ensureProtocolPicker();__protocolPickerTarget=targetId;const current=sel.value||'vless-ws';const available=new Set([...sel.options].map(o=>o.value));const sections=PROTOCOL_PICKER_GROUPS.map(g=>{const ids=g.ids.filter(id=>available.has(id));if(!ids.length)return '';return `<section class="protocol-picker-section ${g.kind||''}"><div class="protocol-picker-section-head"><div><b>${esc(g.title)}</b><small>${esc(g.subtitle||'')}</small></div><span>${ids.length}</span></div><div class="protocol-grid protocol-grid-all">${ids.map(id=>`<button type="button" class="protocol-option ${id===current?'selected':''}" data-proto="${id}"><span class="protocol-option-radio"></span>${protocolIconMarkup(id)}<span class="protocol-option-name">${esc(protocolPickerShort(id))}</span><span class="protocol-option-desc">${id===current?(lang==='fa'?'انتخاب‌شده · ':'Selected · ')+(PROTOCOL_PICKER_DESCS[id]||''):(PROTOCOL_PICKER_DESCS[id]|| (lang==='fa'?'برای انتخاب کلیک کنید':'Tap to choose'))}</span></button>`).join('')}</div></section>`}).join('');const scroll=bg.querySelector('#protocolPickerScroll');scroll.innerHTML=sections;scroll.querySelectorAll('.protocol-option').forEach(btn=>btn.addEventListener('click',()=>chooseProtocol(btn.dataset.proto)));bg.querySelector('#protocolSelectedInfo').textContent=(lang==='fa'?'پروتکل انتخاب‌شده: ':'Selected: ')+protocolPickerShort(current);bg.classList.add('open');document.body.style.overflow='hidden'}
@@ -13782,8 +13742,7 @@ function chooseProtocol(id){const sel=document.getElementById(__protocolPickerTa
 function confirmProtocolPicker(){if(__protocolPickerTarget){const sel=document.getElementById(__protocolPickerTarget);if(sel)sel.dispatchEvent(new Event('change',{bubbles:true}))}closeProtocolPicker()}
 function closeProtocolPicker(){const bg=document.getElementById('protocolPickerBg');if(bg)bg.classList.remove('open');document.body.style.overflow=''}
 document.addEventListener('keydown',e=>{if(e.key==='Escape')closeProtocolPicker()});
-if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',()=>{setupProtocolPickers();syncAllProtocolToggle()});else {setupProtocolPickers();syncAllProtocolToggle();}
-setTimeout(()=>{['cName','cSubGroup','cDays','cLimit','cUnit','cIp','cSpeed'].forEach(id=>document.getElementById(id)?.addEventListener('input',updateCreateLiveSummary));document.getElementById('cSubGroup')?.addEventListener('change',updateCreateLiveSummary);document.getElementById('cProto')?.addEventListener('change',()=>{syncAllProtocolToggle();updateCreateLiveSummary()});document.getElementById('cAdBlockEnabled')?.addEventListener('change',updateCreateLiveSummary);updateCreateLiveSummary()},500);setTimeout(setupProtocolPickers,300);setTimeout(setupProtocolPickers,1000);
+if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',()=>{setupProtocolPickers();syncAllProtocolToggle()});else {setupProtocolPickers();syncAllProtocolToggle();}setTimeout(setupProtocolPickers,300);setTimeout(setupProtocolPickers,1000);
 
 applyLang();loadMe();loadProtocols();loadCategories();loadGroups();refreshAll();setTimeout(()=>{if(document.getElementById('advancedPorts')&&!getAdvancedPorts().length)fillAdvancedForm({ports:[443]});loadAdvancedCapabilities(document.getElementById('cProto')?.value||'vless-ws')},250);
 loadAdBlocker();
@@ -13795,7 +13754,7 @@ function bootProtocolPickers(){ try{ setupProtocolPickers(); }catch(e){ console.
 if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',bootProtocolPickers); else bootProtocolPickers();
 setTimeout(bootProtocolPickers,300);
 setTimeout(bootProtocolPickers,1000);
-setInterval(refreshAll,30000);
+setInterval(()=>{if(document.hidden)return;const pg=document.querySelector('.page.on');const id=pg?pg.id:'';if(id==='page-dash'||id==='page-configs'||id==='page-stats')refreshAll()},8000);
 
 // ============================================================
 // ONEX THEME SYSTEM — persistent presets + custom palette
@@ -13914,14 +13873,14 @@ window.addEventListener('storage',e=>{if(e.key==='onex_theme_v2')loadOnexTheme()
   applyOnexTheme=function(key,opts){_apply.apply(this,arguments);let t;try{t=JSON.parse(localStorage.getItem('onex_theme_v2')||'{}')}catch(e){t={}}if(t&&t.p)syncTokens(t.key||key||'custom',t)};
 
   // Default = Aurora (same as login); honour a theme chosen on the login screen.
-  resetOnexTheme=function(){applyOnexTheme('rose',ONEX_THEMES.rose);toast(lang==='fa'?'تم به حالت پیش‌فرض برگشت':'Theme reset to default')};
+  resetOnexTheme=function(){applyOnexTheme('aurora',ONEX_THEMES.aurora);toast(lang==='fa'?'تم به حالت پیش‌فرض برگشت':'Theme reset to default')};
   loadOnexTheme=function(){
     let saved=null;try{saved=JSON.parse(localStorage.getItem('onex_theme_v2')||'null')}catch(e){}
     let loginKey=null;try{loginKey=localStorage.getItem('onex_theme')}catch(e){}
     if(loginKey&&LOGIN[loginKey]&&(!saved||!saved.p||saved.key!==loginKey)){applyOnexTheme(loginKey,{...ONEX_THEMES[loginKey],mode:(saved&&saved.mode)||'dark'});return}
     if(loginKey==='custom'&&(!saved||!saved.p)){const c=localStorage.getItem('onex_theme_custom')||'#38d9ff';applyOnexTheme('custom',{name:'Custom',p:c,s:'#8b5cf6',bg:'#05060d',card:'#12162a',mode:'dark'});return}
     if(saved&&saved.p){applyOnexTheme(saved.key||'custom',saved);return}
-    applyOnexTheme('rose',ONEX_THEMES.rose);
+    applyOnexTheme('aurora',ONEX_THEMES.aurora);
   };
 
   // Top-bar swatches → the same preset system (replaces the old unsaved palette).
@@ -14108,13 +14067,229 @@ window.addEventListener('storage',e=>{if(e.key==='onex_theme_v2')loadOnexTheme()
   new MutationObserver(()=>{clearTimeout(H.mo);H.mo=setTimeout(drawChart,60)}).observe(document.documentElement,{attributes:true,attributeFilter:['class','style']});
 
   bindChartHover();applyLang();homeRefresh(false);
-  setInterval(()=>{const pg=$('page-dash');if(pg&&pg.classList.contains('on')&&!document.hidden)homeRefresh(false)},30000);
+  setInterval(()=>{const pg=$('page-dash');if(pg&&pg.classList.contains('on')&&!document.hidden)homeRefresh(false)},6000);
 })();
 
 </script>
 
 <script>
-(()=>{const cv=document.getElementById('onexDashScene');if(cv){cv.style.display='none';cv.width=1;cv.height=1;}})();
+(()=>{
+  /* ONEX LITE: animated background disabled for performance */return;
+  const cv=document.getElementById('onexDashScene'),ctx=cv&&cv.getContext('2d');if(!cv||!ctx)return;
+  let W=0,H=0,dpr=1,tm=0,last=performance.now(),mouse={x:0,y:0,tx:0,ty:0};
+  const themes={aurora:['#38d9ff','#8b5cf6'],lime:['#d4f24a','#ffb84d'],rose:['#ff3d8b','#ff8a3d'],emerald:['#34f5a0','#22c1ee'],violet:['#b57bff','#ff5ecf'],gold:['#ffc94d','#ff7a45']};
+  function rgb(h){h=(h||'').replace('#','');let n=parseInt(h,16)||0;return[(n>>16)&255,(n>>8)&255,n&255]}
+  function colors(){let id=localStorage.getItem('onex_theme')||'aurora',c=themes[id]||themes.aurora;if(id==='custom'){let p=localStorage.getItem('onex_theme_custom')||'#38d9ff';c=[p,'#8b5cf6']}return[c.map(rgb)[0],c.map(rgb)[1]]}
+  let C=colors();
+  function resize(){W=innerWidth;H=innerHeight;dpr=Math.min(devicePixelRatio||1,1.5);cv.width=W*dpr;cv.height=H*dpr;cv.style.width=W+'px';cv.style.height=H+'px';ctx.setTransform(dpr,0,0,dpr,0,0)}
+  resize();addEventListener('resize',resize);addEventListener('pointermove',e=>{mouse.tx=e.clientX/W*2-1;mouse.ty=e.clientY/H*2-1});
+  const objs=Array.from({length:18},(_,i)=>({x:(Math.random()*2-1)*11,y:(Math.random()*2-1)*6,z:5+Math.random()*15,s:.35+Math.random()*1.1,a:Math.random()*6.28,v:.1+Math.random()*.3,k:i%3}));
+  function drawShape(o,t){let x=W/2+o.x*W/18-mouse.x*20,y=H/2+o.y*H/9-mouse.y*12+Math.sin(t*.6+o.a)*9;let r=o.s*W/16*(1.1-o.z/28),col=C[o.k%2],a=Math.max(0,.04*(1-o.z/24));ctx.save();ctx.translate(x,y);ctx.rotate(t*.12+o.a);ctx.strokeStyle=`rgba(${col[0]},${col[1]},${col[2]},${a})`;ctx.lineWidth=1.2;ctx.beginPath();for(let i=0;i<6;i++){let q=i*Math.PI/3;let xx=Math.cos(q)*r,yy=Math.sin(q)*r;i?ctx.lineTo(xx,yy):ctx.moveTo(xx,yy)}ctx.closePath();ctx.stroke();ctx.restore()}
+  function frame(now){let dt=Math.min(.05,(now-last)/1000);last=now;tm+=dt;mouse.x+=(mouse.tx-mouse.x)*.04;mouse.y+=(mouse.ty-mouse.y)*.04;let n=colors();C[0][0]+=(n[0][0]-C[0][0])*.03;C[0][1]+=(n[0][1]-C[0][1])*.03;C[0][2]+=(n[0][2]-C[0][2])*.03;C[1][0]+=(n[1][0]-C[1][0])*.03;C[1][1]+=(n[1][1]-C[1][1])*.03;C[1][2]+=(n[1][2]-C[1][2])*.03;
+    ctx.clearRect(0,0,W,H);let g=ctx.createRadialGradient(W*.18,H*.12,0,W*.18,H*.12,Math.max(W,H)*.65);g.addColorStop(0,`rgba(${C[0][0]|0},${C[0][1]|0},${C[0][2]|0},.10)`);g.addColorStop(1,'rgba(0,0,0,0)');ctx.fillStyle=g;ctx.fillRect(0,0,W,H);
+    for(const o of objs){o.y-=dt*.025;if(o.y<-7)o.y=7;drawShape(o,tm)}requestAnimationFrame(frame)}requestAnimationFrame(frame);
+})();
+</script>
+<!-- ============================================================
+     ONEX LITE + GLASS CONFIG BUILDER (performance layer)
+     - all CSS animations/transitions off, backdrop blur off (except top bar)
+     - theme-aware glass bar + config builder (uses --p / --s tokens)
+     ============================================================ -->
+<style id="onex-lite-layer">
+/* ---------- performance: kill motion everywhere ---------- */
+html,body{scroll-behavior:auto!important}
+*:not(#_lx1):not(#_lx2):not(#_lx3),*:not(#_lx1):not(#_lx2):not(#_lx3)::before,*:not(#_lx1):not(#_lx2):not(#_lx3)::after{animation-duration:0s!important;animation-delay:0s!important;animation-iteration-count:1!important;transition-duration:0s!important;transition-delay:0s!important;-webkit-backdrop-filter:none!important;backdrop-filter:none!important}
+#onexDashScene{display:none!important}
+.onex-metric:not(#_lx1):not(#_lx2):not(#_lx3):after,.onex-mark:not(#_lx1):not(#_lx2):not(#_lx3):after,.theme-mini-cards div:not(#_lx1):not(#_lx2):not(#_lx3):after,.onex-glint:not(#_lx1):not(#_lx2):not(#_lx3){display:none!important}
+
+/* ---------- glass top bar (follows theme color) ---------- */
+html body #mobBar:not(#_lx1):not(#_lx2):not(#_lx3),html body .onex-topbar:not(#_lx1):not(#_lx2):not(#_lx3){
+  background:linear-gradient(135deg,rgb(var(--p-rgb,56 217 255) / .16),rgb(var(--s-rgb,139 92 246) / .08) 70%),rgba(8,10,22,.72)!important;
+  border-color:rgb(var(--p-rgb,56 217 255) / .28)!important;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.07),0 8px 22px -14px rgb(var(--p-rgb,56 217 255) / .6)!important;
+  -webkit-backdrop-filter:blur(10px)!important;backdrop-filter:blur(10px)!important}
+html body #mobBar:not(#_lx1):not(#_lx2):not(#_lx3){border-bottom:1px solid rgb(var(--p-rgb,56 217 255) / .28)!important}
+html body #mobMenuBtn:not(#_lx1):not(#_lx2):not(#_lx3){background:linear-gradient(135deg,var(--p,#38d9ff),var(--s,#8b5cf6))!important;border-color:rgb(var(--p-rgb,56 217 255) / .6)!important;box-shadow:0 6px 16px -8px rgb(var(--p-rgb,56 217 255) / .9)!important}
+html body .mob-bar #mxa stop:first-child,html body .sidebar #sxa stop:first-child{stop-color:var(--p,#2ec9ff)}
+html body .mob-bar #mxa stop:last-child,html body .sidebar #sxa stop:last-child{stop-color:var(--s,#7b42ff)}
+html body .mob-bar #mxb stop,html body .sidebar #sxb stop{stop-color:var(--s,#7b42ff)}
+html.light body #mobBar:not(#_lx1):not(#_lx2):not(#_lx3),html.light body .onex-topbar:not(#_lx1):not(#_lx2):not(#_lx3){background:linear-gradient(135deg,rgb(var(--p-rgb,37 99 235) / .12),rgb(var(--s-rgb,124 58 237) / .06) 70%),rgba(255,255,255,.82)!important;color:var(--t1,#0f172a)!important}
+
+/* ---------- config builder ---------- */
+#page-create .page-head{padding:14px 16px;border-radius:18px;margin-bottom:12px;
+  background:linear-gradient(135deg,rgb(var(--p-rgb,56 217 255) / .16),rgb(var(--s-rgb,139 92 246) / .08) 65%),rgba(12,14,28,.7);
+  border:1px solid rgb(var(--p-rgb,56 217 255) / .28);box-shadow:inset 0 1px 0 rgba(255,255,255,.06)}
+#page-create .page-head .page-title svg{color:var(--p,#38d9ff)}
+#cfgx{display:flex;flex-direction:column;gap:12px;max-width:760px;margin:0 auto}
+#cfgx .cfgx-card,#cfgx .advanced-config-card{position:relative;padding:14px;border-radius:18px;margin:0;
+  background:linear-gradient(150deg,rgb(var(--p-rgb,56 217 255) / .09),rgb(var(--s-rgb,139 92 246) / .04) 55%,transparent),rgba(12,14,28,.72)!important;
+  border:1px solid rgb(var(--p-rgb,56 217 255) / .2)!important;box-shadow:inset 0 1px 0 rgba(255,255,255,.05)!important;color:var(--t1,#f8fafc)}
+#cfgx .cfgx-head{display:flex;align-items:center;gap:10px;margin-bottom:12px}
+#cfgx .cfgx-head>div{flex:1;min-width:0}
+#cfgx .cfgx-head b{display:block;font-size:14px;font-weight:800}
+#cfgx .cfgx-head small{display:block;font-size:10.5px;color:var(--t3,#94a3b8);margin-top:2px}
+#cfgx .cfgx-ico{flex:none;width:34px;height:34px;border-radius:11px;display:grid;place-items:center;color:var(--p,#38d9ff);background:rgb(var(--p-rgb,56 217 255) / .12);border:1px solid rgb(var(--p-rgb,56 217 255) / .3)}
+#cfgx .cfgx-ico svg{width:18px;height:18px}
+#cfgx .cfgx-badge{flex:none;font:700 11px/1 Vazirmatn,system-ui;padding:7px 10px;border-radius:99px;color:#fff;background:linear-gradient(135deg,var(--p,#38d9ff),var(--s,#8b5cf6));max-width:48%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#cfgx .cfgx-note{display:block;margin-top:8px;font-size:10px;color:var(--t3,#94a3b8);line-height:1.7}
+#cfgx .cfgx-row2,#cfgx .cfgx-limits{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+#cfgx .cfgx-field{margin:0}
+#cfgx .cfgx-field label{display:block;font-size:11.5px;font-weight:600;color:var(--t2,#cbd5e1);margin-bottom:6px}
+#cfgx .cfgx-inline{display:flex;align-items:center;gap:6px}
+#cfgx input:not([type=checkbox]),#cfgx select{width:100%;height:42px;min-width:0;padding:0 12px;border-radius:12px;font:500 13px Vazirmatn,system-ui;color:var(--t1,#f8fafc);background:rgba(0,0,0,.28)!important;border:1px solid rgba(255,255,255,.1)!important;outline:none;box-shadow:none!important}
+#cfgx input:not([type=checkbox]):focus,#cfgx select:focus{border-color:var(--p,#38d9ff)!important;box-shadow:0 0 0 3px rgb(var(--p-rgb,56 217 255) / .16)!important}
+#cfgx .cfgx-inline input{flex:1}
+#cfgx select.cfgx-unit{flex:0 0 70px;width:70px;padding:0 8px}
+#cfgx .cfgx-suffix{flex:0 0 auto;min-width:46px;height:42px;display:grid;place-items:center;padding:0 8px;border-radius:12px;font:700 11px Vazirmatn,system-ui;color:var(--t3,#94a3b8);background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08)}
+#cfgx .cfgx-icon-btn{flex:none;width:42px;height:42px;border-radius:12px;display:grid;place-items:center;color:var(--p,#38d9ff);background:rgb(var(--p-rgb,56 217 255) / .1);border:1px solid rgb(var(--p-rgb,56 217 255) / .3);cursor:pointer}
+html body #page-create #cfgx .cfgx-legacy-proto{display:none!important}
+
+/* protocol cards */
+#cfgx .cfgx-proto-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+#cfgx .cfgx-proto{position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;min-height:104px;padding:12px 6px 10px;border-radius:14px;cursor:pointer;text-align:center;color:var(--t1,#f8fafc);
+  background:rgba(255,255,255,.035);border:1px solid rgba(255,255,255,.09);font-family:Vazirmatn,system-ui}
+#cfgx .cfgx-proto img{width:40px;height:40px;object-fit:contain}
+#cfgx .cfgx-proto b{font-size:11.5px;font-weight:800;line-height:1.35;word-break:break-word}
+#cfgx .cfgx-proto small{font-size:9.5px;color:var(--t3,#94a3b8);line-height:1.3}
+#cfgx .cfgx-radio{position:absolute;top:7px;inset-inline-start:7px;width:18px;height:18px;border-radius:50%;border:1.5px solid rgba(255,255,255,.28)}
+#cfgx .cfgx-proto.on{background:linear-gradient(150deg,rgb(var(--p-rgb,56 217 255) / .2),rgb(var(--s-rgb,139 92 246) / .1));border-color:var(--p,#38d9ff);box-shadow:0 0 0 1px rgb(var(--p-rgb,56 217 255) / .35) inset}
+#cfgx .cfgx-proto.on .cfgx-radio{border:0;background:linear-gradient(135deg,var(--p,#38d9ff),var(--s,#8b5cf6))}
+#cfgx .cfgx-proto.on .cfgx-radio:after{content:"";position:absolute;left:5px;top:5px;width:7px;height:4px;border-left:2px solid #fff;border-bottom:2px solid #fff;transform:rotate(-45deg)}
+#cfgx .cfgx-more{border-style:dashed;color:var(--p,#38d9ff)}
+#cfgx .cfgx-more .cfgx-plus{width:40px;height:40px;border-radius:12px;display:grid;place-items:center;font-size:24px;background:rgb(var(--p-rgb,56 217 255) / .12)}
+#cfgx .cfgx-empty{grid-column:1/-1;padding:18px;text-align:center;font-size:12px;color:var(--t3,#94a3b8)}
+
+/* bundle chips (the real checkboxes stay inside, only restyled) */
+#cfgx .cfgx-bundle{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:8px!important}
+#cfgx .cfgx-bundle label{position:relative;display:flex!important;align-items:center;gap:8px;min-height:46px;padding:8px 10px!important;border-radius:12px!important;cursor:pointer;font-size:11px!important;
+  background:rgba(255,255,255,.035);border:1px solid rgba(255,255,255,.09)!important;color:var(--t1,#f8fafc)}
+#cfgx .cfgx-bundle label input{position:absolute;opacity:0;pointer-events:none;width:1px;height:1px}
+#cfgx .cfgx-bundle label img{width:26px;height:26px;object-fit:contain;flex:none}
+#cfgx .cfgx-bundle label b{flex:1;min-width:0;font-weight:700;line-height:1.35}
+#cfgx .cfgx-bundle label i{flex:none;width:18px;height:18px;border-radius:6px;border:1.5px solid rgba(255,255,255,.28);position:relative}
+#cfgx .cfgx-bundle label em{font-style:normal;font-size:9px;font-weight:800;padding:2px 6px;border-radius:99px;color:var(--p,#38d9ff);background:rgb(var(--p-rgb,56 217 255) / .14);display:none}
+#cfgx .cfgx-bundle label.is-main em{display:inline-block}
+#cfgx .cfgx-bundle label.is-on{background:linear-gradient(150deg,rgb(var(--p-rgb,56 217 255) / .18),rgb(var(--s-rgb,139 92 246) / .08));border-color:rgb(var(--p-rgb,56 217 255) / .7)!important}
+#cfgx .cfgx-bundle label.is-on i{border:0;background:linear-gradient(135deg,var(--p,#38d9ff),var(--s,#8b5cf6))}
+#cfgx .cfgx-bundle label.is-on i:after{content:"";position:absolute;left:5px;top:5px;width:7px;height:4px;border-left:2px solid #fff;border-bottom:2px solid #fff;transform:rotate(-45deg)}
+
+/* switches */
+#cfgx .cfgx-switch{margin:10px 0 0!important;border-radius:14px!important;background:rgba(255,255,255,.03)!important;border:1px solid rgba(255,255,255,.09)!important}
+#cfgx .cfgx-adb{margin:0!important}
+#cfgx .cfgx-switch.cfgx-adb{background:linear-gradient(150deg,rgb(var(--p-rgb,56 217 255) / .09),rgb(var(--s-rgb,139 92 246) / .04) 55%,transparent),rgba(12,14,28,.72)!important;border-color:rgb(var(--p-rgb,56 217 255) / .2)!important}
+html.light #cfgx .cfgx-switch.cfgx-adb{background:rgba(255,255,255,.9)!important}
+#cfgx .all-proto-toggle i{background:rgba(255,255,255,.16)!important;box-shadow:none!important}
+#cfgx .all-proto-toggle:has(input:checked) i,#cfgx .all-proto-toggle.is-checked i{background:linear-gradient(135deg,var(--p,#38d9ff),var(--s,#8b5cf6))!important}
+#cfgx .all-proto-toggle:has(input:checked) i:before,#cfgx .all-proto-toggle.is-checked i:before{right:4px}
+#cfgx .all-proto-toggle:focus-within{outline:2px solid rgb(var(--p-rgb,56 217 255) / .35)!important}
+
+/* advanced card */
+#cfgx .advanced-config-card .advanced-toggle{background:transparent!important;border:0!important;box-shadow:none!important}
+#cfgx .advanced-config-card .advanced-toggle-icon{color:var(--p,#38d9ff)}
+#cfgx .advanced-section{background:rgba(0,0,0,.18)!important;border:1px solid rgba(255,255,255,.07)!important;box-shadow:none!important}
+
+/* summary */
+#cfgx .cfgx-summary{border-color:rgb(var(--p-rgb,56 217 255) / .4)!important}
+#cfgx .cfgx-sum-rows{display:flex;flex-direction:column;gap:7px;padding:10px 12px;border-radius:12px;background:rgba(0,0,0,.2);border:1px solid rgba(255,255,255,.06)}
+#cfgx .cfgx-sum-rows div{display:flex;justify-content:space-between;gap:12px;font-size:11.5px}
+#cfgx .cfgx-sum-rows span{color:var(--t3,#94a3b8);flex:none}
+#cfgx .cfgx-sum-rows b{font-weight:600;text-align:left;direction:auto;min-width:0;word-break:break-word}
+#cfgx .cfgx-valid{margin:10px 2px;font-size:12px;font-weight:700;color:#22c55e}
+#cfgx .cfgx-valid.warn{color:#f59e0b}
+#cfgx .cfgx-submit{width:100%;height:50px;border:0!important;border-radius:14px!important;font:800 14px Vazirmatn,system-ui;color:var(--on,#fff)!important;background:linear-gradient(135deg,var(--p,#38d9ff),var(--s,#8b5cf6))!important;box-shadow:0 10px 24px -14px rgb(var(--p-rgb,56 217 255) / .9)!important;display:flex;align-items:center;justify-content:center;gap:8px}
+
+/* light theme */
+html.light #page-create .page-head,html.light #cfgx .cfgx-card,html.light #cfgx .advanced-config-card{background:linear-gradient(150deg,rgb(var(--p-rgb,37 99 235) / .08),transparent 60%),rgba(255,255,255,.9)!important;color:var(--t1,#0f172a)}
+html.light #cfgx input:not([type=checkbox]),html.light #cfgx select{background:#f8fafc!important;border-color:rgba(15,23,42,.12)!important;color:#0f172a}
+html.light #cfgx .cfgx-proto,html.light #cfgx .cfgx-bundle label,html.light #cfgx .cfgx-switch,html.light #cfgx .cfgx-sum-rows,html.light #cfgx .cfgx-suffix{background:rgba(15,23,42,.03)!important;border-color:rgba(15,23,42,.1)!important;color:#0f172a}
+html.light #cfgx .advanced-section{background:rgba(15,23,42,.03)!important}
+
+@media (max-width:420px){
+  #cfgx .cfgx-row2{grid-template-columns:1fr}
+  #cfgx .cfgx-proto{min-height:96px}
+  #cfgx .cfgx-proto img{width:34px;height:34px}
+}
+@media (min-width:900px){#cfgx .cfgx-proto-grid{grid-template-columns:repeat(4,minmax(0,1fr))}#cfgx .cfgx-bundle{grid-template-columns:repeat(3,minmax(0,1fr))!important}}
+</style>
+<script>
+/* ONEX glass config builder: pure UI layer, every value still lives in the
+   original inputs (cName, cProto, cSubGroup, protocolBundleOptions, cLimit...)
+   so doManualCreate / edit mode / backend payload are untouched. */
+(function(){
+  'use strict';
+  var $=function(id){return document.getElementById(id)};
+  var MAIN=['vless-ws','siderail-vless-xhttp','vmess-ws','trojan-ws','vless-httpupgrade','xhttp-stream-up'];
+  function h(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]})}
+  function nameOf(id){try{return protocolPickerShort(id)}catch(e){return id}}
+  function iconOf(id){try{return PROTOCOL_ICON_DATA[id]||PROTOCOL_ICON_DATA['vless-ws']}catch(e){return ''}}
+  function descOf(id){try{return PROTOCOL_PICKER_DESCS[id]||''}catch(e){return ''}}
+  var gridKey='';
+  function renderGrid(){
+    var sel=$('cProto'),grid=$('cfgxProtoGrid');if(!sel||!grid)return;
+    var avail=[].map.call(sel.options,function(o){return o.value});if(!avail.length)return;
+    var ids=MAIN.filter(function(id){return avail.indexOf(id)>-1});if(!ids.length)ids=avail.slice(0,6);
+    var cur=sel.value;if(cur&&ids.indexOf(cur)<0)ids=[cur].concat(ids);
+    var key=ids.join(',')+'|'+avail.length;
+    if(key!==gridKey){
+      gridKey=key;
+      grid.innerHTML=ids.map(function(id){return '<button type="button" class="cfgx-proto" data-proto="'+h(id)+'" aria-pressed="false"><span class="cfgx-radio"></span><img src="'+h(iconOf(id))+'" alt="" loading="lazy" decoding="async"><b>'+h(nameOf(id))+'</b><small>'+h(descOf(id))+'</small></button>'}).join('')+
+        '<button type="button" class="cfgx-proto cfgx-more" data-more="1"><span class="cfgx-plus">+</span><b>همه پروتکل‌ها</b><small>'+avail.length+' پروتکل</small></button>';
+    }
+    grid.querySelectorAll('.cfgx-proto[data-proto]').forEach(function(b){var on=b.getAttribute('data-proto')===cur;b.classList.toggle('on',on);b.setAttribute('aria-pressed',on?'true':'false')});
+    var badge=$('cfgxProtoBadge');if(badge)badge.textContent=cur?nameOf(cur):'—';
+  }
+  function bundleList(){
+    var box=$('protocolBundleOptions'),sel=$('cProto'),cur=sel?sel.value:'';if(!box)return[];
+    var list=[].map.call(box.querySelectorAll('input:checked'),function(i){return i.value});
+    if(list.length&&cur&&list.indexOf(cur)<0)list.unshift(cur);
+    return list;
+  }
+  function syncBundle(){
+    var box=$('protocolBundleOptions'),sel=$('cProto'),cur=sel?sel.value:'';if(!box)return;
+    var any=!!box.querySelector('input:checked');
+    box.querySelectorAll('label').forEach(function(l){var i=l.querySelector('input');if(!i)return;var main=i.value===cur;l.classList.toggle('is-main',main);l.classList.toggle('is-on',i.checked||(main&&any))});
+    var b=$('cfgxBundleBadge');if(b)b.textContent=String(bundleList().length);
+    document.querySelectorAll('#cfgx .all-proto-toggle').forEach(function(w){var i=w.querySelector('input');w.classList.toggle('is-checked',!!(i&&i.checked))});
+  }
+  function num(id){var v=Number(($(id)||{}).value);return isFinite(v)?v:NaN}
+  function syncSummary(){
+    var set=function(id,t){var e=$(id);if(e)e.textContent=t};
+    var nm=(($('cName')||{}).value||'').trim();set('cfgxSumName',nm||'خودکار');
+    var g=$('cSubGroup');set('cfgxSumGroup',g&&g.selectedIndex>-1&&g.options[g.selectedIndex]?g.options[g.selectedIndex].text:'بدون گروه');
+    var all=$('cAllProtocols'),sel=$('cProto'),pl;
+    if(all&&all.checked&&!all.disabled)pl='همه پروتکل‌های Railway در یک ساب';
+    else{var bl=bundleList();pl=bl.length?bl.map(nameOf).join('، ')+' ('+bl.length+')':(sel&&sel.value?nameOf(sel.value):'—')}
+    set('cfgxSumProto',pl);
+    var lim=num('cLimit'),unit=(($('cUnit')||{}).value)||'GB',d=num('cDays'),ip=num('cIp'),sp=num('cSpeed');
+    var f=function(v,s){return v>0?(v+(s?' '+s:'')):'نامحدود'};
+    set('cfgxSumLimits','حجم: '+f(lim,unit)+' · روز: '+f(d)+' · IP: '+f(ip)+' · سرعت: '+f(sp,'Mbps'));
+    var adb=$('cAdBlockEnabled');set('cfgxSumAdb',adb&&adb.checked?'روشن':'خاموش');
+    var bad=[];[['cLimit','حجم'],['cDays','روز'],['cIp','IP'],['cSpeed','سرعت']].forEach(function(p){var v=num(p[0]);if(isNaN(v)||v<0)bad.push(p[1])});
+    var ok=$('cfgxValid');if(ok){ok.classList.toggle('warn',!!bad.length);ok.textContent=bad.length?'⚠ مقدار نامعتبر: '+bad.join('، '):'✓ اطلاعات معتبر است'}
+  }
+  function sync(){try{renderGrid();syncBundle();syncSummary()}catch(e){console.warn('cfgx',e)}}
+  var pending=false;function schedule(){if(pending)return;pending=true;(window.requestAnimationFrame||setTimeout)(function(){pending=false;sync()})}
+  window.cfgxSync=schedule;
+
+  function wrap(name){var f=window[name];if(typeof f!=='function'||f.__cfgx)return;var w=function(){var r=f.apply(this,arguments);try{if(r&&typeof r.then==='function')r.then(schedule,schedule);else schedule()}catch(e){}return r};w.__cfgx=1;try{window[name]=w}catch(e){}}
+  ['syncProtocolPicker','syncAllProtocolToggle','setConfigEditMode','openConfigEditor','goPage'].forEach(wrap);
+
+  function boot(){
+    var root=$('cfgx');if(!root)return;
+    root.addEventListener('input',schedule);root.addEventListener('change',schedule);
+    var grid=$('cfgxProtoGrid');
+    if(grid)grid.addEventListener('click',function(ev){
+      var b=ev.target.closest('.cfgx-proto');if(!b)return;ev.preventDefault();
+      if(b.getAttribute('data-more')){if(typeof openProtocolPicker==='function')openProtocolPicker('cProto');return}
+      var sel=$('cProto'),id=b.getAttribute('data-proto');if(!sel||!id)return;
+      if(sel.value!==id){sel.value=id;try{syncProtocolPicker('cProto')}catch(e){}sel.dispatchEvent(new Event('change',{bubbles:true}));try{syncAllProtocolToggle()}catch(e){}}
+      schedule();
+    });
+    if(window.MutationObserver){var mo=new MutationObserver(schedule);['cProto','protocolBundleOptions','cSubGroup'].forEach(function(id){var e=$(id);if(e)mo.observe(e,{childList:true})})}
+    sync();
+  }
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot);else boot();
+})();
 </script>
 </body>
 </html>
@@ -14243,199 +14418,7 @@ h2{font-size:22px;font-weight:900}p{margin-top:10px;color:#a3abc6;font-size:13.5
 a{display:inline-block;margin-top:20px;padding:12px 20px;border-radius:14px;text-decoration:none;font-weight:800;color:#0b0d14;background:linear-gradient(135deg,#38d9ff,#8b5cf6)}
 small{display:block;margin-top:16px;font:500 11px "JetBrains Mono",monospace;color:#6d7594}
 </style></head>
-<body><div class="box"><div class="ic">!</div><h2>خطای داخلی پنل ONEX</h2><p>مشکلی پیش آمد. لطفاً لاگ سرور (Railway) را بررسی کنید و دوباره تلاش کنید.</p><a href="/dashboard">بازگشت به پنل</a><small>ONEX · internal error</small></div><style>
-/* ============================================================
-   ONEX STATIC PERFORMANCE + FULL PANEL THEME CONSISTENCY v4
-   - no motion/animation/transition
-   - no expensive backdrop blur on panel pages
-   - no fixed blue glass surfaces
-   - compact create builder matching the approved mockup
-   ============================================================ */
-html.onex-static *,html.onex-static *::before,html.onex-static *::after{
-  animation:none!important;transition:none!important;scroll-behavior:auto!important;
-}
-html.onex-static *:hover,html.onex-static *:focus{transform:none!important}
-html.onex-static .modal-bg,html.onex-static .overlay,html.onex-static .protocol-picker-bg{backdrop-filter:none!important;-webkit-backdrop-filter:none!important}
-html.onex-static #onexDashScene{display:none!important}
-
-html.onex-static:not(.light) body{
-  background:
-    radial-gradient(90% 55% at 8% 8%,rgb(var(--p-rgb) / .13),transparent 60%),
-    radial-gradient(75% 55% at 92% 15%,rgb(var(--s-rgb) / .10),transparent 60%),
-    linear-gradient(145deg,#07050e 0%,#0c0918 52%,#05050c 100%)!important;
-}
-html.onex-static:not(.light) body::before,
-html.onex-static:not(.light) body::after{background:none!important;box-shadow:none!important}
-html.onex-static:not(.light) .sidebar,
-html.onex-static:not(.light) .mob-bar,
-html.onex-static:not(.light) .onex-topbar,
-html.onex-static:not(.light) .onex-control-dock,
-html.onex-static:not(.light) .onex-card,
-html.onex-static:not(.light) .onex-metric,
-html.onex-static:not(.light) .card,
-html.onex-static:not(.light) .metric,
-html.onex-static:not(.light) .support-tile,
-html.onex-static:not(.light) .modal,
-html.onex-static:not(.light) .toast,
-html.onex-static:not(.light) .quick-item,
-html.onex-static:not(.light) .top-chip,
-html.onex-static:not(.light) .range-tabs,
-html.onex-static:not(.light) .range-mini,
-html.onex-static:not(.light) .mini-action,
-html.onex-static:not(.light) .sub-box,
-html.onex-static:not(.light) .link-box,
-html.onex-static:not(.light) .table-wrap,
-html.onex-glass:not(.light) .page .card,
-html.onex-glass:not(.light) .page .cfg-page-hero,
-html.onex-glass:not(.light) .page .cfg-stat-card,
-html.onex-glass:not(.light) .page .cfg-tools,
-html.onex-glass:not(.light) .page .cfg-list-shell,
-html.onex-glass:not(.light) .page .group-hero,
-html.onex-glass:not(.light) .page .group-list-pane,
-html.onex-glass:not(.light) .page .group-detail-pane,
-html.onex-glass:not(.light) .page .stats-kpi,
-html.onex-glass:not(.light) .page .stats-panel,
-html.onex-glass:not(.light) .page .traffic-panel,
-html.onex-glass:not(.light) .page .uptime-panel,
-html.onex-glass:not(.light) .page .server-panel,
-html.onex-glass:not(.light) .page .admin-card,
-html.onex-glass:not(.light) .page .admin-create-card,
-html.onex-glass:not(.light) .page .admin-list-card,
-html.onex-glass:not(.light) .page .admin-perm-card,
-html.onex-glass:not(.light) .page .onex-security-card,
-html.onex-glass:not(.light) .page .tg-hero,
-html.onex-glass:not(.light) .page .tg-page-card,
-html.onex-glass:not(.light) .page .tg-settings-card,
-html.onex-glass:not(.light) .page .logs-list-card,
-html.onex-glass:not(.light) .page .onex-theme-panel,
-html.onex-glass:not(.light) .page .onex-theme-preview{
-  background:linear-gradient(145deg,rgba(17,15,30,.94),rgba(8,8,18,.96))!important;
-  border-color:rgb(var(--p-rgb) / .18)!important;
-  box-shadow:0 12px 34px rgba(0,0,0,.28),inset 0 1px rgba(255,255,255,.055)!important;
-  backdrop-filter:none!important;-webkit-backdrop-filter:none!important;
-}
-html.onex-static:not(.light) .quick-item,
-html.onex-static:not(.light) .top-chip,
-html.onex-static:not(.light) .range-tabs,
-html.onex-static:not(.light) .range-mini,
-html.onex-static:not(.light) .mini-action,
-html.onex-static:not(.light) .sub-box,
-html.onex-static:not(.light) .link-box,
-html.onex-static:not(.light) .table-wrap,
-html.onex-static:not(.light) .field input,
-html.onex-static:not(.light) .field select,
-html.onex-static:not(.light) .field textarea,
-html.onex-static:not(.light) #cfgSearch{
-  background:rgba(8,8,18,.90)!important;border-color:rgb(var(--p-rgb) / .14)!important;box-shadow:inset 0 1px rgba(255,255,255,.035)!important;
-}
-html.onex-static:not(.light) .page th{background:rgba(10,9,20,.92)!important}
-html.onex-static:not(.light) .page td{border-color:rgb(var(--p-rgb) / .08)!important}
-html.onex-static:not(.light) .page tbody tr:hover td{background:rgb(var(--p-rgb) / .035)!important}
-html.onex-static:not(.light) .onex-card-head{border-color:rgb(var(--p-rgb) / .10)!important}
-html.onex-static:not(.light) .sb-foot{border-color:rgb(var(--p-rgb) / .12)!important}
-html.onex-static:not(.light) .nav-item:hover,html.onex-static:not(.light) .nav-item.on{background:rgb(var(--p-rgb) / .08)!important}
-html.onex-static:not(.light) .btn:not(.btn-p):not(.btn-d),html.onex-static:not(.light) .sb-foot button,html.onex-static:not(.light) .sb-foot a.btn{background:rgba(255,255,255,.045)!important;border-color:rgb(var(--p-rgb) / .15)!important;color:var(--t2)!important}
-html.onex-static:not(.light) .modal-bg{background:rgba(4,3,10,.76)!important;backdrop-filter:none!important}
-html.onex-static .page-title svg,html.onex-static .page-title .icon{color:var(--accent)!important;filter:none!important}
-
-/* Create builder: compact, card-based, no blue glass */
-#page-create{max-width:1120px;margin-inline:auto}
-#page-create .create-builder-grid{display:grid;grid-template-columns:minmax(0,1fr);gap:14px;margin-bottom:14px}
-#page-create .onex-create-builder{padding:15px;border-radius:24px!important;background:linear-gradient(145deg,rgba(18,15,32,.97),rgba(7,8,18,.98))!important;border:1px solid rgb(var(--p-rgb) / .20)!important;box-shadow:0 18px 42px rgba(0,0,0,.32),inset 0 1px rgba(255,255,255,.055)!important}
-#page-create .create-builder-head{padding-bottom:13px;border-bottom:1px solid rgb(var(--p-rgb) / .10)}
-#page-create .create-builder-icon{background:linear-gradient(135deg,var(--accent),var(--purple))!important;box-shadow:0 8px 22px rgb(var(--p-rgb) / .16)!important}
-#page-create .create-builder-kicker{color:var(--accent)!important}
-#page-create .create-builder-status{color:#a7f3d0;background:rgba(16,185,129,.07);border-color:rgba(16,185,129,.18)}
-#createBuilderStatus{min-width:74px;text-align:center}
-#page-create .create-stepper{display:flex;align-items:center;justify-content:center;gap:8px;padding:11px 8px;margin:11px 0 2px;border:1px solid rgb(var(--p-rgb) / .12);border-radius:17px;background:rgba(10,8,20,.70)}
-#page-create .create-stepper-item{display:flex;align-items:center;gap:6px;color:var(--t3);font-size:8px;white-space:nowrap}
-#page-create .create-stepper-item span{width:25px;height:25px;border-radius:50%;display:grid;place-items:center;border:1px solid rgb(var(--p-rgb) / .25);background:rgba(255,255,255,.025);font-weight:900}
-#page-create .create-stepper-item.on{color:#fff}.create-stepper-item.on span{border-color:var(--accent);background:linear-gradient(135deg,var(--accent),var(--purple));box-shadow:0 0 14px rgb(var(--p-rgb) / .18)}
-#page-create .create-stepper i{width:34px;height:1px;background:rgb(var(--p-rgb) / .16);display:block}
-#page-create .create-section{margin-top:11px;padding:12px;border-color:rgb(var(--p-rgb) / .11);background:rgba(8,8,18,.58);border-radius:18px}
-#page-create .create-section-head{margin-bottom:10px}.create-step{background:linear-gradient(135deg,var(--accent),var(--purple))!important;box-shadow:none!important}
-#page-create .create-count{background:rgb(var(--p-rgb) / .07);border-color:rgb(var(--p-rgb) / .16);color:var(--accent)}
-#page-create .primary-protocol-box{background:rgba(10,8,20,.66);border-color:rgb(var(--p-rgb) / .12)}
-#page-create .primary-protocol-dot{background:var(--accent);box-shadow:none}
-#page-create .create-protocol-toolbar{display:flex;justify-content:space-between;align-items:center;gap:8px;margin:12px 0 7px}
-#page-create .create-protocol-toolbar>div{display:flex;flex-direction:column;gap:2px}.create-protocol-toolbar b{font-size:10px}.create-protocol-toolbar small{font-size:7px;color:var(--t3)}
-#page-create .create-protocol-filters{display:flex;gap:6px;overflow:auto;padding:1px 0 7px;scrollbar-width:none}.create-protocol-filters::-webkit-scrollbar{display:none}
-#page-create .create-protocol-filters button{height:30px;padding:0 11px;border-radius:999px;border:1px solid rgb(var(--p-rgb) / .12);background:rgba(255,255,255,.035);color:var(--t3);font:700 8px Vazirmatn;white-space:nowrap}
-#page-create .create-protocol-filters button.on{background:rgb(var(--p-rgb) / .12);color:#fff;border-color:rgb(var(--p-rgb) / .32)}
-#page-create .protocol-bundle-grid{grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
-#page-create .protocol-bundle-card{min-height:116px;padding:9px;border-radius:17px;border-color:rgb(var(--p-rgb) / .13);background:linear-gradient(145deg,rgba(11,14,30,.92),rgba(6,7,16,.96));box-shadow:inset 0 1px rgba(255,255,255,.035)}
-#page-create .protocol-bundle-card.selected{border-color:var(--accent);box-shadow:0 0 0 1px rgb(var(--p-rgb) / .22) inset,0 10px 24px rgb(var(--p-rgb) / .10);background:linear-gradient(145deg,rgb(var(--p-rgb) / .12),rgba(8,8,18,.96))}
-#page-create .protocol-bundle-card img{width:48px;height:48px}.protocol-bundle-card b{font-size:8px}.protocol-bundle-card small{font-size:6px;color:var(--t3)}
-#page-create .protocol-bundle-radio{border-color:rgb(var(--p-rgb) / .38);background:rgba(0,0,0,.25)}
-#page-create .protocol-bundle-card.selected .protocol-bundle-radio{border-color:var(--accent);background:linear-gradient(135deg,var(--accent),var(--purple));box-shadow:none}
-#page-create .create-selected-wrap{margin-top:9px}.create-selected-title{font-size:8px;color:var(--t3);margin-bottom:5px}.create-selected-chips{display:flex;gap:5px;flex-wrap:wrap}.create-selected-chip,.create-empty-chip{display:inline-flex;align-items:center;gap:5px;padding:6px 8px;border-radius:999px;border:1px solid rgb(var(--p-rgb) / .15);background:rgb(var(--p-rgb) / .06);font-size:7px;color:var(--t2)}.create-selected-chip b{font-size:7px}.create-selected-chip button{border:0;background:transparent;color:var(--t3);padding:0;cursor:pointer}
-#page-create .bundle-mode-btn{background:rgba(16,185,129,.035);border-color:rgba(16,185,129,.15)}
-#page-create .limit-card{background:rgba(7,8,18,.70);border-color:rgb(var(--p-rgb) / .10)}
-#page-create .create-switch-card,#page-create .create-info-card{background:rgba(7,8,18,.70);border-color:rgb(var(--p-rgb) / .10)}
-#page-create .create-switch-card:has(input:checked) i{background:var(--accent);box-shadow:none}
-#page-create .create-review-section{padding-bottom:10px}
-#page-create .create-inline-open{margin-inline-start:auto;border:1px solid rgb(var(--p-rgb) / .16);background:rgb(var(--p-rgb) / .06);color:var(--accent);height:30px;padding:0 10px;border-radius:9px;font:700 8px Vazirmatn}
-#page-create .create-advanced-summary{padding:10px;border-radius:12px;background:rgba(255,255,255,.025);border:1px solid rgb(var(--p-rgb) / .08);color:var(--t3);font-size:7px;line-height:1.8}
-#page-create .create-final-summary{background:linear-gradient(135deg,rgb(var(--p-rgb) / .07),rgb(var(--s-rgb) / .07));border-color:rgb(var(--p-rgb) / .16)}
-#page-create .summary-pulse{box-shadow:none;background:#34d399}
-#page-create .create-submit-btn{background:linear-gradient(135deg,var(--accent),var(--purple))!important;box-shadow:0 12px 28px rgb(var(--p-rgb) / .18)!important}
-#page-create .advanced-config-card{background:linear-gradient(145deg,rgba(18,15,32,.97),rgba(7,8,18,.98))!important;border-color:rgb(var(--p-rgb) / .16)!important;box-shadow:0 14px 34px rgba(0,0,0,.26)!important}
-#page-create .advanced-section,#page-create .advanced-subcard{background:rgba(8,8,18,.62)!important;border-color:rgb(var(--p-rgb) / .10)!important;box-shadow:none!important;backdrop-filter:none!important}
-#page-create .advanced-toggle{background:rgba(255,255,255,.025)!important;border-color:rgb(var(--p-rgb) / .10)!important}
-#page-create .advanced-toggle-icon{background:rgb(var(--p-rgb) / .10)!important;color:var(--accent)!important}
-@media(max-width:700px){
-  #page-create .create-stepper{justify-content:space-between;gap:4px}.create-stepper i{width:12px!important}.create-stepper-item b{display:none}
-  #page-create .protocol-bundle-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.protocol-bundle-card{min-height:108px!important}
-  #page-create .create-fields-grid{grid-template-columns:1fr}.create-field-wide{grid-column:auto!important}
-  #page-create .limit-grid{grid-template-columns:1fr 1fr}
-}
-@media(max-width:420px){#page-create .onex-create-builder{padding:9px}#page-create .create-section{padding:9px}#page-create .protocol-bundle-card{min-height:100px!important}#page-create .protocol-bundle-card img{width:42px;height:42px}.create-stepper-item span{width:23px;height:23px;font-size:8px}}
-</style>
-<script>
-/* Final v4 bootstrap: static mode + selected-protocol UX */
-(function(){
-  document.documentElement.classList.add('onex-static');
-  const setStatic=()=>document.documentElement.classList.add('onex-static');setStatic();
-  const cv=document.getElementById('onexDashScene');if(cv){cv.style.display='none';}
-})();
-function filterCreateProtocolCards(kind){
-  document.querySelectorAll('#protocolBundleOptions .protocol-bundle-card').forEach(card=>{
-    const id=String(card.dataset.proto||'').toLowerCase(), k=String(card.dataset.kind||'').toLowerCase();
-    let show=true;
-    if(kind==='vless')show=id.includes('vless')||id.includes('xhttp');
-    else if(kind==='vmess')show=id.includes('vmess');
-    else if(kind==='trojan')show=id.includes('trojan');
-    else if(kind==='other')show=!(id.includes('vless')||id.includes('xhttp')||id.includes('vmess')||id.includes('trojan'));
-    card.style.display=show?'flex':'none';
-  });
-}
-function syncCreateSelectedProtocols(){
-  const box=document.getElementById('createSelectedProtocols');if(!box)return;
-  const all=document.getElementById('cAllProtocols')?.checked;
-  if(all){box.innerHTML='<span class="create-selected-chip"><b>Railway کامل</b><button type="button" onclick="toggleAllRailwayMode()">×</button></span>';return}
-  const inputs=[...document.querySelectorAll('#protocolBundleOptions input:checked')];
-  if(!inputs.length){box.innerHTML='<span class="create-empty-chip">هنوز انتخابی انجام نشده</span>';return}
-  box.innerHTML=inputs.map(x=>{const card=x.closest('.protocol-bundle-card'),name=card?.querySelector('b')?.textContent||x.value;return `<span class="create-selected-chip"><b>${esc(name)}</b><button type="button" onclick="document.querySelector('#protocolBundleOptions input[value="${CSS.escape(x.value)}"]')?.click()">×</button></span>`}).join('');
-}
-function renderBundleProtocolCards(){
-  const box=document.getElementById('protocolBundleOptions');if(!box)return;
-  const selected=new Set([...box.querySelectorAll('input:checked')].map(x=>x.value));
-  box.querySelectorAll('.protocol-bundle-card').forEach(c=>c.classList.toggle('selected',selected.has(c.dataset.proto)));
-  const b=document.getElementById('bundleCountBadge');if(b)b.textContent=`${document.getElementById('cAllProtocols')?.checked?3:(selected.size||1)} انتخاب`;
-  if(document.getElementById('cAllProtocols')?.checked)box.querySelectorAll('.protocol-bundle-card').forEach(c=>c.classList.remove('selected'));
-  syncCreateSelectedProtocols();
-}
-const __oldUpdateCreateLiveSummary=window.updateCreateLiveSummary;
-function updateCreateLiveSummary(){
-  const name=document.getElementById('cName')?.value?.trim()||'ONEX PANEL',all=document.getElementById('cAllProtocols')?.checked,sel=[...document.querySelectorAll('#protocolBundleOptions input:checked')],limit=Number(document.getElementById('cLimit')?.value||0),days=Number(document.getElementById('cDays')?.value||0);
-  const count=all?3:(sel.length||1),summary=document.getElementById('createSummaryText');
-  if(summary)summary.textContent=`${name} · ${count} پروتکل · ${limit>0?limit+' '+(document.getElementById('cUnit')?.value||'GB'):'بدون محدودیت'} · ${days>0?days+' روز':'بدون انقضا'}`;
-  const gs=document.getElementById('createSummaryGroup'),group=document.getElementById('cSubGroup');if(gs)gs.textContent=group?.selectedOptions?.[0]?.textContent||'عمومی';
-  const st=document.getElementById('createBuilderStatus');if(st)st.textContent=all?'اشتراک کامل Railway':(sel.length?'ترکیبی · آماده ساخت':'آماده ساخت');
-  syncCreateSelectedProtocols();
-}
-</script>
-</body>
+<body><div class="box"><div class="ic">!</div><h2>خطای داخلی پنل ONEX</h2><p>مشکلی پیش آمد. لطفاً لاگ سرور (Railway) را بررسی کنید و دوباره تلاش کنید.</p><a href="/dashboard">بازگشت به پنل</a><small>ONEX · internal error</small></div></body>
 </html>
 """,
         status_code=500,
