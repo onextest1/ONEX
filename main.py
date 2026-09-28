@@ -1464,6 +1464,42 @@ def group_subscription_lines_for_link(
     return lines
 
 
+def link_config_uris(link: dict, uid: str, host: str) -> list[str]:
+    """Every real config URI of one link, exactly as its subscription emits them.
+
+    Used by /sub/{uuid}, the dashboard copy boxes and the browser info page so
+    all three always contain the very same full list (every selected protocol
+    of the bundle, every clean IP / config copy).
+    """
+    link = link or {}
+    clean_ips = list(link.get("clean_ips") or [])
+    protocols = [p for p in link_sub_protocols(link) if p in PROTOCOLS] or [
+        normalize_protocol(str(link.get("protocol", DEFAULT_PROTOCOL)))
+    ]
+    multi = bool(link.get("all_protocols") or link.get("bundle_protocols"))
+    cfg_count = 1 if multi else max(1, min(40, int(link.get("config_count") or 1)))
+    if clean_ips:
+        hosts = list(clean_ips)
+        while len(hosts) < cfg_count:
+            hosts.extend(clean_ips)
+        hosts = hosts[:max(cfg_count, len(clean_ips) if multi else cfg_count)]
+    else:
+        hosts = [host] * cfg_count
+    used_names: set = set()
+    uris = []
+    for idx, target in enumerate(hosts, 1):
+        for proto in protocols:
+            name = subscription_config_name(link, proto, used_names, idx if len(hosts) > 1 else 0)
+            uris.append(generate_vless_link(
+                uid, target, remark=name, protocol=proto,
+                fingerprint=link.get("fingerprint", DEFAULT_FINGERPRINT),
+                alpn=DEFAULT_ALPN_BY_PROTOCOL.get(proto, link.get("alpn")),
+                port=protocol_public_port(link, proto, link.get("port", DEFAULT_PORT)),
+                link=link,
+            ))
+    return uris
+
+
 def get_link_info(
     link: dict,
     uid: str,
@@ -1484,6 +1520,10 @@ def get_link_info(
     cfg_count = int(link.get("config_count") or 1)
     show_vless = len(clean_ips) <= 1 and cfg_count <= 1
     cat = CATEGORIES.get(str(link.get("category_id") or "0")) or {}
+    try:
+        _all_uris = link_config_uris(link, uid, host)
+    except Exception:
+        _all_uris = [vless_link_for_link(link, uid, host)]
     return {
         "uuid": uid,
         "name": link.get("label", ""),
@@ -1516,6 +1556,9 @@ def get_link_info(
         "show_vless": show_vless,
         "vless": vless_link_for_link(link, uid, host) if show_vless else "",
         "vless_full": vless_link_for_link(link, uid, host),
+        "vless_all": "\n".join(_all_uris),
+        "configs_total": len(_all_uris),
+        "sub_protocols": link_sub_protocols(link),
         "sub": f"https://{host}/sub/{uid}",
         "info": f"https://{host}/info/{uid}",
         "support": SUPPORT_USERNAME,
@@ -4694,6 +4737,25 @@ def subscription_metadata_headers(used_bytes: int, limit_bytes: int, expires_at,
 # SINGLE SUB
 # ============================================================
 
+_SUB_CLIENT_MARKERS = (
+    "v2ray", "xray", "sing-box", "singbox", "clash", "mihomo", "stash", "hiddify",
+    "nekobox", "nekoray", "streisand", "shadowrocket", "quantumult", "surge", "loon",
+    "foxray", "v2box", "happ", "karing", "okhttp", "dart", "flclash", "throne",
+)
+
+
+def request_is_browser(request: Request) -> bool:
+    """True only for a normal web browser; every VPN client gets raw base64."""
+    qp = request.query_params
+    if qp.get("raw") or qp.get("format") in ("raw", "base64", "b64"):
+        return False
+    ua = (request.headers.get("user-agent") or "").lower()
+    accept = (request.headers.get("accept") or "").lower()
+    if not ua or any(m in ua for m in _SUB_CLIENT_MARKERS):
+        return False
+    return "mozilla" in ua and "text/html" in accept
+
+
 @app.get("/sub/{uuid}")
 async def subscription_single(
     uuid: str,
@@ -4734,24 +4796,14 @@ async def subscription_single(
         time_text = "∞"
     label = str(link.get("label") or "Config")
     stats_remark = f"{label} | {volume_text} | {time_text}"
-    used_names = set()
+    # A real browser (not a VPN client) gets the readable subscription page that
+    # lists every config of this sub.  VPN clients keep receiving base64.
+    if request_is_browser(request):
+        return await info_page(uuid, request)
     # 1) usage info (remaining volume + remaining time) with icons, always first
     lines = subscription_info_lines(uuid, link)
-    # 2) one real config per selected protocol (all 8 when "all protocols" is on)
-    protocols = link_sub_protocols(link)
-    multi = bool(link.get("all_protocols") or link.get("bundle_protocols"))
-    cfg_count = 1 if multi else max(1, min(40, int(link.get("config_count") or 1)))
-    if clean_ips:
-        hosts = list(clean_ips)
-        while len(hosts) < cfg_count:
-            hosts.extend(clean_ips)
-        hosts = hosts[:max(cfg_count, len(clean_ips) if multi else cfg_count)]
-    else:
-        hosts = [host] * cfg_count
-    for idx, target in enumerate(hosts, 1):
-        for proto in protocols:
-            name = subscription_config_name(link, proto, used_names, idx if len(hosts) > 1 else 0)
-            lines.append(generate_vless_link(uuid, target, remark=name, protocol=proto, fingerprint=link.get("fingerprint", DEFAULT_FINGERPRINT), alpn=DEFAULT_ALPN_BY_PROTOCOL.get(proto, link.get("alpn")), port=protocol_public_port(link, proto, link.get("port", DEFAULT_PORT)), link=link))
+    # 2) every config of this sub (all selected protocols, all clean IPs)
+    lines.extend(link_config_uris(link, uuid, host))
     content = base64.b64encode("\n".join(lines).encode()).decode()
     _vol_t, _time_t = subscription_usage_texts(link)
     profile_title = f"{label} | {_vol_t} | {_time_t}"
@@ -4832,7 +4884,11 @@ async def info_page(
         snapshot = dict(link)
 
     host = get_host(request)
-    vless_url = vless_link_for_link(snapshot, uid, host)
+    try:
+        all_config_uris = link_config_uris(snapshot, uid, host)
+    except Exception:
+        all_config_uris = [vless_link_for_link(snapshot, uid, host)]
+    vless_url = "\n".join(all_config_uris)
     sub_url = f"https://{host}/sub/{uid}"
     used = int(snapshot.get("used_bytes", 0) or 0)
     limit = int(snapshot.get("limit_bytes", 0) or 0)
@@ -4900,6 +4956,18 @@ async def info_page(
     protocol_escaped = escape_html(snapshot.get("protocol", "vless-ws"))
     fingerprint_escaped = escape_html(snapshot.get("fingerprint", "chrome"))
     vless_url_escaped = escape_html(vless_url)
+    from urllib.parse import unquote as _unq
+    _cfg_rows = []
+    for _i, _uri in enumerate(all_config_uris):
+        _nm = _unq(_uri.split("#", 1)[1]) if "#" in _uri else f"Config {_i + 1}"
+        _cfg_rows.append(
+            f'<div class="cfg-row"><div class="cfg-row-main"><span>{escape_html(_nm)}</span>'
+            f'<code id="cfgLine{_i}">{escape_html(_uri)}</code></div>'
+            f'<button class="sub-action" id="cfgBtn{_i}" type="button" onclick="pxCopy(\'cfgLine{_i}\',\'cfgBtn{_i}\')">'
+            f'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg><span>کپی</span></button></div>'
+        )
+    config_rows_html = "".join(_cfg_rows)
+    configs_total = len(all_config_uris)
     sub_url_escaped = escape_html(sub_url)
     dash_calc_offset = f"{339.29 - (339.29 * min(usage_percent, 100) / 100):.1f}"
 
@@ -5372,7 +5440,7 @@ async def info_page(
   .section-head{{position:relative;display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:17px;}}.section-head h2{{margin:4px 0 0;font-size:14px;font-weight:900;}}.section-icon{{width:38px;height:38px;border:1px solid rgba(255,255,255,.09);}}.section-icon svg{{width:18px;height:18px;}}.section-icon.red{{color:#ff4778;background:rgba(255,31,92,.09);border-color:rgba(255,71,120,.22);}}.section-icon.blue{{color:#60a5fa;background:rgba(59,130,246,.09);border-color:rgba(96,165,250,.20);}}.section-icon.purple{{color:#a78bfa;background:rgba(139,92,246,.09);border-color:rgba(167,139,250,.20);}}
   .sub-url-box{{position:relative;padding:14px 15px;border-radius:16px;border:1px solid rgba(255,71,120,.17);background:linear-gradient(135deg,rgba(255,31,92,.055),rgba(5,10,20,.42));color:#f5a1b8;font:11px/1.8 ui-monospace,Consolas,monospace;word-break:break-all;box-shadow:inset 0 1px 0 rgba(255,255,255,.05);}}.sub-actions{{display:flex;gap:9px;flex-wrap:wrap;margin-top:11px;}}.sub-action{{display:inline-flex;align-items:center;justify-content:center;gap:7px;padding:10px 14px;border-radius:13px;border:1px solid rgba(96,165,250,.20);background:rgba(59,130,246,.08);color:#cfe2ff;font-size:11px;font-weight:800;cursor:pointer;transition:.18s ease;}}.sub-action svg{{width:15px;height:15px;}}.sub-action:hover{{transform:translateY(-1px);background:rgba(59,130,246,.15);}}.sub-action.primary{{color:#fff;border-color:rgba(255,71,120,.42);background:linear-gradient(135deg,#ff1f5c,#c91550);box-shadow:0 7px 22px rgba(255,31,92,.18);}}.sub-action.primary:hover{{background:linear-gradient(135deg,#ff3a70,#df1b59);}}
   .telegram-sub-card{{position:relative;display:flex;align-items:center;gap:14px;padding:17px 18px;border-radius:22px;border:1px solid rgba(255,71,120,.24);background:linear-gradient(120deg,rgba(255,31,92,.10),rgba(19,33,60,.76),rgba(10,17,32,.86));box-shadow:inset 0 1px 0 rgba(255,255,255,.08),0 14px 34px rgba(0,0,0,.25);overflow:hidden;}}.telegram-sub-card:after{{content:"";position:absolute;inset:auto -15% -60% 30%;height:130px;background:rgba(255,31,92,.10);filter:blur(40px);pointer-events:none;}}.tg-sub-icon{{width:50px;height:50px;flex:0 0 50px;border-radius:16px;display:grid;place-items:center;color:#fff;background:linear-gradient(145deg,#ff1f5c,#c91550);box-shadow:0 8px 24px rgba(255,31,92,.22);}}.tg-sub-icon svg{{width:26px;height:26px;}}.tg-sub-copy{{min-width:0;flex:1;position:relative;z-index:1;}}.tg-sub-copy>span{{display:block;font-size:8px;letter-spacing:.13em;color:rgba(255,255,255,.38);font-weight:900;}}.tg-sub-copy strong{{display:block;margin-top:3px;font-size:13px;font-weight:900;}}.tg-sub-copy small{{display:block;margin-top:3px;color:rgba(255,255,255,.45);font-size:10px;}}.tg-sub-copy b{{display:inline-block;margin-top:5px;color:#ff6b92;font-size:11px;}}.tg-sub-join{{position:relative;z-index:1;display:inline-flex;align-items:center;gap:8px;padding:10px 14px;border-radius:13px;color:#fff;text-decoration:none;font-size:11px;font-weight:900;border:1px solid rgba(255,71,120,.38);background:rgba(255,31,92,.13);}}.tg-sub-join svg{{width:15px;height:15px;}}
-  .usage-row{{position:relative;display:flex;align-items:center;gap:22px;}}.usage-ring{{position:relative;width:122px;height:122px;flex:0 0 122px;}}.usage-ring>div{{position:absolute;inset:0;display:grid;place-content:center;text-align:center;}}.usage-ring b{{font-size:19px;font-weight:900;}}.usage-ring span{{display:block;margin-top:3px;color:rgba(255,255,255,.40);font-size:9px;}}.usage-main{{min-width:0;flex:1}}.usage-main>strong{{display:block;font-size:21px;font-weight:900;}}.usage-main>strong i{{font-size:12px;color:rgba(255,255,255,.40);font-style:normal;font-weight:700;}}.usage-mini{{display:flex;justify-content:space-between;gap:10px;padding:10px 0;border-bottom:1px solid rgba(255,255,255,.06);font-size:10px;}}.usage-mini span{{color:rgba(255,255,255,.42);}}.usage-mini b{{color:rgba(255,255,255,.82);font-weight:800;}}.service-list{{position:relative;display:grid;gap:0;}}.service-list div{{display:flex;justify-content:space-between;gap:12px;padding:11px 0;border-bottom:1px solid rgba(255,255,255,.06);font-size:10px;}}.service-list div:last-child{{border-bottom:0;}}.service-list span{{color:rgba(255,255,255,.42);}}.service-list b{{font-size:10px;font-weight:800;text-align:left;}}.tech-grid{{position:relative;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;}}.tech-grid>div{{padding:12px;border-radius:15px;border:1px solid rgba(255,255,255,.06);background:rgba(3,8,17,.25);}}.tech-grid span{{display:block;color:rgba(255,255,255,.36);font-size:9px;}}.tech-grid b{{display:block;margin-top:6px;color:#d7caff;font-size:11px;word-break:break-word;}}.direct-config{{position:relative;display:flex;align-items:center;gap:10px;padding:12px;border-radius:16px;border:1px solid rgba(255,255,255,.07);background:rgba(3,8,17,.25);}}.direct-config>div{{min-width:0;flex:1;}}.direct-config span{{display:block;color:rgba(255,255,255,.36);font-size:9px;margin-bottom:5px;}}.direct-config code{{display:block;color:#f0a1ba;font:10px/1.8 ui-monospace,Consolas,monospace;word-break:break-all;}}.download-grid{{position:relative;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;}}.download-grid a{{display:flex;align-items:center;gap:10px;min-width:0;padding:12px;border-radius:16px;border:1px solid rgba(96,165,250,.15);background:rgba(59,130,246,.055);color:#fff;text-decoration:none;transition:.18s ease;}}.download-grid a:hover{{border-color:rgba(255,71,120,.30);transform:translateY(-1px);}}.app-icon{{width:38px;height:38px;flex:0 0 38px;border-radius:12px;display:grid;place-items:center;color:#ff5d88;font-size:10px;font-weight:900;border:1px solid rgba(255,71,120,.25);background:rgba(255,31,92,.09);}}.download-grid b{{display:block;font-size:11px;}}.download-grid span{{display:block;margin-top:3px;color:rgba(255,255,255,.38);font-size:8px;line-height:1.4;}}.download-grid i{{margin-right:auto;color:#ff5d88;font-style:normal;font-size:9px;font-weight:900;white-space:nowrap;}}
+  .usage-row{{position:relative;display:flex;align-items:center;gap:22px;}}.usage-ring{{position:relative;width:122px;height:122px;flex:0 0 122px;}}.usage-ring>div{{position:absolute;inset:0;display:grid;place-content:center;text-align:center;}}.usage-ring b{{font-size:19px;font-weight:900;}}.usage-ring span{{display:block;margin-top:3px;color:rgba(255,255,255,.40);font-size:9px;}}.usage-main{{min-width:0;flex:1}}.usage-main>strong{{display:block;font-size:21px;font-weight:900;}}.usage-main>strong i{{font-size:12px;color:rgba(255,255,255,.40);font-style:normal;font-weight:700;}}.usage-mini{{display:flex;justify-content:space-between;gap:10px;padding:10px 0;border-bottom:1px solid rgba(255,255,255,.06);font-size:10px;}}.usage-mini span{{color:rgba(255,255,255,.42);}}.usage-mini b{{color:rgba(255,255,255,.82);font-weight:800;}}.service-list{{position:relative;display:grid;gap:0;}}.service-list div{{display:flex;justify-content:space-between;gap:12px;padding:11px 0;border-bottom:1px solid rgba(255,255,255,.06);font-size:10px;}}.service-list div:last-child{{border-bottom:0;}}.service-list span{{color:rgba(255,255,255,.42);}}.service-list b{{font-size:10px;font-weight:800;text-align:left;}}.tech-grid{{position:relative;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;}}.tech-grid>div{{padding:12px;border-radius:15px;border:1px solid rgba(255,255,255,.06);background:rgba(3,8,17,.25);}}.tech-grid span{{display:block;color:rgba(255,255,255,.36);font-size:9px;}}.tech-grid b{{display:block;margin-top:6px;color:#d7caff;font-size:11px;word-break:break-word;}}.cfg-list{{position:relative;display:grid;gap:9px;margin-bottom:12px;}}.cfg-row{{display:flex;align-items:center;gap:10px;padding:11px 12px;border-radius:15px;border:1px solid rgba(255,255,255,.07);background:rgba(3,8,17,.25);}}.cfg-row-main{{min-width:0;flex:1;}}.cfg-row-main span{{display:block;color:rgba(255,255,255,.62);font-size:10px;font-weight:800;margin-bottom:4px;}}.cfg-row-main code{{display:block;color:#f0a1ba;font:10px/1.7 ui-monospace,Consolas,monospace;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;direction:ltr;text-align:left;}}.cfg-row .sub-action{{flex:0 0 auto;}}.cfg-copy-all{{width:100%;justify-content:center;}}.direct-config{{position:relative;display:flex;align-items:center;gap:10px;padding:12px;border-radius:16px;border:1px solid rgba(255,255,255,.07);background:rgba(3,8,17,.25);}}.direct-config>div{{min-width:0;flex:1;}}.direct-config span{{display:block;color:rgba(255,255,255,.36);font-size:9px;margin-bottom:5px;}}.direct-config code{{display:block;color:#f0a1ba;font:10px/1.8 ui-monospace,Consolas,monospace;word-break:break-all;}}.download-grid{{position:relative;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;}}.download-grid a{{display:flex;align-items:center;gap:10px;min-width:0;padding:12px;border-radius:16px;border:1px solid rgba(96,165,250,.15);background:rgba(59,130,246,.055);color:#fff;text-decoration:none;transition:.18s ease;}}.download-grid a:hover{{border-color:rgba(255,71,120,.30);transform:translateY(-1px);}}.app-icon{{width:38px;height:38px;flex:0 0 38px;border-radius:12px;display:grid;place-items:center;color:#ff5d88;font-size:10px;font-weight:900;border:1px solid rgba(255,71,120,.25);background:rgba(255,31,92,.09);}}.download-grid b{{display:block;font-size:11px;}}.download-grid span{{display:block;margin-top:3px;color:rgba(255,255,255,.38);font-size:8px;line-height:1.4;}}.download-grid i{{margin-right:auto;color:#ff5d88;font-style:normal;font-size:9px;font-weight:900;white-space:nowrap;}}
   @media (max-width:700px){{.sub-hero-content{{padding:16px;gap:11px;flex-wrap:wrap;}}.sub-brand-icon{{width:50px;height:50px;border-radius:14px;}}.sub-brand-icon svg{{width:27px;height:27px;}}.sub-hero h1{{font-size:17px}}.sub-hero p{{font-size:9px}}.sub-status{{margin-right:auto;font-size:9px;padding:6px 9px}}.sub-actions{{display:grid;grid-template-columns:1fr 1fr;}}.sub-actions .sub-action:last-child{{grid-column:1/-1}}.telegram-sub-card{{align-items:flex-start;flex-wrap:wrap;padding:14px}}.tg-sub-copy{{width:calc(100% - 64px)}}.tg-sub-join{{width:100%;justify-content:center}}.usage-row{{gap:13px}}.usage-ring{{width:105px;height:105px;flex-basis:105px}}.usage-ring svg{{width:105px;height:105px}}.tech-grid{{grid-template-columns:1fr}}.direct-config{{align-items:stretch;flex-direction:column}}.direct-config .sub-action{{width:100%}}.download-grid{{grid-template-columns:1fr}}.download-grid a{{padding:11px}}.sub-glass{{border-radius:20px}}.sub-url-box{{font-size:10px;}}}}
 </style>
 </head>
@@ -5437,8 +5505,10 @@ async def info_page(
 
   <!-- Direct config -->
   <section class="sub-glass p-5 sm:p-6">
-    <div class="section-head"><div><span class="section-kicker">DIRECT CONFIG</span><h2>کانفیگ مستقیم</h2></div><div class="section-icon red"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 9h8M8 13h5"/><path d="M5 3h14a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2h-5l-4 4v-4H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2Z"/></svg></div></div>
-    <div class="direct-config"><div><span>VLESS / ONEX</span><code id="vlessLinkText">{vless_url_escaped}</code></div><button class="sub-action primary" id="vlessCopyBtn" type="button" onclick="pxCopy('vlessLinkText','vlessCopyBtn')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg><span>کپی</span></button></div>
+    <div class="section-head"><div><span class="section-kicker">ALL CONFIGS · {configs_total}</span><h2>همه کانفیگ‌های این ساب</h2></div><div class="section-icon red"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 9h8M8 13h5"/><path d="M5 3h14a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2h-5l-4 4v-4H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2Z"/></svg></div></div>
+    <div class="cfg-list">{config_rows_html}</div>
+    <code id="vlessLinkText" style="display:none">{vless_url_escaped}</code>
+    <button class="sub-action primary cfg-copy-all" id="vlessCopyBtn" type="button" onclick="pxCopy('vlessLinkText','vlessCopyBtn')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg><span>کپی همه کانفیگ‌ها ({configs_total})</span></button>
   </section>
 
   <!-- Downloads -->
@@ -5465,7 +5535,7 @@ async def info_page(
 </div>
 
 <script>
-const vlessUrlData = "{vless_url}";
+const vlessUrlData = document.getElementById('vlessLinkText').textContent;
 
 // Theme toggle logic with localStorage support (2 themes total)
 function toggleTheme() {{
@@ -9873,15 +9943,14 @@ html.light .onex-topbar-brand{background:#fff;border-color:rgba(var(--accent-rgb
     </div>
 
     <div class="cfgx-card">
-      <div class="cfgx-head"><span class="cfgx-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2 3 7l9 5 9-5-9-5Z"/><path d="m3 12 9 5 9-5"/><path d="m3 17 9 5 9-5"/></svg></span><div><b>🚀 انتخاب پروتکل</b><small>پروتکل اصلی کانفیگ - ۸ پروتکل ONEX VIP</small></div><span class="cfgx-badge" id="cfgxProtoBadge">—</span></div>
+      <div class="cfgx-head"><span class="cfgx-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2 3 7l9 5 9-5-9-5Z"/><path d="m3 12 9 5 9-5"/><path d="m3 17 9 5 9-5"/></svg></span><div><b>🚀 انتخاب پروتکل</b><small>پروتکل اصلی کانفیگ - ۶ پروتکل ONEX VIP</small></div><span class="cfgx-badge" id="cfgxProtoBadge">—</span></div>
       <div class="cfgx-proto-grid" id="cfgxProtoGrid"><div class="cfgx-empty">در حال بارگذاری پروتکل‌ها...</div></div>
     </div>
 
     <div class="cfgx-card">
-      <div class="cfgx-head"><span class="cfgx-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="2"/><rect x="14" y="3" width="7" height="7" rx="2"/><rect x="3" y="14" width="7" height="7" rx="2"/><path d="M17.5 14v7M14 17.5h7"/></svg></span><div><b>🔀 ترکیب پروتکل‌ها</b><small>انتخاب ۸ پروتکل ONEX VIP برای یک ساب (اختیاری)</small></div><span class="cfgx-badge" id="cfgxBundleBadge">0</span></div>
+      <div class="cfgx-head"><span class="cfgx-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="2"/><rect x="14" y="3" width="7" height="7" rx="2"/><rect x="3" y="14" width="7" height="7" rx="2"/><path d="M17.5 14v7M14 17.5h7"/></svg></span><div><b>🔀 ترکیب پروتکل‌ها</b><small>هر تعداد پروتکل که انتخاب کنی، همه داخل یک ساب ساخته می‌شوند · ۶ پروتکل ONEX VIP</small></div><span class="cfgx-badge" id="cfgxBundleBadge">0</span></div>
       <div id="protocolBundleOptions" class="cfgx-bundle"></div>
       <small class="cfgx-note">پروتکل اصلی خودکار داخل ترکیب قرار می‌گیرد.</small>
-      <label class="all-proto-toggle cfgx-switch" title="یک اکانت با همه پروتکل‌ها و یک ساب"><span><b>همه پروتکل‌ها در یک ساب</b><small>یک اکانت · ۸ پروتکل ONEX VIP · یک لینک اشتراک</small></span><input id="cAllProtocols" type="checkbox"><i aria-hidden="true"></i></label>
     </div>
 
     <div class="cfgx-card">
@@ -12482,7 +12551,7 @@ html.light #page-dash .metric strong{-webkit-text-fill-color:color-mix(in srgb, 
 <div class="modal-bg" id="resultModal">
   <div class="modal">
     <div class="modal-title" data-i18n="created_title">کانفیگ ساخته شد</div>
-    <div class="field"><label>VLESS</label><div class="link-box" id="resVless">—</div>
+    <div class="field"><label id="resVlessLabel">VLESS</label><div class="link-box" id="resVless">—</div>
       <button class="btn btn-p btn-sm" style="width:100%" onclick="copyText(document.getElementById('resVless').textContent)">
         <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
         <span data-i18n="copy_vless">کپی VLESS</span>
@@ -12752,7 +12821,7 @@ function renderLinks(arr){
   (arr||[]).forEach(l=>window.__linksMap[String(l.uuid||l.id||'')]=l);
   renderConfigCards(getFilteredConfigs());
 }
-function getLinkUrl(l){if(!l)return '';return l.vless_full||l.vless||l.vless_link||l.link||''}
+function getLinkUrl(l){if(!l)return '';return l.vless_all||l.vless_full||l.vless||l.vless_link||l.link||''}
 function getSubUrl(l){if(!l)return '';return l.sub||l.sub_url||l.info||''}
 async function copyText(text){
   text=String(text||'').trim();
@@ -12832,8 +12901,14 @@ async function deleteLink(uid){
 }
 function showResult(data){
   if(!data)return;
-  document.getElementById('resVless').textContent=getLinkUrl(data)||'—';
+  const allCfg=getLinkUrl(data)||'';
+  const cfgCount=Number(data.configs_total)||(allCfg?allCfg.split('\n').filter(Boolean).length:0);
+  document.getElementById('resVless').textContent=allCfg||'—';
   document.getElementById('resSub').textContent=getSubUrl(data)||'—';
+  const lbl=document.getElementById('resVlessLabel');
+  if(lbl)lbl.textContent=cfgCount>1?(lang==='fa'?`همه کانفیگ‌های ساب (${cfgCount})`:`All configs in this sub (${cfgCount})`):'VLESS';
+  const cb=document.querySelector('#resultModal [data-i18n="copy_vless"]');
+  if(cb)cb.textContent=cfgCount>1?(lang==='fa'?`کپی همه کانفیگ‌ها (${cfgCount})`:`Copy all configs (${cfgCount})`):(lang==='fa'?'کپی VLESS':'Copy VLESS');
   document.getElementById('resultModal').classList.add('open');
 }
 function closeResult(){document.getElementById('resultModal').classList.remove('open')}
@@ -13812,7 +13887,7 @@ async function restoreBot(){
    ============================================================ */
 const RAILWAY_SUB_PROTOCOLS=['vless-ws','siderail-vless-xhttp','xhttp-packet-up','xhttp-stream-up','vmess-ws','trojan-ws','vless-httpupgrade','xhttp-stream-one'];
 const PROTOCOL_PICKER_GROUPS=[
-  {title:'ONEX VIP',subtitle:'۸ پروتکل اصلی ONEX',ids:['vless-ws','siderail-vless-xhttp','xhttp-packet-up','xhttp-stream-up','vmess-ws','trojan-ws','vless-httpupgrade','xhttp-stream-one'],kind:'vip'},
+  {title:'ONEX VIP',subtitle:'۶ پروتکل اصلی ONEX',ids:['vless-ws','siderail-vless-xhttp','xhttp-packet-up','xhttp-stream-up','vmess-ws','trojan-ws','vless-httpupgrade','xhttp-stream-one'],kind:'vip'},
   {title:'ONEX VPS',subtitle:'پروتکل‌های VPS متقدم',ids:['trojan','shadowsocks','socks5','http','hysteria2','vless-reality','vless-grpc-reality','vmess','tuic','anytls','naive','shadowtls','snell','hysteria'],kind:'vps'}
 ];
 const PROTOCOL_PICKER_NAMES={"vless-ws":"ONEX Base","siderail-vless-xhttp":"ONEX XHTTP","vmess-ws":"ONEX VMess","trojan-ws":"ONEX Trojan","vless-httpupgrade":"ONEX HTTPUpgrade","xhttp-packet-up":"ONEX Xhttp","xhttp-stream-up":"ONEX Gaming","xhttp-stream-one":"ONEX Stream","trojan":"Trojan","shadowsocks":"Shadowsocks","socks5":"SOCKS5","http":"HTTP Proxy","hysteria2":"Hysteria2","vless-reality":"VLESS Reality","vless-grpc-reality":"VLESS gRPC Reality","vmess":"VMess","tuic":"TUIC","anytls":"AnyTLS","naive":"NaiveProxy","shadowtls":"ShadowTLS","snell":"Snell","hysteria":"Hysteria"};
@@ -13826,7 +13901,7 @@ function protocolIconMarkup(id){
 }
 function setupProtocolPickers(){['cProto','aProto'].forEach(id=>{const sel=document.getElementById(id);if(!sel)return;sel.classList.add('protocol-native');sel.style.setProperty('display','none','important');sel.setAttribute('aria-hidden','true');let trigger=sel.parentNode.querySelector(`.protocol-trigger[data-for="${id}"]`);if(!trigger){trigger=document.createElement('button');trigger.type='button';trigger.className='protocol-trigger';trigger.dataset.for=id;sel.parentNode.insertBefore(trigger,sel.nextSibling)}trigger.onclick=e=>{e.preventDefault();openProtocolPicker(id)};syncProtocolPicker(id)})}
 function syncProtocolPicker(id){const sel=document.getElementById(id),trigger=document.querySelector(`.protocol-trigger[data-for="${id}"]`);if(!sel||!trigger)return;const value=sel.value||'vless-ws';trigger.innerHTML=`<span class="protocol-trigger-main"><span class="protocol-trigger-icon">${protocolIconMarkup(value)}</span><span class="protocol-trigger-text"><span class="protocol-trigger-name">${esc(protocolPickerShort(value))}</span><span class="protocol-trigger-sub">${lang==='fa'?'برای تغییر، انتخاب کنید':'Tap to choose another protocol'}</span></span></span><span class="protocol-trigger-arrow">⌄</span>`}
-function syncAllProtocolToggle(){const sel=document.getElementById('cProto'),all=document.getElementById('cAllProtocols'),wrap=all?.closest('.all-proto-toggle');if(!sel||!all)return;const railway=RAILWAY_SUB_PROTOCOLS.includes(sel.value);if(!railway){all.checked=false;all.disabled=true;if(wrap){wrap.style.opacity='0.48';wrap.style.cursor='not-allowed';wrap.title=lang==='fa'?'این گزینه فقط برای پروتکل‌های Railway است':'This option is only for Railway protocols';}}else{all.disabled=false;if(wrap){wrap.style.opacity='1';wrap.style.cursor='pointer';wrap.title=lang==='fa'?'هر ۸ پروتکل ONEX VIP در یک ساب':'All 8 ONEX VIP protocols in one subscription';}}}
+function syncAllProtocolToggle(){const sel=document.getElementById('cProto'),all=document.getElementById('cAllProtocols'),wrap=all?.closest('.all-proto-toggle');if(!sel||!all)return;const railway=RAILWAY_SUB_PROTOCOLS.includes(sel.value);if(!railway){all.checked=false;all.disabled=true;if(wrap){wrap.style.opacity='0.48';wrap.style.cursor='not-allowed';wrap.title=lang==='fa'?'این گزینه فقط برای پروتکل‌های Railway است':'This option is only for Railway protocols';}}else{all.disabled=false;if(wrap){wrap.style.opacity='1';wrap.style.cursor='pointer';wrap.title=lang==='fa'?'هر ۶ پروتکل ONEX VIP در یک ساب':'All 6 ONEX VIP protocols in one subscription';}}}
 
 function ensureProtocolPicker(){let bg=document.getElementById('protocolPickerBg');if(bg)return bg;bg=document.createElement('div');bg.id='protocolPickerBg';bg.className='protocol-picker-bg';bg.innerHTML=`<div class="protocol-picker" role="dialog" aria-modal="true"><div class="protocol-picker-head"><div class="protocol-picker-head-icon"><span>✦</span></div><div class="protocol-picker-head-text"><div class="protocol-picker-title">${lang==='fa'?'انتخاب پروتکل':'Select Protocol'}</div><div class="protocol-picker-subtitle">${lang==='fa'?'پروتکل موردنظر را انتخاب کنید':'Choose the protocol you want to use'}</div></div><button type="button" class="protocol-picker-close" id="protocolPickerClose">×</button></div><div class="protocol-picker-scroll" id="protocolPickerScroll"></div><div class="protocol-picker-foot"><div class="protocol-selected-info" id="protocolSelectedInfo">—</div><button type="button" class="protocol-picker-confirm" id="protocolPickerConfirm">${lang==='fa'?'تأیید و ادامه →':'Confirm & Continue →'}</button></div></div>`;document.body.appendChild(bg);bg.addEventListener('click',e=>{if(e.target===bg)closeProtocolPicker()});bg.querySelector('#protocolPickerClose').onclick=closeProtocolPicker;bg.querySelector('#protocolPickerConfirm').onclick=confirmProtocolPicker;return bg}
 function openProtocolPicker(targetId){const sel=document.getElementById(targetId);if(!sel)return;const bg=ensureProtocolPicker();__protocolPickerTarget=targetId;const current=sel.value||'vless-ws';const available=new Set([...sel.options].map(o=>o.value));const sections=PROTOCOL_PICKER_GROUPS.map(g=>{const ids=g.ids.filter(id=>available.has(id));if(!ids.length)return '';return `<section class="protocol-picker-section ${g.kind||''}"><div class="protocol-picker-section-head"><div><b>${esc(g.title)}</b><small>${esc(g.subtitle||'')}</small></div><span>${ids.length}</span></div><div class="protocol-grid protocol-grid-all">${ids.map(id=>`<button type="button" class="protocol-option ${id===current?'selected':''}" data-proto="${id}"><span class="protocol-option-radio"></span>${protocolIconMarkup(id)}<span class="protocol-option-name">${esc(protocolPickerShort(id))}</span><span class="protocol-option-desc">${id===current?(lang==='fa'?'انتخاب‌شده · ':'Selected · ')+(PROTOCOL_PICKER_DESCS[id]||''):(PROTOCOL_PICKER_DESCS[id]|| (lang==='fa'?'برای انتخاب کلیک کنید':'Tap to choose'))}</span></button>`).join('')}</div></section>`}).join('');const scroll=bg.querySelector('#protocolPickerScroll');scroll.innerHTML=sections;scroll.querySelectorAll('.protocol-option').forEach(btn=>btn.addEventListener('click',()=>chooseProtocol(btn.dataset.proto)));bg.querySelector('#protocolSelectedInfo').textContent=(lang==='fa'?'پروتکل انتخاب‌شده: ':'Selected: ')+protocolPickerShort(current);bg.classList.add('open');document.body.style.overflow='hidden'}
@@ -13871,6 +13946,14 @@ function mixHex(hex,amount){const [r,g,b]=hexRgb(hex);const t=amount<0?0:255;con
 function applyOnexTheme(key, opts){
   let t=ONEX_THEMES[key]||ONEX_THEMES.blue;
   if(opts) t={...t,...opts};
+  // Light mode must never inherit the dark preset background/card colors.
+  // Every preset ships dark bg/card values; in light mode derive a soft tinted
+  // light surface from the accent instead, so every card/section stays white.
+  if(t.mode==='light'){
+    const lumOf=h=>{const [r,g,b]=hexRgb(h);return (r*.299+g*.587+b*.114)/255};
+    if(lumOf(t.bg||'#000')<.6) t={...t,bg:mixHex(t.p||'#2563eb',.94)};
+    if(lumOf(t.card||'#000')<.6) t={...t,card:'#ffffff'};
+  }
   const root=document.documentElement;
   const [pr,pg,pb]=hexRgb(t.p);
   const [sr,sg,sb]=hexRgb(t.s);
@@ -13883,9 +13966,11 @@ function applyOnexTheme(key, opts){
   // consumed by the final global theme layer below, including legacy cards that
   // still contain fixed colors in their original component CSS.
   if(t.mode==='light'){
+    root.style.setProperty('--p',t.p);root.style.setProperty('--s',t.s);root.style.setProperty('--p-rgb',`${pr} ${pg} ${pb}`);root.style.setProperty('--s-rgb',`${sr} ${sg} ${sb}`);
     root.style.setProperty('--t1','#0f172a');root.style.setProperty('--t2','#334155');root.style.setProperty('--t3','#64748b');
     root.style.setProperty('--card-b','rgba(15,23,42,.10)');root.style.setProperty('--input-bg','#f8fafc');
   }else{
+    ['--p','--s','--p-rgb','--s-rgb'].forEach(k=>root.style.removeProperty(k));
     root.style.setProperty('--t1','#f8fafc');root.style.setProperty('--t2','rgba(248,250,252,.72)');root.style.setProperty('--t3','rgba(248,250,252,.48)');
     root.style.setProperty('--card-b','rgba(148,163,184,.16)');root.style.setProperty('--input-bg','rgba(2,10,24,.62)');
   }
@@ -14417,6 +14502,69 @@ html.light #cfgx .advanced-section{background:color-mix(in srgb, rgb(23 23 23 / 
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot);else boot();
 })();
 </script>
+<style id="onex-light-consistency">
+#resultModal #resVless{white-space:pre-wrap;word-break:break-all;max-height:190px;overflow:auto;direction:ltr;text-align:left}
+/* ============================================================
+   ONEX LIGHT THEME CONSISTENCY LAYER
+   Loaded last: turns every leftover dark surface into a light one
+   while html.light is active. Dark mode is untouched.
+   ============================================================ */
+html.light{--g-surf:#ffffff;--g-line:color-mix(in srgb,rgba(15,23,42,.10) 78%,var(--accent))}
+html.light body{background:var(--bg)!important}
+
+/* ---- dashboard home (hero, dock, metrics, chart, health, recent, quick, info, telegram) ---- */
+html.light #page-dash{--surface:#ffffff;--surface2:color-mix(in srgb,#ffffff 93%,var(--accent));--text:var(--t1);--muted:var(--t2);--dim:var(--t3);--line:color-mix(in srgb,rgba(15,23,42,.10) 75%,var(--accent))}
+html.light #page-dash .glass{background:linear-gradient(145deg,#ffffff,color-mix(in srgb,#ffffff 95%,var(--accent)))!important;border:1px solid var(--line)!important;box-shadow:0 14px 34px -20px rgba(15,23,42,.22)!important;color:var(--t1)!important;backdrop-filter:none!important;-webkit-backdrop-filter:none!important}
+html.light #page-dash .telegram{background:radial-gradient(circle at 50% 0,rgba(var(--accent-rgb),.14),transparent 55%),#ffffff!important}
+html.light #page-dash .glass h1,html.light #page-dash .glass h2,html.light #page-dash .glass h3,html.light #page-dash .glass strong,html.light #page-dash .glass b,html.light #page-dash .glass label,html.light #page-dash .glass dd,html.light #page-dash .glass td{color:var(--t1)}
+html.light #page-dash .glass small,html.light #page-dash .glass dt,html.light #page-dash .glass p{color:var(--t2)}
+html.light #page-dash .home-user,html.light #homeUser{color:var(--accent)!important;-webkit-text-fill-color:var(--accent)!important;background:none!important}
+html.light #page-dash .version,html.light #page-dash .home-core-pill,html.light #page-dash .range,html.light #page-dash .proto,html.light #page-dash .kv>div{background:color-mix(in srgb,#ffffff 90%,var(--accent))!important;border-color:var(--line)!important;color:var(--t2)!important}
+html.light #page-dash .version b,html.light #page-dash .version span{color:var(--t1)!important}
+html.light #page-dash .dock button,html.light #page-dash .quickitem,html.light #page-dash .metric,html.light #page-dash .kpi{background:color-mix(in srgb,#ffffff 95%,var(--accent))!important;border-color:var(--line)!important;color:var(--t1)!important}
+html.light #page-dash .track,html.light #page-dash .usage .bar{background:rgba(15,23,42,.08)!important}
+html.light #page-dash .bars i{background:color-mix(in srgb,var(--accent) 28%,#e2e8f0)}
+html.light #page-dash .range button.active{background:rgba(var(--accent-rgb),.16)!important;color:var(--t1)!important}
+html.light #page-dash .home-link-btn{color:var(--accent)!important;background:rgba(var(--accent-rgb),.08)!important}
+
+/* ---- top bar / swatches ---- */
+html.light .hexa-swatches{background:color-mix(in srgb,#ffffff 88%,var(--accent))!important;border-color:var(--g-line)!important}
+html.light .sb-logo.onex-approved-brand{background:linear-gradient(180deg,rgba(var(--accent-rgb),.07),transparent)!important}
+
+/* ---- configs page ---- */
+html.light .cfg-tools,html.light .group-filters,html.light .stats-range,html.light .admin-table-wrap,html.light .tg-tabs{background:#ffffff!important;border-color:var(--g-line)!important;color:var(--t1)!important}
+html.light .cfg-usage-ring::after,html.light .uptime-ring::after{background:#ffffff!important;border-color:var(--g-line)!important}
+
+/* ---- links / telegram cards ---- */
+html.light .tg-link{background:linear-gradient(135deg,#ffffff,color-mix(in srgb,#ffffff 92%,var(--accent)))!important;border-color:rgba(var(--accent-rgb),.28)!important}
+html.light .tg-link b,html.light .tg-link span{color:var(--t1)!important}
+
+/* ---- result modal (config created) & every link/code box ---- */
+html.light .link-box,html.light .code-box,html.light .sub-box,html.light pre,html.light textarea{background:color-mix(in srgb,#ffffff 94%,var(--accent))!important;color:var(--t1)!important;border:1px solid var(--g-line)!important}
+html.light .link-box{white-space:pre-wrap;word-break:break-all;max-height:190px;overflow:auto;font-family:'JetBrains Mono',monospace;font-size:11px;line-height:1.7;direction:ltr;text-align:left}
+html.light .modal,html.light .update-prompt-modal{background:#ffffff!important;color:var(--t1)!important}
+html.light .modal-bg{background:rgba(15,23,42,.38)!important}
+
+/* ---- theme page preview ---- */
+html.light .theme-preview-window{background:color-mix(in srgb,#ffffff 92%,var(--accent))!important;border-color:var(--g-line)!important}
+html.light .theme-mini-chart{background:#ffffff!important;border-color:var(--g-line)!important}
+
+/* ---- neon text that disappears on white ---- */
+html.light .group-hero-kicker,html.light .theme-kicker{color:color-mix(in srgb,var(--accent) 78%,#0f172a)!important}
+html.light .stats-kpi em{color:#059669!important}
+html.light #cfgx .cfgx-bundle label em{color:var(--accent)!important;background:rgba(var(--accent-rgb),.12)!important}
+html.light #page-logs .logs-clear-btn{background:linear-gradient(135deg,var(--accent),var(--purple))!important;color:#ffffff!important;border:0!important}
+html.light .summary-grid div{background:color-mix(in srgb,#ffffff 93%,var(--accent))!important;border-color:var(--g-line)!important}
+html.light .summary-grid b{color:var(--t1)!important}
+html.light .summary-grid span{color:var(--t2)!important}
+html.light #homeUser,html.light #page-dash .home-user,html.light #page-dash .healthrow .tag,html.light #cfgx .cfgx-bundle label em{color:color-mix(in srgb,var(--accent) 62%,#0f172a)!important;-webkit-text-fill-color:currentColor!important}
+html.light [class*="live"] em,html.light .tg-live em,html.light #page-telegram em{color:#059669!important}
+html.light .onex-topbar-brand{background:#ffffff!important;border-color:rgba(var(--accent-rgb),.16)!important}
+html.light #panelLogoutBtn{background:rgba(220,38,38,.08)!important;border-color:rgba(220,38,38,.25)!important;color:#dc2626!important}
+html.light #panelLogoutBtn span,html.light #panelLogoutBtn svg{color:#dc2626!important}
+html.light .all-proto-toggle i{background:#cbd5e1!important}
+html.light .all-proto-toggle input:checked+i{background:linear-gradient(135deg,var(--accent),var(--purple))!important}
+</style>
 </body>
 </html>
 """
