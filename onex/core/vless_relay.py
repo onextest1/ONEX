@@ -293,6 +293,15 @@ async def websocket_tunnel(ws: WebSocket, uuid: str):
             return
 
         reply_prefix = b"\x00\x00"
+        # One account can carry both VLESS-WS and Trojan-WS (all-protocol /
+        # bundle subscriptions share /ws/{uuid}); pick the wire format from
+        # the handshake itself instead of the link's primary protocol.
+        _head = first_chunk[:58]
+        if len(_head) == 58 and _head[56:58] == b"\r\n" and all(c in b"0123456789abcdef" for c in _head[:56]):
+            protocol = "trojan-ws"
+        elif protocol == "trojan-ws" and first_chunk[:1] == b"\x00" and len(first_chunk) >= 18:
+            protocol = "vless-ws"
+        connections[conn_id]["transport"] = protocol
         if protocol == "trojan-ws":
             try:
                 pw_hash, command, address, port, payload = await parse_trojan_header(first_chunk)
