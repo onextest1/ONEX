@@ -9633,7 +9633,7 @@ html.light .protocol-picker-bg{background:color-mix(in srgb, rgb(23 23 23 / .28)
 .onex-x-shadow{filter:drop-shadow(0 0 8px rgba(var(--accent-rgb),.52)) drop-shadow(0 0 16px rgba(var(--purple-rgb),.24))}
 .onex-brand-word{font-family:Inter,system-ui,sans-serif;font-weight:900;letter-spacing:.055em;color:#f8fbff;line-height:.9;white-space:nowrap}
 .onex-brand-word .x{background:linear-gradient(135deg,var(--accent) 5%,var(--accent) 46%,var(--purple) 92%);-webkit-background-clip:text;background-clip:text;color:transparent;text-shadow:none}
-.onex-brand-word .brand-vpn{display:inline-block;margin-inline-start:8px;font-size:.42em;font-weight:800;letter-spacing:.22em;color:#dbeafe;vertical-align:middle;opacity:.9}
+.onex-brand-word{direction:ltr!important;unicode-bidi:isolate!important}.onex-brand-word .brand-vpn{display:inline-block;margin-left:8px;margin-inline-start:8px;font-size:.42em;font-weight:800;letter-spacing:.22em;color:#dbeafe;vertical-align:middle;opacity:.9}
 html.light .onex-brand-word .brand-vpn{color:#334155}
 .onex-brand-sub{font:700 7px/1.2 Inter,system-ui,sans-serif;letter-spacing:.32em;color:color-mix(in srgb, rgb(180 180 180 / .62) 82%, var(--accent));margin-top:5px;white-space:nowrap}
 html.light .onex-brand-word{color:color-mix(in srgb, rgb(23 23 23) 92%, var(--accent))}
