@@ -322,7 +322,7 @@ PROTOCOLS: list[str] = []
 # VPS/native protocols remain individually selectable and individually deployable.
 RAILWAY_SUB_PROTOCOLS = (
     "vless-ws", "siderail-vless-xhttp", "xhttp-packet-up", "xhttp-stream-up",
-    "vmess-ws", "trojan-ws", "vless-httpupgrade", "xhttp-stream-one",
+    "vmess-ws", "vless-httpupgrade", "xhttp-stream-one",
 )
 
 # Same names the panel shows on the protocol cards.
@@ -13459,7 +13459,7 @@ async function loadProtocols(){
   setupProtocolPickers();
   const bundle=document.getElementById('protocolBundleOptions');
   if(bundle){
-    const ids=['vless-ws','siderail-vless-xhttp','xhttp-packet-up','xhttp-stream-up','vmess-ws','trojan-ws','vless-httpupgrade','xhttp-stream-one'].filter(id=>list.some(p=>p.id===id));
+    const ids=['vless-ws','siderail-vless-xhttp','xhttp-packet-up','xhttp-stream-up','vmess-ws','vless-httpupgrade','xhttp-stream-one'].filter(id=>list.some(p=>p.id===id));
     bundle.innerHTML=ids.map(id=>`<label class="cfgx-chip"><input type="checkbox" value="${id}"><img src="${PROTOCOL_ICON_DATA[id]||PROTOCOL_ICON_DATA['vless-ws']}" alt="" loading="lazy" decoding="async"><b>${esc(protocolPickerShort(id))}</b><em>اصلی</em><i aria-hidden="true"></i></label>`).join('');
     if(window.cfgxSync)window.cfgxSync();
   }
@@ -14344,7 +14344,7 @@ html.light #cfgx .advanced-section{background:color-mix(in srgb, rgb(23 23 23 / 
 (function(){
   'use strict';
   var $=function(id){return document.getElementById(id)};
-  var MAIN=['vless-ws','siderail-vless-xhttp','xhttp-packet-up','xhttp-stream-up','vmess-ws','trojan-ws','vless-httpupgrade','xhttp-stream-one'];
+  var MAIN=['vless-ws','siderail-vless-xhttp','xhttp-packet-up','xhttp-stream-up','vmess-ws','vless-httpupgrade','xhttp-stream-one'];
   function h(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]})}
   function nameOf(id){try{return protocolPickerShort(id)}catch(e){return id}}
   function iconOf(id){try{return PROTOCOL_ICON_DATA[id]||PROTOCOL_ICON_DATA['vless-ws']}catch(e){return ''}}
