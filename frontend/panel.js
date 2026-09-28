@@ -493,6 +493,7 @@ async function openConfigEditor(e,uid){
   setConfigEditValue('cIp',link.ip_limit||0);
   const speedBytes=Number(link.speed_limit_bytes||0);setConfigEditValue('cSpeed',speedBytes?Math.round((speedBytes*8/(1024*1024))*100)/100:0);
   const all=document.getElementById('cAllProtocols');if(all)all.checked=!!link.all_protocols;
+  const bundleSelected=new Set(Array.isArray(link.bundle_protocols)?link.bundle_protocols:[link.protocol]);document.querySelectorAll('#protocolBundleOptions input').forEach(x=>x.checked=bundleSelected.has(x.value));renderBundleProtocolCards();syncAllProtocolToggle();
   fillAdvancedForm(link.advanced||{ports:[Number(link.port)||443]});
   document.getElementById('advancedValidationStatus')?.replaceChildren();
   document.getElementById('advancedPreviewBox')?.setAttribute('hidden','');
@@ -501,7 +502,7 @@ async function openConfigEditor(e,uid){
 }
 function collectConfigFormBody(){
   const advanced=advancedFormObject(),ports=advanced.ports.length?advanced.ports:[Number(configEditValue('cPort'))||443];
-  return {label:configEditValue('cName').trim()||undefined,protocol:configEditValue('cProto')||undefined,category_id:configEditValue('cGroup')||'0',sub_id:configEditValue('cSubGroup')||undefined,limit_value:Number(configEditValue('cLimit'))||0,limit_unit:configEditValue('cUnit')||'GB',expires_days:Number(configEditValue('cDays'))||0,ip_limit:Number(configEditValue('cIp'))||0,speed_limit_value:Number(configEditValue('cSpeed'))||0,speed_limit_unit:'MBIT',all_protocols:!!document.getElementById('cAllProtocols')?.checked,port:ports[0],fingerprint:advanced.fingerprint.value,alpn:advanced.tls.alpn,advanced};
+  const bundle=[...document.querySelectorAll('#protocolBundleOptions input:checked')].map(x=>x.value);return {label:configEditValue('cName').trim()||undefined,protocol:configEditValue('cProto')||undefined,bundle_protocols:bundle,ad_block_enabled:!!document.getElementById('cAdBlockEnabled')?.checked,category_id:configEditValue('cGroup')||'0',sub_id:configEditValue('cSubGroup')||undefined,limit_value:Number(configEditValue('cLimit'))||0,limit_unit:configEditValue('cUnit')||'GB',expires_days:Number(configEditValue('cDays'))||0,ip_limit:Number(configEditValue('cIp'))||0,speed_limit_value:Number(configEditValue('cSpeed'))||0,speed_limit_unit:'MBIT',all_protocols:!!document.getElementById('cAllProtocols')?.checked,port:ports[0],fingerprint:advanced.fingerprint.value,alpn:advanced.tls.alpn,advanced};
 }
 async function saveEditedConfig(){
   const uid=__configEditUid;if(!uid)return false;
@@ -889,7 +890,22 @@ async function loadProtocols(){
       ||'<option value="vless-ws">ONEX WB</option>';
   });
   setupProtocolPickers();
+  const bundle=document.getElementById('protocolBundleOptions');
+  if(bundle){
+    const ids=['vless-ws','siderail-vless-xhttp','vmess-ws','trojan-ws','vless-httpupgrade','xhttp-packet-up','xhttp-stream-up'];
+    const icons=Object.assign({},PROTOCOL_ICON_DATA,{'siderail-vless-xhttp':'/api/protocol-icon/vless-ws.png?v=1.3.5','vmess-ws':'/api/protocol-icon/vmess.png?v=1.3.5','trojan-ws':'/api/protocol-icon/trojan.png?v=1.3.5','vless-httpupgrade':'/api/protocol-icon/vless-ws.png?v=1.3.5'});
+    bundle.innerHTML=ids.filter(id=>list.some(x=>x.id===id)).map(id=>`<label class="protocol-bundle-card" data-proto="${id}"><input type="checkbox" value="${id}"><span class="protocol-bundle-radio"></span><img src="${icons[id]||'/api/protocol-icon/vless-ws.png?v=1.3.5'}" alt=""><b>${esc(protocolPickerShort(id))}</b><small>همان UUID · Subscription مشترک</small></label>`).join('');
+    bundle.querySelectorAll('input').forEach(inp=>inp.addEventListener('change',()=>{if(inp.checked){const all=document.getElementById('cAllProtocols');if(all)all.checked=false}renderBundleProtocolCards();syncAllProtocolToggle();updateCreateLiveSummary()}));
+    bundle.querySelectorAll('.protocol-bundle-card').forEach(card=>card.addEventListener('click',e=>{if(e.target.tagName==='INPUT')return;const input=card.querySelector('input');input.checked=!input.checked;input.dispatchEvent(new Event('change',{bubbles:true}))}));
+  }
+  renderBundleProtocolCards();syncAllProtocolToggle();
 }
+const RAILWAY_SUB_PROTOCOLS=['vless-ws','xhttp-packet-up','xhttp-stream-up'];
+function renderBundleProtocolCards(){const box=document.getElementById('protocolBundleOptions');if(!box)return;const selected=new Set([...box.querySelectorAll('input:checked')].map(x=>x.value));box.querySelectorAll('.protocol-bundle-card').forEach(c=>c.classList.toggle('selected',selected.has(c.dataset.proto)));const b=document.getElementById('bundleCountBadge');if(b)b.textContent=`${selected.size||1} انتخاب`;const all=document.getElementById('cAllProtocols');if(all&&all.checked)box.querySelectorAll('.protocol-bundle-card').forEach(c=>c.classList.remove('selected'))}
+function syncAllProtocolToggle(){const sel=document.getElementById('cProto'),all=document.getElementById('cAllProtocols'),btn=document.getElementById('allRailwayModeBtn');if(!sel||!all)return;const ok=RAILWAY_SUB_PROTOCOLS.includes(sel.value);all.disabled=!ok;if(!ok)all.checked=false;if(btn){btn.classList.toggle('on',!!all.checked);btn.disabled=!ok;btn.style.opacity=ok?'1':'.48';const st=document.getElementById('allRailwayModeState');if(st)st.textContent=all.checked?'فعال':'خاموش'}}
+function toggleAllRailwayMode(){const all=document.getElementById('cAllProtocols'),sel=document.getElementById('cProto');if(!all||!sel||!RAILWAY_SUB_PROTOCOLS.includes(sel.value))return;all.checked=!all.checked;if(all.checked)document.querySelectorAll('#protocolBundleOptions input').forEach(x=>x.checked=false);renderBundleProtocolCards();syncAllProtocolToggle();updateCreateLiveSummary()}
+function clearBundleProtocols(){const all=document.getElementById('cAllProtocols');if(all)all.checked=false;document.querySelectorAll('#protocolBundleOptions input').forEach(x=>x.checked=false);renderBundleProtocolCards();syncAllProtocolToggle();updateCreateLiveSummary()}
+function updateCreateLiveSummary(){const name=document.getElementById('cName')?.value?.trim()||'ONEX PANEL',all=document.getElementById('cAllProtocols')?.checked,sel=[...document.querySelectorAll('#protocolBundleOptions input:checked')],limit=Number(document.getElementById('cLimit')?.value||0),days=Number(document.getElementById('cDays')?.value||0);const count=all?3:(sel.length||1),summary=document.getElementById('createSummaryText');if(summary)summary.textContent=`${name} · ${count} پروتکل · ${limit>0?limit+' '+(document.getElementById('cUnit')?.value||'GB'):'بدون محدودیت'} · ${days>0?days+' روز':'بدون انقضا'}`;const st=document.getElementById('createBuilderStatus');if(st)st.textContent=all?'اشتراک کامل Railway':(sel.length?'ترکیبی · آماده ساخت':'آماده ساخت')}
 let __allLinks=[];
 let cfgStatusFilter='all',cfgSortMode='newest';
 function toggleConfigFilters(){document.getElementById('cfgFilterRow')?.classList.toggle('open')}
