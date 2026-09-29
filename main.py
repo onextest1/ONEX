@@ -1240,7 +1240,12 @@ def generate_vless_link(
     uuid: str, host: str, remark: str = "ONEX",
     protocol: str = DEFAULT_PROTOCOL, fingerprint: str | None = None,
     alpn: str | None = None, port: int | None = None, link: dict | None = None,
+    sni_host: str | None = None,
 ):
+    # `host` is the address the client dials (may be a clean IP). `sni_host`
+    # is the real panel domain used for SNI / Host header. When not given it
+    # falls back to `host`, so every existing caller behaves exactly as before.
+    real_host = (sni_host or host)
     protocol = normalize_protocol(protocol)
     fp = (fingerprint or DEFAULT_FINGERPRINT).strip().lower()
     if fp not in FINGERPRINTS: fp = DEFAULT_FINGERPRINT
@@ -1250,9 +1255,9 @@ def generate_vless_link(
     adv = normalize_advanced_config((link or {}).get("advanced"))
     if link and link.get("all_protocols"):
         adv = _protocol_safe_advanced(adv, protocol, all_protocols=True)
-    adv_host = adv["host"].get("host") or adv["host"].get("address") or host
+    adv_host = adv["host"].get("host") or adv["host"].get("address") or real_host
     adv_path = adv["host"].get("path") or adv["network"].get("path")
-    adv_sni = adv["tls"].get("sni") or adv["tls"].get("server_name") or host
+    adv_sni = adv["tls"].get("sni") or adv["tls"].get("server_name") or real_host
     adv_fp = adv["fingerprint"].get("value") or fp
     adv_alpn = adv["tls"].get("alpn") or alpn_value
     security = adv["tls"].get("mode") if adv["tls"].get("enabled", True) else "none"
@@ -1302,7 +1307,7 @@ def generate_vless_link(
     if protocol == "vmess-ws":
         # Exact SideRail VMess-WS shape; traffic is piped to the local sing-box
         # VMess listener which owns the VMess handshake (alterId 0 / AEAD).
-        raw = {"v":"2","ps":remark,"add":host,"port":port_value,"id":uuid,"aid":0,"scy":"auto","net":"ws","type":"none","host":host,"path":"/siderail/vmess","tls":"tls","sni":host,"alpn":"http/1.1","fp":fp}
+        raw = {"v":"2","ps":remark,"add":host,"port":port_value,"id":uuid,"aid":0,"scy":"auto","net":"ws","type":"none","host":real_host,"path":"/siderail/vmess","tls":"tls","sni":real_host,"alpn":"http/1.1","fp":fp}
         return "vmess://" + base64.b64encode(json.dumps(raw,separators=(",",":"),ensure_ascii=False).encode()).decode()
     if protocol == "trojan-ws":
         # Keep Trojan+WS client transport settings aligned with VLESS+WS.
@@ -1496,6 +1501,7 @@ def link_config_uris(link: dict, uid: str, host: str) -> list[str]:
                 alpn=DEFAULT_ALPN_BY_PROTOCOL.get(proto, link.get("alpn")),
                 port=protocol_public_port(link, proto, link.get("port", DEFAULT_PORT)),
                 link=link,
+                sni_host=host,
             ))
     return uris
 
@@ -12942,7 +12948,6 @@ function linkBadgeClass(l){
 }
 function softUpdateLinks(arr){
   // FINAL CONFIG CARDS RENDERER — never fall back to the legacy table.
-  __allLinks=arr;
   window.__linksMap={};
   (arr||[]).forEach(l=>{window.__linksMap[String(l.uuid||l.id||'')]=l});
   renderConfigCards(getFilteredConfigs());
@@ -12956,7 +12961,7 @@ function renderLinks(arr){
   (arr||[]).forEach(l=>window.__linksMap[String(l.uuid||l.id||'')]=l);
   renderConfigCards(getFilteredConfigs());
 }
-function getLinkUrl(l){if(!l)return '';return l.vless_full||l.vless||l.vless_link||l.link||''}
+function getLinkUrl(l){if(!l)return '';return l.vless_all||l.vless_full||l.vless||l.vless_link||l.link||''}
 function getSubUrl(l){if(!l)return '';return l.sub||l.sub_url||l.info||''}
 async function copyText(text){
   text=String(text||'').trim();
@@ -13716,7 +13721,7 @@ function renderConfigCards(arr){const box=document.getElementById('cfgCards');if
   if(openMenuUid){const menu=document.getElementById('cfgMenu_'+openMenuUid);const btn=document.querySelector('.cfg-menu-btn[data-menu-uid="'+CSS.escape(openMenuUid)+'"]');if(menu&&btn){document.body.appendChild(menu);menu.dataset.portal='1';menu.classList.add('open');__openConfigMenuUid=openMenuUid;positionConfigMenu(menu,btn)}else{__openConfigMenuUid=''}}
 }
 function renderLinks(arr){window.__linksMap={};arr.forEach(l=>window.__linksMap[String(l.uuid||l.id||'')]=l);renderConfigCards(getFilteredConfigs())}
-function softUpdateLinks(arr){__allLinks=arr;window.__linksMap={};arr.forEach(l=>window.__linksMap[String(l.uuid||l.id||'')]=l);renderConfigCards(getFilteredConfigs())}
+function softUpdateLinks(arr){window.__linksMap={};arr.forEach(l=>window.__linksMap[String(l.uuid||l.id||'')]=l);renderConfigCards(getFilteredConfigs())}
 function patchLinkRow(tr,l){renderConfigCards(getFilteredConfigs())}
 async function resetUsage(uid){
   if(!confirm(lang==='fa'?'مصرف ریست شود؟':'Reset usage?'))return;
