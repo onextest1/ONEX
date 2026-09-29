@@ -12956,7 +12956,7 @@ function renderLinks(arr){
   (arr||[]).forEach(l=>window.__linksMap[String(l.uuid||l.id||'')]=l);
   renderConfigCards(getFilteredConfigs());
 }
-function getLinkUrl(l){if(!l)return '';return l.vless_all||l.vless_full||l.vless||l.vless_link||l.link||''}
+function getLinkUrl(l){if(!l)return '';return l.vless_full||l.vless||l.vless_link||l.link||''}
 function getSubUrl(l){if(!l)return '';return l.sub||l.sub_url||l.info||''}
 async function copyText(text){
   text=String(text||'').trim();
