@@ -9911,13 +9911,117 @@ html.light .onex-topbar-brand{background:#fff;border-color:rgba(var(--accent-rgb
   <div class="onex-footer"><span><b>Fast · Secure · Stable</b></span><span>ساخته‌شده توسط <b>Mehtif</b> · کانال رسمی <b>@V2rayTun0</b></span></div>
 </section>
 <section class="page" id="page-configs">
-  <div class="cfg-page-hero"><div><div class="page-title"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71 1.71"/></svg><span data-i18n="nav_configs">کانفیگ‌ها</span></div><div class="page-sub" data-i18n="configs_sub">مدیریت و مشاهده لیست کانفیگ‌های سرویس</div></div><div class="cfg-hero-actions"><button class="btn btn-sm" onclick="refreshAll()" title="بروزرسانی">↻</button><button class="cfg-primary-btn" onclick="goPage('create')">＋ ساخت کانفیگ</button><button type="button" class="cfg-delete-corner" onclick="openDeleteAllConfigs()" title="حذف همه کانفیگ‌ها">⌫</button></div></div>
-  <div class="cfg-stat-grid"><div class="cfg-stat-card cyan"><span class="cfg-stat-icon">▱</span><div><small>کل کانفیگ‌ها</small><b id="cfgStatTotal">0</b></div></div><div class="cfg-stat-card purple"><span class="cfg-stat-icon">◉</span><div><small>مصرف شده</small><b id="cfgStatUsed">0 B</b></div></div><div class="cfg-stat-card blue"><span class="cfg-stat-icon">♧</span><div><small>فعال</small><b id="cfgStatActive">0</b></div></div><div class="cfg-stat-card pink"><span class="cfg-stat-icon">⌫</span><div><small>منقضی شده</small><b id="cfgStatExpired">0</b></div></div></div>
-  <div class="cfg-tools"><div class="cfg-search-box"><span>⌕</span><input id="cfgSearch" placeholder="جستجوی نام، UUID یا لینک..." oninput="filterConfigs()"></div><button class="cfg-filter-btn" onclick="toggleConfigFilters()">☷</button></div>
-  <div class="cfg-filter-row" id="cfgFilterRow"><button class="cfg-select on" data-status="all" onclick="setCfgStatus('all',this)">وضعیت <b>همه</b>⌄</button><button class="cfg-select on" data-sort="newest" onclick="setCfgSort('newest',this)">مرتب‌سازی <b>جدیدترین</b>⌄</button><button class="cfg-select" data-status="active" onclick="setCfgStatus('active',this)">● فعال</button><button class="cfg-select" data-status="expired" onclick="setCfgStatus('expired',this)">● منقضی</button></div>
-  <div class="cfg-list-shell"><div class="cfg-list-head"><div><b>کانفیگ‌های سرویس</b><small id="cfgVisibleCount">0 مورد</small></div><label class="cfg-check-all"><input type="checkbox" id="chkAll" onchange="toggleSelectAll(this.checked);updateBulkBar()"><span>انتخاب همه</span></label></div><div id="cfgCards" class="cfg-cards"><div class="cfg-empty">در حال بارگذاری...</div></div></div>
-  <button type="button" class="delete-all-configs-glass legacy-delete-all" onclick="openDeleteAllConfigs()"><span class="delete-all-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6M10 11v5M14 11v5"/></svg></span><span class="delete-all-copy"><b>حذف همه کانفیگ‌ها</b><small>تمام کانفیگ‌های ساخته‌شده را پاک می‌کند</small></span><span class="delete-all-arrow">‹</span></button>
-  <table id="linksTable" style="display:none"><tbody></tbody></table>
+<div class="ocx-root">
+  <header class="ocx-top">
+    <div><h1>کانفیگ‌های من</h1><p>مدیریت کانفیگ‌ها، دقیق و سریع</p></div>
+    <button type="button" class="ocx-delall" onclick="openDeleteAllConfigs()" title="حذف همه کانفیگ‌ها" aria-label="حذف همه کانفیگ‌ها"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6M10 11v5M14 11v5"/></svg></button>
+  </header>
+  <section class="ocx-summary">
+    <div class="ocx-metric"><strong id="cfgStatTotal">0</strong><small>کل</small></div>
+    <div class="ocx-metric ok"><strong id="cfgStatActive">0</strong><small>فعال</small></div>
+    <div class="ocx-metric bad"><strong id="cfgStatExpired">0</strong><small>منقضی</small></div>
+    <div class="ocx-metric"><strong id="cfgStatUsed">0 B</strong><small>مصرف کل</small></div>
+  </section>
+  <label class="ocx-search"><input id="cfgSearch" dir="rtl" placeholder="جستجوی نام، پروتکل یا UUID" oninput="filterConfigs()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg></label>
+  <nav class="ocx-filters" id="cfgFilterRow">
+    <button type="button" class="ocx-filter on" data-status="all" onclick="setCfgStatus('all',this)">همه</button>
+    <button type="button" class="ocx-filter" data-status="active" onclick="setCfgStatus('active',this)">فعال</button>
+    <button type="button" class="ocx-filter" data-status="off" onclick="setCfgStatus('off',this)">خاموش</button>
+    <button type="button" class="ocx-filter" data-status="expired" onclick="setCfgStatus('expired',this)">منقضی</button>
+    <button type="button" class="ocx-filter" data-status="hi" onclick="setCfgStatus('hi',this)">پرمصرف</button>
+  </nav>
+  <div class="ocx-bar">
+    <button type="button" class="ocx-new" onclick="goPage('create')">+ کانفیگ جدید</button>
+    <label class="ocx-all"><input type="checkbox" id="chkAll" onchange="toggleSelectAll(this.checked);updateBulkBar()"><span>انتخاب همه</span><small id="cfgVisibleCount">0 مورد</small></label>
+  </div>
+  <div id="cfgCards" class="ocx-cards"><div class="ocx-empty">در حال بارگذاری...</div></div>
+</div>
+<table id="linksTable" style="display:none"><tbody></tbody></table>
+<style>
+#page-configs .ocx-root{--o-bg:#080b13;--o-card:#111620;--o-line:#2b3342;--o-text:#f1f4fb;--o-muted:#949daf;--o-cyan:#43d4ea;--o-purple:#7f73ff;--o-green:#55d99d;--o-yellow:#ffbf42;--o-red:#ee7084;--o-mono:'JetBrains Mono',ui-monospace,monospace;background:var(--o-bg);color:var(--o-text);font-family:Vazirmatn,system-ui,sans-serif;border-radius:24px;padding:22px 20px 26px;max-width:760px;margin:0 auto;text-align:left;direction:ltr}
+#page-configs .ocx-root *{box-sizing:border-box}
+#page-configs .ocx-root button{font-family:inherit;cursor:pointer}
+#page-configs .ocx-top{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:22px}
+#page-configs .ocx-top h1{margin:0;font-size:22px;font-weight:900;color:var(--o-text)}
+#page-configs .ocx-top>div{direction:rtl;text-align:left}#page-configs .ocx-top p{margin:4px 0 0;color:var(--o-muted);font-size:12px}
+#page-configs .ocx-delall{width:42px;height:42px;flex:none;display:grid;place-items:center;border:1px solid rgba(238,112,132,.45);border-radius:13px;background:rgba(238,112,132,.1);color:var(--o-red);padding:0}
+#page-configs .ocx-delall svg{width:20px;height:20px}
+#page-configs .ocx-delall:hover{background:rgba(238,112,132,.2)}
+#page-configs .ocx-summary{display:flex;gap:26px;align-items:flex-end;margin-bottom:22px}
+#page-configs .ocx-metric strong{display:block;font:700 25px/1.2 var(--o-mono);color:var(--o-text);white-space:nowrap}
+#page-configs .ocx-metric.ok strong{color:var(--o-green)}
+#page-configs .ocx-metric.bad strong{color:var(--o-red)}
+#page-configs .ocx-metric small{display:block;margin-top:4px;color:var(--o-muted);font-size:12px}
+#page-configs .ocx-search{display:flex;align-items:center;gap:12px;height:52px;padding:0 16px;margin-bottom:15px;border:1px solid var(--o-line);border-radius:15px;background:#10151f;color:var(--o-muted)}
+#page-configs .ocx-search svg{width:21px;height:21px;flex:none}
+#page-configs .ocx-search input{text-align:right;flex:1;min-width:0;height:100%;border:0;outline:0;background:none;color:var(--o-text);font:500 14px Vazirmatn,sans-serif;box-shadow:none;padding:0}
+#page-configs .ocx-search input::placeholder{color:#6f7889}
+#page-configs .ocx-root .ocx-search input{background:transparent!important;border:0!important;box-shadow:none!important}
+#page-configs .ocx-filters{display:flex;gap:10px;overflow-x:auto;margin-bottom:18px;padding-bottom:2px;scrollbar-width:none}
+#page-configs .ocx-filter{height:42px;padding:0 18px;border-radius:99px;border:1px solid var(--o-line);background:transparent;color:var(--o-muted);font-weight:700;font-size:13px;white-space:nowrap}
+#page-configs .ocx-filter.on{background:#f4f6fb;color:#11151e;border-color:#f4f6fb}
+#page-configs .ocx-bar{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:20px}
+#page-configs .ocx-new{height:48px;padding:0 22px;border:0;border-radius:14px;background:#8479ff;color:#0f1220;font-weight:900;font-size:14px}
+#page-configs .ocx-new:hover{background:#948aff}
+#page-configs .ocx-all{direction:rtl;display:flex;align-items:center;gap:7px;color:var(--o-muted);font-size:12px;cursor:pointer}
+#page-configs .ocx-all input{width:18px;height:18px;accent-color:var(--o-purple);margin:0}
+#page-configs .ocx-all small{font-family:var(--o-mono);color:#6f7889}
+#page-configs .ocx-cards{display:grid;gap:16px}
+#page-configs .ocx-card{position:relative;background:var(--o-card);border:1px solid var(--o-line);border-radius:22px;padding:19px 19px 12px;transition:border-color .2s}
+#page-configs .ocx-card:hover{border-color:#46526b}
+#page-configs .ocx-card.dead{opacity:.75}
+#page-configs .ocx-head{display:flex;align-items:flex-start;gap:16px}
+#page-configs .ocx-ring{--pct:0;--ring:#8277ff;width:108px;height:108px;flex:none;border-radius:50%;display:grid;place-items:center;position:relative;background:conic-gradient(var(--ring) calc(var(--pct)*1%),#283141 0)}
+#page-configs .ocx-ring:after{content:"";position:absolute;inset:10px;border-radius:50%;background:var(--o-card)}
+#page-configs .ocx-ring-c{position:relative;z-index:1;text-align:center;line-height:1.15}
+#page-configs .ocx-ring-c b{display:block;font:700 24px var(--o-mono);color:var(--o-text)}
+#page-configs .ocx-ring-c small{display:block;margin-top:3px;font-size:11px;color:var(--o-muted);font-family:var(--o-mono)}
+#page-configs .ocx-info{flex:1;min-width:0;padding-top:3px;text-align:left}
+#page-configs .ocx-name{font-size:21px;font-weight:900;color:var(--o-text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;direction:auto}
+#page-configs .ocx-proto{display:inline-block;margin-top:7px;padding:5px 10px;border-radius:8px;background:#20283a;color:var(--o-cyan);font:700 12px var(--o-mono);direction:ltr;letter-spacing:.03em}
+#page-configs .ocx-meta{display:flex;flex-wrap:wrap;gap:14px;margin-top:12px;color:#a4acbb;font-size:12.5px}
+#page-configs .ocx-meta span{direction:rtl;display:inline-flex;align-items:center;gap:5px;white-space:nowrap}
+#page-configs .ocx-meta svg{width:15px;height:15px}
+#page-configs .ocx-meta .st-on{color:var(--o-green);font-weight:800}
+#page-configs .ocx-meta .st-off{color:#8a93a3;font-weight:800}
+#page-configs .ocx-meta .st-dead{color:var(--o-red);font-weight:800}
+#page-configs .ocx-meta .warn{color:var(--o-yellow)}
+#page-configs .ocx-meta .gone{color:var(--o-red)}
+#page-configs .ocx-toggle{width:50px;height:28px;flex:none;border:0;border-radius:99px;background:#343c49;position:relative;padding:0;transition:background .2s}
+#page-configs .ocx-toggle:after{content:"";position:absolute;top:3.5px;left:4px;width:21px;height:21px;border-radius:50%;background:#9ba4b2;transition:transform .25s cubic-bezier(.16,1,.3,1),background .2s}
+#page-configs .ocx-toggle.on{background:#12472f}
+#page-configs .ocx-toggle.on:after{background:var(--o-green);transform:translateX(21px)}
+#page-configs .ocx-rule{border-top:1px dashed #2f3745;margin:18px 0 12px}
+#page-configs .ocx-actions{display:flex;align-items:center;gap:10px}
+#page-configs .ocx-dots{width:30px;height:44px;flex:none;border:0;background:transparent;color:#99a2b0;font-size:24px;padding:0;line-height:1}
+#page-configs .ocx-act{flex:1;min-width:0;height:46px;display:inline-flex;align-items:center;justify-content:center;gap:7px;border:1px solid #2d3544;border-radius:14px;background:#171e2b;color:var(--o-text);font-weight:800;font-size:14px;padding:0 8px}
+#page-configs .ocx-act svg{width:18px;height:18px;flex:none}
+#page-configs .ocx-act:hover{background:#202a3c;border-color:#54627d}
+#page-configs .ocx-chk{flex:none;display:grid;place-items:center;width:34px;height:44px;cursor:pointer}
+#page-configs .ocx-chk input{width:22px;height:22px;margin:0;accent-color:var(--o-purple)}
+#page-configs .ocx-menu{direction:rtl;position:absolute;right:14px;bottom:64px;width:210px;display:none;flex-direction:column;padding:7px;background:#1b2230;border:1px solid #43506a;border-radius:15px;box-shadow:0 16px 40px rgba(0,0,0,.5);z-index:20}
+#page-configs .ocx-menu.open{display:flex}
+#page-configs .ocx-menu button{height:40px;border:0;border-radius:10px;background:transparent;color:var(--o-text);text-align:right;padding:0 12px;font-size:13px;font-weight:700}
+#page-configs .ocx-menu button:hover{background:#29344a}
+#page-configs .ocx-menu .danger{color:var(--o-red)}
+#page-configs .ocx-empty{direction:rtl;text-align:center;padding:46px 16px;border:1px dashed var(--o-line);border-radius:18px;color:var(--o-muted);font-size:13px}
+#page-configs .ocx-root :focus-visible{outline:2px solid var(--o-cyan);outline-offset:2px}
+@media(max-width:560px){
+#page-configs .ocx-root{padding:18px 13px 22px;border-radius:20px}
+#page-configs .ocx-summary{gap:18px}
+#page-configs .ocx-metric strong{font-size:22px}
+#page-configs .ocx-card{padding:17px 14px 11px}
+#page-configs .ocx-head{gap:13px}
+#page-configs .ocx-ring{width:96px;height:96px}
+#page-configs .ocx-ring-c b{font-size:21px}
+#page-configs .ocx-name{font-size:18px}
+#page-configs .ocx-meta{gap:10px;font-size:11.5px}
+#page-configs .ocx-actions{gap:7px}
+#page-configs .ocx-act{height:44px;font-size:13px;gap:5px}
+#page-configs .ocx-dots{width:22px}
+#page-configs .ocx-chk{width:26px}
+}
+</style>
 </section>
 
 <style>
@@ -13585,32 +13689,6 @@ function renderConfigCards(arr){const box=document.getElementById('cfgCards');if
   updateBulkBar();
   if(openMenuUid){const menu=document.getElementById('cfgMenu_'+openMenuUid);const btn=document.querySelector('.cfg-menu-btn[data-menu-uid="'+CSS.escape(openMenuUid)+'"]');if(menu&&btn){document.body.appendChild(menu);menu.dataset.portal='1';menu.classList.add('open');__openConfigMenuUid=openMenuUid;positionConfigMenu(menu,btn)}else{__openConfigMenuUid=''}}
 }
-function showConfigQr(uid){
-  const link=(window.__linksMap||{})[uid]||__allLinks.find(x=>String(x.uuid||x.id||'')===String(uid));
-  if(link)openGroupQr(getLinkUrl(link),link.label||link.name||'ONEX Config');
-}
-function renderConfigCards(arr){
-  const box=document.getElementById('cfgCards');if(!box)return;
-  if(!document.getElementById('cfgBStyle')){
-    const st=document.createElement('style');st.id='cfgBStyle';st.textContent=`.cfg-hero-actions{align-items:center}.cfg-delete-corner{width:42px;height:42px;border-radius:13px;border:1px solid rgba(255,82,117,.45);background:rgba(255,45,95,.10);color:#ff7390;font-size:20px;cursor:pointer}.legacy-delete-all{display:none!important}.cfg-card-b{grid-template-columns:58px minmax(0,1fr) 190px;grid-template-rows:auto auto;align-items:center}.cfg-card-b .cfg-proto-icon{display:none}.cfg-card-b .cfg-side{border-right:0;padding-right:0;position:relative}.cfg-card-b .cfg-usage-ring{position:absolute;left:calc(100% + 28px);top:28px;width:94px;height:94px;background:conic-gradient(var(--accent) var(--pct),rgba(255,255,255,.08) 0);font-size:13px}.cfg-card-b .cfg-usage-ring:after{inset:9px}.cfg-card-b .cfg-usage-ring span{font-size:13px}.cfg-card-b .cfg-usage-copy{padding-left:108px}.cfg-card-b .cfg-usage-track{width:108px}.cfg-card-b .cfg-b-actions{grid-column:1/-1;display:grid;grid-template-columns:34px repeat(3,minmax(0,1fr)) 28px;gap:10px;padding-top:14px;border-top:1px dashed rgba(255,255,255,.13);margin-top:12px}.cfg-card-b .cfg-b-actions button{min-height:42px;border:1px solid rgba(255,255,255,.12);border-radius:13px;background:rgba(255,255,255,.035);color:#edf2ff;font:800 12px Vazirmatn,sans-serif;cursor:pointer}.cfg-card-b .cfg-b-actions button:nth-child(2),.cfg-card-b .cfg-b-actions button:nth-child(3),.cfg-card-b .cfg-b-actions button:nth-child(4){color:#f2f4fa}.cfg-card-b .cfg-b-actions button:nth-child(5){background:transparent;border:0;color:var(--t3);font-size:22px;padding:0}.cfg-card-b .cfg-b-actions button:nth-child(5):after{content:'⋮';font-size:22px}.cfg-card-b .cfg-b-actions button:nth-child(5){font-size:0}.cfg-card-b .cfg-b-actions button.danger{display:none}@media(max-width:560px){.cfg-card-b{grid-template-columns:1fr;grid-template-rows:auto auto auto;padding:17px 15px;border-radius:22px}.cfg-card-b .cfg-main{padding-right:105px}.cfg-card-b .cfg-side{grid-column:1;grid-row:1;min-height:125px}.cfg-card-b .cfg-usage-ring{left:0;top:0;width:94px;height:94px}.cfg-card-b .cfg-usage-copy{padding-left:0}.cfg-card-b .cfg-side-top{justify-content:flex-end}.cfg-card-b .cfg-b-actions{grid-column:1;grid-row:3;grid-template-columns:28px repeat(3,minmax(0,1fr)) 22px;gap:7px}.cfg-card-b .cfg-b-actions button{min-height:44px;font-size:11px}.cfg-card-b .cfg-b-actions button:nth-child(5){font-size:0}.cfg-card-b .cfg-b-actions button:nth-child(5):after{font-size:22px}}`;document.head.appendChild(st);
-  }
-  const selectedIds=new Set([...document.querySelectorAll('#cfgCards .cfg-chk:checked')].map(c=>String(c.value)));
-  updateConfigStats();
-  if(!arr.length){box.innerHTML='<div class="cfg-empty">'+(lang==='fa'?'کانفیگی با این فیلتر پیدا نشد':'No configs match the filter')+'</div>';updateBulkBar();return}
-  box.innerHTML=arr.map(l=>{
-    const uid=String(l.uuid||l.id||''),dead=configExpired(l),active=l.active!==false&&!dead,[pl,icon]=protocolUi(l.protocol);
-    const used=Number(l.used_bytes||0),lim=Number(l.limit_bytes||0),pct=lim>0?Math.min(100,Math.round(used/lim*100)):0,conn=Number(l.connected_ips||0),safeUid=esc(uid),usage=lim>0?`${fmtB(used)} / ${fmtB(lim)}`:fmtB(used),activeState=l.active!==false;
-    return `<article class="cfg-card cfg-card-b ${dead?'expired':''}" draggable="true" data-uid="${safeUid}" ondragstart="cfgDragStart(event)" ondragover="cfgDragOver(event)" ondrop="cfgDrop(event)" ondragend="cfgDragEnd(event)">
-      <label class="cfg-card-check"><input type="checkbox" class="cfg-chk" value="${safeUid}" onchange="updateBulkBar()"></label>
-      <div class="cfg-proto-icon"><img src="${icon}" alt=""></div>
-      <div class="cfg-main"><div class="cfg-name-row"><b>${esc(l.label||l.name||uid.slice(0,8))}</b></div><div class="cfg-proto">${esc(pl)}</div><div class="cfg-meta"><span><i>♧</i>${conn} اتصال</span><span><i>◷</i>${dead?'منقضی شده':(l.expires_at?'انقضا '+cfgDate(l.expires_at):'بدون انقضا')}</span></div></div>
-      <div class="cfg-side"><div class="cfg-side-top"><span class="cfg-status ${active?'':'bad'}"><i></i>${active?'فعال':'غیرفعال'}</span><button type="button" class="cfg-active-toggle ${activeState?'on':''}" onclick="toggleConfigActive(event,'${safeUid}',${activeState?'false':'true'})" aria-pressed="${activeState?'true':'false'}"><span class="cfg-active-dot"></span><span>${activeState?'فعال':'خاموش'}</span></button></div><div class="cfg-usage"><div class="cfg-usage-ring" style="--pct:${pct}%"><span>${pct}%</span></div><div class="cfg-usage-copy"><b>${esc(usage)}</b>${lim>0?`<div class="cfg-usage-track"><div class="cfg-usage-fill" style="width:${pct}%"></div></div>`:''}</div></div></div>
-      <div class="cfg-b-actions"><span class="cfg-action-spacer"></span><button type="button" onclick="copyLinkById('${safeUid}')">لینک</button><button type="button" onclick="copySubById('${safeUid}')">ساب</button><button type="button" onclick="showConfigQr('${safeUid}')">QR</button><button type="button" class="cfg-card-more" onclick="toggleConfigMenu(event,'${safeUid}')">⋮</button><div class="cfg-menu" id="cfgMenu_${uid.replace(/[^a-zA-Z0-9_-]/g,'_')}"><div class="cfg-menu-head"><span>عملیات کانفیگ</span><small>برای بستن بیرون منو بزنید</small></div><button type="button" onclick="configMenuAction('info','${safeUid}')">صفحه اطلاعات</button><button type="button" onclick="openConfigEditor(event,'${safeUid}')">ویرایش</button><button type="button" class="danger" onclick="configMenuAction('delete','${safeUid}')">حذف کانفیگ</button></div></div>
-    </article>`;
-  }).join('');
-  document.querySelectorAll('#cfgCards .cfg-chk').forEach(c=>{c.checked=selectedIds.has(String(c.value))});
-  updateBulkBar();
-}
 function renderLinks(arr){window.__linksMap={};arr.forEach(l=>window.__linksMap[String(l.uuid||l.id||'')]=l);renderConfigCards(getFilteredConfigs())}
 function softUpdateLinks(arr){window.__linksMap={};arr.forEach(l=>window.__linksMap[String(l.uuid||l.id||'')]=l);renderConfigCards(getFilteredConfigs())}
 function patchLinkRow(tr,l){renderConfigCards(getFilteredConfigs())}
@@ -14627,7 +14705,109 @@ html.light .sidebar .nav-item{background:linear-gradient(135deg,rgba(255,255,255
 html.light .sidebar .nav-item.on{background:linear-gradient(110deg,rgba(39,215,255,.2),rgba(124,58,237,.13))!important;border-color:rgba(37,99,235,.55)!important;color:#0f172a!important}
 html.light .sidebar .nav-item[data-page="theme"]{background:linear-gradient(135deg,rgba(236,72,153,.1),rgba(37,99,235,.08))!important}
 html.light .sidebar .nav-label{color:inherit!important}
-</style></body>
+</style><script>
+/* ONEX config cards (standalone component, image design) */
+(function(){
+  var I={
+    link:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg>',
+    qr:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><path d="M14 14h3v3h-3zM20 20h1M17 20h-3"/></svg>',
+    user:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg>',
+    clock:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>'
+  };
+  var SHORT={'vless-ws':'VLESS·WS','xhttp-packet-up':'XHTTP·PACKET','xhttp-stream-up':'XHTTP·UP','xhttp-stream-one':'XHTTP·ONE','vless-reality':'REALITY','vless-grpc-reality':'GRPC·REALITY','vmess':'VMESS','vmess-ws':'VMESS·WS','trojan':'TROJAN','trojan-ws':'TROJAN·WS','hysteria2':'HY2','hysteria':'HYSTERIA','shadowsocks':'SS','socks5':'SOCKS5','http':'HTTP','tuic':'TUIC','anytls':'ANYTLS','naive':'NAIVE','shadowtls':'SHADOWTLS','snell':'SNELL','vless-httpupgrade':'VLESS·HTTPUP','siderail-vless-xhttp':'VLESS·XHTTP'};
+  function uidOf(l){return String(l.uuid||l.id||'')}
+  function menuId(uid){return 'ocxMenu_'+uid.replace(/[^a-zA-Z0-9_-]/g,'_')}
+  function daysLeft(l){if(!l.expires_at)return null;var t=new Date(l.expires_at).getTime();if(isNaN(t))return null;return Math.ceil((t-Date.now())/86400000)}
+  function pctOf(l){var lim=Number(l.limit_bytes||0);return lim>0?Math.min(100,Math.round(Number(l.used_bytes||0)/lim*100)):null}
+
+  window.setCfgStatus=function(v,el){cfgStatusFilter=v;document.querySelectorAll('#cfgFilterRow [data-status]').forEach(function(x){x.classList.toggle('on',x===el)});renderConfigCards(getFilteredConfigs())};
+  window.getFilteredConfigs=function(){
+    var q=((document.getElementById('cfgSearch')||{}).value||'').trim().toLowerCase();
+    var a=(__allLinks||[]).filter(function(l){
+      var dead=configExpired(l),active=l.active!==false&&!dead,p=pctOf(l);
+      if(cfgStatusFilter==='active'&&!active)return false;
+      if(cfgStatusFilter==='off'&&(dead||l.active!==false))return false;
+      if(cfgStatusFilter==='expired'&&!dead)return false;
+      if(cfgStatusFilter==='hi'&&!(p!==null&&p>=80))return false;
+      if(!q)return true;
+      return [l.label,l.name,l.protocol,l.protocol_label,l.uuid,l.id,l.sub,l.sub_url].map(function(x){return String(x||'').toLowerCase()}).some(function(x){return x.indexOf(q)>-1});
+    });
+    a.sort(function(x,y){return String(y.created_at||'').localeCompare(String(x.created_at||''))});
+    return a;
+  };
+  window.updateConfigStats=function(){
+    var all=__allLinks||[],set=function(id,v){var e=document.getElementById(id);if(e)e.textContent=v};
+    set('cfgStatTotal',all.length);
+    set('cfgStatActive',all.filter(function(l){return l.active!==false&&!configExpired(l)}).length);
+    set('cfgStatExpired',all.filter(configExpired).length);
+    set('cfgStatUsed',fmtB(all.reduce(function(n,l){return n+Number(l.used_bytes||0)},0)));
+  };
+  window.closeConfigMenus=function(){__openConfigMenuUid='';document.querySelectorAll('#cfgCards .ocx-menu.open').forEach(function(m){m.classList.remove('open')})};
+  window.toggleConfigMenu=function(e,uid){
+    e.preventDefault();e.stopPropagation();
+    var m=document.getElementById(menuId(uid));if(!m)return;
+    var was=m.classList.contains('open');closeConfigMenus();
+    if(!was){m.classList.add('open');__openConfigMenuUid=uid}
+  };
+  window.showConfigQr=function(uid){
+    var l=(window.__linksMap||{})[uid]||(__allLinks||[]).find(function(x){return uidOf(x)===String(uid)});
+    if(!l)return;var url=getLinkUrl(l);
+    if(!url){toast('لینکی برای QR نیست');return}
+    openGroupQr(url.split('\n')[0],l.label||l.name||'ONEX');
+  };
+  window.ocxMenu=function(a,uid,e){
+    closeConfigMenus();
+    if(a==='edit')return openConfigEditor(e,uid);
+    if(a==='info'){window.open('/info/'+encodeURIComponent(uid),'_blank','noopener');return}
+    if(a==='reset')return resetUsage(uid);
+    if(a==='delete')return deleteLink(uid);
+  };
+  window.renderConfigCards=function(arr){
+    var box=document.getElementById('cfgCards');if(!box)return;
+    var sel=new Set([].slice.call(document.querySelectorAll('#cfgCards .cfg-chk:checked')).map(function(c){return String(c.value)}));
+    var openUid=__openConfigMenuUid||'';
+    updateConfigStats();
+    var vc=document.getElementById('cfgVisibleCount');if(vc)vc.textContent=(arr||[]).length+' مورد';
+    if(!arr||!arr.length){box.innerHTML='<div class="ocx-empty">'+((__allLinks||[]).length?'کانفیگی با این فیلتر پیدا نشد':'هنوز کانفیگی نساختی. از «کانفیگ جدید» شروع کن')+'</div>';updateBulkBar();return}
+    box.innerHTML=arr.map(function(l){
+      var uid=uidOf(l),s=esc(uid),dead=configExpired(l),on=l.active!==false,p=pctOf(l),d=daysLeft(l),used=Number(l.used_bytes||0);
+      var ring=dead?'#ee7084':(p===null?'#48d8ea':(p>=80?'#ffbd3e':'#8277ff'));
+      var st=dead?'<span class="st-dead">● منقضی</span>':(on?'<span class="st-on">● فعال</span>':'<span class="st-off">● خاموش</span>');
+      var exp=d===null?'<span>'+I.clock+' بدون انقضا</span>':(d<=0?'<span class="gone">'+I.clock+' منقضی شده</span>':'<span class="'+(d<=5?'warn':'')+'">'+I.clock+' '+d+' روز مانده</span>');
+      var proto=SHORT[l.protocol]||String(l.protocol||'').toUpperCase();
+      if(l.all_protocols)proto+=' +MIX';
+      return '<article class="ocx-card'+(dead?' dead':'')+'" data-uid="'+s+'">'
+        +'<div class="ocx-head">'
+          +'<div class="ocx-ring" style="--pct:'+(p===null?100:p)+';--ring:'+ring+'"><div class="ocx-ring-c"><b>'+(p===null?'∞':p+'%')+'</b><small>'+esc(fmtB(used))+'</small></div></div>'
+          +'<div class="ocx-info"><div class="ocx-name">'+esc(l.label||l.name||uid.slice(0,8))+'</div><div class="ocx-proto">'+esc(proto)+'</div>'
+          +'<div class="ocx-meta">'+st+'<span>'+I.user+' '+Number(l.connected_ips||0)+' اتصال</span>'+exp+'</div></div>'
+          +'<button type="button" class="ocx-toggle'+(on?' on':'')+'" aria-pressed="'+on+'" aria-label="روشن/خاموش" onclick="toggleConfigActive(event,\''+s+'\','+(on?'false':'true')+')"></button>'
+        +'</div>'
+        +'<div class="ocx-rule"></div>'
+        +'<div class="ocx-actions">'
+          +'<label class="ocx-chk"><input type="checkbox" class="cfg-chk" value="'+s+'" onchange="updateBulkBar()" aria-label="انتخاب"></label>'
+          +'<button type="button" class="ocx-act" onclick="copyLinkById(\''+s+'\')">'+I.link+' لینک</button>'
+          +'<button type="button" class="ocx-act" onclick="copySubById(\''+s+'\')">ساب</button>'
+          +'<button type="button" class="ocx-act" onclick="showConfigQr(\''+s+'\')">'+I.qr+' QR</button>'
+          +'<button type="button" class="ocx-dots" aria-label="بیشتر" onclick="toggleConfigMenu(event,\''+s+'\')">⋮</button>'
+        +'</div>'
+        +'<div class="ocx-menu" id="'+menuId(uid)+'" onclick="event.stopPropagation()">'
+          +'<button type="button" onclick="ocxMenu(\'edit\',\''+s+'\',event)">ویرایش کانفیگ</button>'
+          +'<button type="button" onclick="ocxMenu(\'info\',\''+s+'\',event)">صفحه اطلاعات</button>'
+          +'<button type="button" onclick="ocxMenu(\'reset\',\''+s+'\',event)">ریست مصرف</button>'
+          +'<button type="button" class="danger" onclick="ocxMenu(\'delete\',\''+s+'\',event)">حذف کانفیگ</button>'
+        +'</div>'
+      +'</article>';
+    }).join('');
+    box.querySelectorAll('.cfg-chk').forEach(function(c){c.checked=sel.has(String(c.value))});
+    if(openUid){var m=document.getElementById(menuId(openUid));if(m){m.classList.add('open');__openConfigMenuUid=openUid}else{__openConfigMenuUid=''}}
+    updateBulkBar();
+  };
+  document.addEventListener('click',function(e){if(!e.target.closest('.ocx-menu')&&!e.target.closest('.ocx-dots'))closeConfigMenus()});
+  try{if(document.getElementById('cfgCards')&&Array.isArray(__allLinks))renderConfigCards(getFilteredConfigs())}catch(err){}
+})();
+</script>
+</body>
 </html>
 """
 
