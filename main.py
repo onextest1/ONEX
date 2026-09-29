@@ -12353,6 +12353,67 @@ html.light #page-dash .metric strong{-webkit-text-fill-color:color-mix(in srgb, 
 @media (max-width:800px){#page-dash .home-legend span{display:none}}
 @media (prefers-reduced-motion:reduce){html.onex-glass *,html.onex-glass *::before,html.onex-glass *::after{animation-duration:.01ms!important;transition-duration:.01ms!important}}
 
+
+/* ============================================================
+   ONEX RESPONSIVE + COLOR REPAIR PASS (layout only, JS untouched)
+   ============================================================ */
+.page,.page>*,.card,.panel,.onex-card,.cfg-list-shell,.group-workspace,.group-list-pane,.group-detail-pane,
+.cfg-card,.cfg-main,.cfg-side,.cfg-usage-copy,.page-head,.onex-topbar,.onex-control-dock,.dashboard-hero{min-width:0}
+.page img,.page svg,.page canvas{max-width:100%}
+.page button,.page input,.page select,.page textarea{max-width:100%}
+.page h1,.page h2,.page h3,.page h4,.page p{overflow-wrap:anywhere}
+
+@media (min-width:901px){
+  .main{padding-inline:clamp(18px,2.2vw,36px)}
+  .page{width:100%;max-width:1680px;margin-inline:auto}
+  .group-workspace{grid-template-columns:minmax(0,1.35fr) minmax(320px,.75fr)}
+  .cfg-card{grid-template-columns:56px minmax(0,1fr) minmax(155px,190px) 34px}
+  .cfg-usage-track{width:min(110px,100%)}
+}
+@media (min-width:901px) and (max-width:1180px){
+  .metrics,.cfg-stat-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .cfg-card{grid-template-columns:50px minmax(0,1fr) minmax(130px,160px) 32px;gap:9px}
+  .cfg-proto-icon{width:50px;height:50px}
+  .cfg-side{padding-right:8px}
+  .cfg-usage-track{width:76px}
+  .group-workspace{grid-template-columns:minmax(0,1fr)}
+}
+.cfg-page-hero,.cfg-tools,.cfg-list-head,.group-hero,.cfg-name-row,.cfg-side-top,.cfg-meta,.cfg-usage{min-width:0}
+.cfg-page-hero>*,.cfg-list-head>*,.group-hero>*{min-width:0}
+.cfg-usage-copy b{display:block;overflow:hidden;text-overflow:ellipsis}
+
+/* Light mode on colored themes: drop the milky white gradient + white inset glare */
+html.light .page .cfg-page-hero,html.light .page .cfg-stat-card,html.light .page .cfg-search-box,
+html.light .page .cfg-filter-btn,html.light .page .cfg-list-shell,html.light .page .cfg-card,
+html.light .page .card,html.light .page .metric,html.light .page .onex-card,html.light .page .onex-metric,
+html.light .page .quick-item,html.light .page .support-tile,html.light .page .table-wrap{
+  background-image:none!important;
+  background-color:color-mix(in srgb,#fff 94%,var(--accent))!important;
+  border-color:color-mix(in srgb,var(--accent) 16%,rgb(23 23 23 / .10))!important;
+  box-shadow:0 8px 24px color-mix(in srgb,var(--accent) 7%,rgb(23 23 23 / .08))!important;
+}
+html.light body::before{opacity:.55}
+
+@media (max-width:760px){
+  .cfg-tools{flex-wrap:wrap}
+  .cfg-search-box{flex:1 1 220px}
+  .group-workspace{grid-template-columns:minmax(0,1fr)}
+  .group-detail-pane{min-height:0}
+  .group-link-line{grid-template-columns:minmax(0,1fr) 52px}
+  .cfg-card .cfg-side{min-width:0}
+}
+@media (max-width:560px){
+  .main,.main.expanded{overflow-x:hidden}
+  .page-title{font-size:clamp(18px,5vw,21px)}
+  .cfg-stat-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .group-manage-actions{grid-template-columns:1fr}
+  #page-logs .logs-advanced-row.open{grid-template-columns:1fr}
+}
+@media (max-width:380px){
+  .main,.main.expanded{padding-inline:8px!important}
+  .group-info-grid,.group-link-line{grid-template-columns:1fr}
+}
+
 </style>
 <section class="page" id="page-news">
   <div class="page-head">
@@ -14543,144 +14604,6 @@ border:1px solid rgb(255 255 255 / .15);box-shadow:0 1px 0 rgb(255 255 255 / .12
 h2{font-size:22px;font-weight:900}p{margin-top:10px;color:#a3abc6;font-size:13.5px;line-height:1.9}
 a{display:inline-block;margin-top:20px;padding:12px 20px;border-radius:14px;text-decoration:none;font-weight:800;color:#0b0d14;background:linear-gradient(135deg,#38d9ff,#8b5cf6)}
 small{display:block;margin-top:16px;font:500 11px "JetBrains Mono",monospace;color:#6d7594}
-
-
-/* ============================================================
-   ONEX RESPONSIVE + COLOR REPAIR PASS
-   Layout-only hardening. Keeps the existing components and JS intact.
-   ============================================================ */
-
-/* Prevent flex/grid children from forcing their parent wider than the viewport. */
-.page, .page > *, .card, .panel, .onex-card, .cfg-list-shell,
-.group-workspace, .group-list-pane, .group-detail-pane,
-.cfg-card, .cfg-main, .cfg-side, .cfg-usage-copy, .page-head,
-.onex-topbar, .onex-control-dock, .dashboard-hero { min-width: 0; }
-.page img, .page svg, .page canvas { max-width: 100%; }
-.page button, .page input, .page select, .page textarea { max-width: 100%; }
-.page h1, .page h2, .page h3, .page h4, .page p, .page b, .page strong,
-.page span, .page small, .page label { overflow-wrap: anywhere; }
-
-/* Desktop: give dense pages a stable readable measure and stop narrow side columns colliding. */
-@media (min-width: 901px){
-  .main { padding-inline: clamp(18px, 2.2vw, 36px); }
-  .page { width: 100%; max-width: 1680px; margin-inline: auto; }
-  .metrics, .onex-metrics, .cfg-stat-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
-  .group-workspace { grid-template-columns: minmax(0, 1.35fr) minmax(320px, .75fr); }
-  .cfg-card { grid-template-columns: 56px minmax(0, 1fr) minmax(155px, 190px) 34px; }
-  .cfg-usage-track { width: min(110px, 100%); }
-}
-@media (min-width: 901px) and (max-width: 1180px){
-  .cfg-card { grid-template-columns: 50px minmax(0, 1fr) minmax(130px, 160px) 32px; gap: 9px; }
-  .cfg-proto-icon { width: 50px; height: 50px; }
-  .cfg-side { padding-right: 8px; }
-  .cfg-usage-track { width: 76px; }
-  .group-workspace { grid-template-columns: minmax(0, 1.15fr) minmax(290px, .85fr); }
-}
-
-/* Make long labels and controls wrap instead of overlapping at tablet widths. */
-.cfg-page-hero, .cfg-tools, .cfg-list-head, .group-hero,
-.logs-page-head, .tg-card-head, .stats-panel-head { min-width: 0; }
-.cfg-page-hero > *, .cfg-list-head > *, .group-hero > *, .logs-page-head > * { min-width: 0; }
-.cfg-page-hero .page-sub, .page-sub { max-width: 72ch; }
-.cfg-name-row, .cfg-side-top, .cfg-meta, .cfg-usage { min-width: 0; }
-.cfg-usage-copy b { display: block; overflow: hidden; text-overflow: ellipsis; }
-
-/* Light themes: remove the milky white gradient/inset cast from non-white palettes. */
-html.light.onex-themed,
-html.light.onex-glass {
-  --light-surface: color-mix(in srgb, var(--bg2) 88%, var(--accent) 12%);
-  --light-surface-2: color-mix(in srgb, var(--bg3) 84%, var(--accent) 16%);
-  --light-border: color-mix(in srgb, var(--accent) 20%, rgb(23 23 23 / .16));
-}
-html.light.onex-themed .page .card,
-html.light.onex-themed .page .metric,
-html.light.onex-themed .page .onex-card,
-html.light.onex-themed .page .onex-metric,
-html.light.onex-themed .page .quick-item,
-html.light.onex-themed .page .support-tile,
-html.light.onex-themed .page .table-wrap,
-html.light.onex-themed .page .cfg-page-hero,
-html.light.onex-themed .page .cfg-stat-card,
-html.light.onex-themed .page .cfg-search-box,
-html.light.onex-themed .page .cfg-filter-btn,
-html.light.onex-themed .page .cfg-list-shell,
-html.light.onex-themed .page .cfg-card,
-html.light.onex-themed .page .group-hero,
-html.light.onex-themed .page .group-list-pane,
-html.light.onex-themed .page .group-detail-pane,
-html.light.onex-themed .page .group-card,
-html.light.onex-themed .page .admin-card,
-html.light.onex-themed .page .stats-panel,
-html.light.onex-themed .page .stats-kpi,
-html.light.onex-themed .page .tg-glass {
-  background: var(--light-surface) !important;
-  background-image: none !important;
-  border-color: var(--light-border) !important;
-  box-shadow: 0 10px 28px color-mix(in srgb, var(--accent) 8%, rgb(23 23 23 / .10)) !important;
-  backdrop-filter: none !important;
-  -webkit-backdrop-filter: none !important;
-}
-html.light.onex-themed .page .cfg-card,
-html.light.onex-themed .page .group-card,
-html.light.onex-themed .page .cfg-side,
-html.light.onex-themed .page .group-info-card,
-html.light.onex-themed .page .group-link-card,
-html.light.onex-themed .page .group-proto-card,
-html.light.onex-themed .page .group-manage-card,
-html.light.onex-themed .page .group-configs-card,
-html.light.onex-themed .page input,
-html.light.onex-themed .page select,
-html.light.onex-themed .page textarea {
-  background: var(--light-surface-2) !important;
-  background-image: none !important;
-  border-color: var(--light-border) !important;
-}
-html.light.onex-themed .page .cfg-card::before,
-html.light.onex-themed .page .cfg-card::after,
-html.light.onex-themed .page .group-card::before,
-html.light.onex-themed .page .group-card::after { display: none !important; }
-
-/* Mobile: stack controls cleanly, preserve touch targets, and avoid clipped content. */
-@media (max-width: 760px){
-  .page-head, .cfg-page-hero, .group-hero, .logs-page-head, .tg-card-head,
-  .stats-panel-head { width: 100%; }
-  .page-head > *, .cfg-page-hero > *, .group-hero > *, .logs-page-head > * { max-width: 100%; }
-  .cfg-page-hero, .cfg-tools, .group-hero, .logs-page-head { align-items: stretch; }
-  .cfg-tools { flex-wrap: wrap; }
-  .cfg-search-box { flex: 1 1 220px; }
-  .cfg-filter-btn { flex: 0 0 44px; }
-  .cfg-page-hero .page-title { line-height: 1.45; }
-  .group-workspace { grid-template-columns: minmax(0, 1fr); }
-  .group-detail-pane { min-height: 0; }
-  .group-link-line { grid-template-columns: minmax(0, 1fr) 52px; }
-  .group-manage-actions { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-  .cfg-card { overflow: hidden; }
-  .cfg-card .cfg-side { min-width: 0; }
-  .cfg-active-toggle { max-width: 100%; }
-}
-@media (max-width: 560px){
-  .main, .main.expanded { overflow-x: hidden; }
-  .page-head { gap: 10px; margin-bottom: 14px; }
-  .page-title { font-size: clamp(18px, 5vw, 21px); }
-  .page-sub { font-size: 11px; line-height: 1.75; }
-  .cfg-stat-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .cfg-card { grid-template-columns: 43px minmax(0, 1fr) 32px; }
-  .cfg-side { grid-column: 2 / -1; }
-  .group-info-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .group-manage-actions { grid-template-columns: 1fr; }
-  .group-manage-actions button { min-height: 40px; }
-  .logs-advanced-row.open { grid-template-columns: 1fr; }
-  .range-tabs { overflow-x: auto; grid-template-columns: repeat(4, minmax(72px, 1fr)); }
-}
-@media (max-width: 380px){
-  .main, .main.expanded { padding-inline: 8px !important; }
-  .cfg-stat-grid { gap: 6px; }
-  .cfg-stat-card { min-width: 0; }
-  .group-info-grid { grid-template-columns: 1fr; }
-  .group-link-line { grid-template-columns: 1fr; }
-  .group-copy-btn { width: 100%; }
-}
-
 </style></head>
 <body><div class="box"><div class="ic">!</div><h2>خطای داخلی پنل ONEX</h2><p>مشکلی پیش آمد. لطفاً لاگ سرور (Railway) را بررسی کنید و دوباره تلاش کنید.</p><a href="/dashboard">بازگشت به پنل</a><small>ONEX · internal error</small></div></body>
 </html>
