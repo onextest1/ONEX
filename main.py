@@ -7306,11 +7306,113 @@ try:
         websocket_tunnel,
     )
 
+    # HTTPUpgrade route for VLESS-HTTPUpgrade protocol
+    @app.post("/httpup/{uuid}")
+    async def http_upgrade_tunnel(request: Request, uuid: str):
+        """Handle HTTP Upgrade (HTTPUpgrade) connections for VLESS."""
+        # Check Upgrade header
+        upgrade_header = request.headers.get("upgrade", "").lower()
+        if upgrade_header != "websocket":
+            raise HTTPException(status_code=400, detail="bad request")
+        
+        # Validate link and IP
+        async with LINKS_LOCK:
+            link = LINKS.get(uuid)
+        
+        if not is_link_allowed(link):
+            logger.warning(f"🚫 HTTPUpgrade rejected uuid={uuid[:8]}… (not allowed)")
+            raise HTTPException(status_code=401, detail="not authorized")
+        
+        ip = request.client.host if request.client else "نامشخص"
+        if not is_ip_allowed(link, uuid, ip):
+            logger.warning(f"🚫 HTTPUpgrade rejected uuid={uuid[:8]}… ip={ip} (ip limit)")
+            raise HTTPException(status_code=403, detail="ip limit reached")
+        
+        protocol = str((link or {}).get("protocol") or "vless-httpupgrade")
+        conn_id = secrets.token_urlsafe(6)
+        connections[conn_id] = {
+            "uuid": uuid,
+            "ip": ip,
+            "transport": protocol,
+            "connected_at": datetime.now().isoformat(),
+            "bytes": 0,
+        }
+        logger.info(f"✅ HTTPUpgrade [{conn_id}] uuid={uuid[:8]}… ip={ip} proto={protocol}")
+        
+        # Get request body
+        body = await request.body()
+        if not body:
+            logger.warning(f"🚫 HTTPUpgrade empty body uuid={uuid[:8]}…")
+            raise HTTPException(status_code=400, detail="bad request")
+        
+        # Parse VLESS header (same as WebSocket handler)
+        gate = _QuotaGate(uuid)
+        try:
+            command, address, port, payload = await parse_vless_header(body)
+        except Exception as e:
+            logger.warning(f"🚫 HTTPUpgrade bad VLESS header uuid={uuid[:8]}…: {e}")
+            raise HTTPException(status_code=400, detail="bad request")
+        
+        # Check quota
+        allowed, _ = await gate.check_and_use(len(body))
+        if not allowed:
+            logger.warning(f"🚫 HTTPUpgrade quota exceeded uuid={uuid[:8]}…")
+            raise HTTPException(status_code=429, detail="quota exceeded")
+        
+        # Establish TCP connection to target
+        try:
+            reader, writer = await asyncio.wait_for(
+                asyncio.open_connection(address, port),
+                timeout=10.0
+            )
+        except asyncio.TimeoutError:
+            logger.warning(f"🚫 HTTPUpgrade connect timeout: {address}:{port}")
+            raise HTTPException(status_code=504, detail="gateway timeout")
+        except Exception as e:
+            logger.warning(f"🚫 HTTPUpgrade connect failed: {address}:{port} - {e}")
+            raise HTTPException(status_code=502, detail="bad gateway")
+        
+        # Send VLESS payload to target
+        try:
+            writer.write(payload)
+            await writer.drain()
+        except Exception as e:
+            logger.warning(f"🚫 HTTPUpgrade write failed: {e}")
+            writer.close()
+            raise HTTPException(status_code=502, detail="bad gateway")
+        
+        # Return streaming response for bidirectional tunnel
+        async def relay_response():
+            try:
+                while True:
+                    data = await asyncio.wait_for(reader.read(8192), timeout=120.0)
+                    if not data:
+                        break
+                    connections[conn_id]["bytes"] += len(data)
+                    yield data
+            except asyncio.TimeoutError:
+                logger.info(f"HTTPUpgrade timeout: {conn_id}")
+            except Exception as e:
+                logger.warning(f"HTTPUpgrade relay error: {e}")
+            finally:
+                writer.close()
+                try:
+                    await writer.wait_closed()
+                except:
+                    pass
+                if conn_id in connections:
+                    del connections[conn_id]
+        
+        return StreamingResponse(relay_response(), media_type="application/octet-stream")
+
     if "vless-ws" not in PROTOCOLS:
         PROTOCOLS.append("vless-ws")
 
     if "trojan-ws" not in PROTOCOLS:
         PROTOCOLS.append("trojan-ws")
+
+    if "vless-httpupgrade" not in PROTOCOLS:
+        PROTOCOLS.append("vless-httpupgrade")
 
     logger.info(
         "VLESS relay loaded."
@@ -10406,6 +10508,11 @@ html.light #page-configs .ocx-menu{background:color-mix(in srgb,var(--o-a) 6%,rg
     <div class="cfgx-card">
       <div class="cfgx-head"><span class="cfgx-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2 3 7l9 5 9-5-9-5Z"/><path d="m3 12 9 5 9-5"/><path d="m3 17 9 5 9-5"/></svg></span><div><b>🚀 انتخاب پروتکل</b><small>پروتکل اصلی کانفیگ - ۶ پروتکل ONEX VIP</small></div><span class="cfgx-badge" id="cfgxProtoBadge">—</span></div>
       <div class="cfgx-proto-grid" id="cfgxProtoGrid"><div class="cfgx-empty">در حال بارگذاری پروتکل‌ها...</div></div>
+      <label class="all-proto-toggle cfgx-all-toggle" style="margin:10px 0 12px">
+        <span><b>ساخت همه پروتکل‌های Railway</b><small>یک کانفیگ بساز و هر ۶ پروتکل ONEX را داخل یک ساب قرار بده</small></span>
+        <input id="cAllProtocols" type="checkbox">
+        <i aria-hidden="true"></i>
+      </label>
     </div>
 
     <div class="cfgx-card">
