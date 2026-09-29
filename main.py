@@ -14417,593 +14417,6 @@ html.light #cfgx .advanced-section{background:color-mix(in srgb, rgb(23 23 23 / 
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot);else boot();
 })();
 </script>
-
-<!-- ============================================================
-     ONEX RESPONSIVE + THEME FIX LAYER (final, CSS only)
-     - PC: readable font sizes, dashboard grid follows real width, no overlap
-     - Tablet (641-900px): drawer menu instead of squeezed sidebar
-     - Phone: removed double top gap, readable sizes
-     - Dark colored themes: theme-tinted surfaces instead of milky white
-     ============================================================ -->
-<style id="onex-fit-layer">
-/* ---------- 0) readable type scale (same cascade order, only tiny sizes raised) ---------- */
-.delete-all-copy b{font-size:14px}
-.delete-all-copy small{font-size:11px}
-.nav-sec{font-size:11px}
-.nav-item{font-size:13px}
-.sb-foot button,.sb-foot a.btn{font-size:12px}
-.page-sub{font-size:12px}
-.metric-label{font-size:11px}
-.card-title{font-size:13px}
-.group-hero-kicker{font-size:11px}
-.group-hero p{font-size:11px}
-.group-stat span{font-size:11px}
-.group-stat b{font-size:18px}
-.group-create-btn span{font-size:18px}
-.group-search input{font-size:11px}
-.group-filter{font-size:11px}
-.group-card-title b{font-size:13px}
-.group-status{font-size:10.5px}
-.group-card-desc{font-size:11px}
-.group-card-meta{font-size:11px}
-.group-detail-title p{font-size:11px}
-.group-section-head b{font-size:11px}
-.group-section-head span{font-size:10.5px}
-.group-info-item small{font-size:10.5px}
-.group-info-item b{font-size:11px}
-.group-link-url{font-size:11px}
-.group-copy-btn{font-size:11px}
-.group-link-actions button{font-size:11px}
-.group-proto-copy b{font-size:11px}
-.group-proto-copy small{font-size:10px}
-.group-proto-tag{font-size:10px}
-.group-manage-actions button{font-size:11px}
-.group-config-row{font-size:11px}
-.group-config-save{font-size:11px}
-.group-empty,.group-detail-empty{font-size:11px}
-.group-detail-empty b{font-size:12px}
-.group-qr-text{font-size:10.5px}
-@media(max-width:600px){
-.group-hero p{font-size:10.5px}
-}
-.btn{font-size:12px}
-table{font-size:12.5px}
-.range-tab{font-size:11px}
-.field label{font-size:11px}
-.field input,.field select,.field textarea{font-size:13px}
-.log-time{font-size:11px}
-#page-logs .logs-search-wrap input{font-size:12px}
-#page-logs .logs-filter{font-size:11px}
-#page-logs .logs-filter b{font-size:11px}
-#page-logs .logs-advanced-row label>span{font-size:11px}
-#page-logs .logs-advanced-row select,#page-logs .logs-advanced-row input{font-size:11px}
-#page-logs .logs-reset-filter{font-size:11px}
-#page-logs .logs-summary-item small{font-size:11px}
-#page-logs .logs-summary-item strong{font-size:18px}
-#page-logs .logs-summary-item em{font-size:10.5px}
-#page-logs .logs-list-head b{font-size:12px}
-#page-logs .logs-list-head small{font-size:11px}
-#page-logs .logs-live-badge{font-size:10.5px}
-#page-logs .logs-event-desc{font-size:11px}
-#page-logs .logs-event-time{font-size:11px}
-#page-logs .logs-badge{font-size:10.5px}
-#page-logs .logs-advanced-btn{font-size:11px}
-#page-logs .logs-clear-btn{font-size:11px}
-#page-logs .logs-detail-head b{font-size:13px}
-#page-logs .logs-detail-head small{font-size:11px}
-#page-logs .logs-detail-head>button{font-size:20px}
-#page-logs .logs-detail-row small{font-size:11px}
-#page-logs .logs-detail-row b{font-size:11px}
-.toast{font-size:13px}
-.conn-badge{font-size:11px}
-.onex-3d-control .control-title{font-size:12px}
-.onex-3d-control .control-sub{font-size:11px}
-.top-server b{font-size:13px}
-.top-server small{font-size:11px}
-.top-chip{font-size:11px}
-.version-mini-copy b{font-size:11px}
-.version-mini-copy strong{font-size:13px}
-.hero-kicker{font-size:11px}
-.hero-sub{font-size:12px}
-.metric-trend{font-size:11px}
-.onex-card-title{font-size:13px}
-.chart-labels{font-size:11px}
-.chart-badge{font-size:11px}
-.range-mini button{font-size:11px}
-.health-name{font-size:11px}
-.health-pct{font-size:11px}
-.xray-state{font-size:11px}
-.tg-title{font-size:13px}
-.tg-desc{font-size:11px}
-.tg-btn{font-size:11px}
-.quick-name{font-size:11px}
-.quick-desc{font-size:11px}
-.recent-table{font-size:11px}
-.recent-table th{font-size:11px}
-.info-row{font-size:11px}
-.onex-footer{font-size:11px}
-@media (max-width:520px){
-.nav-item{font-size:10px}
-.onex-3d-control .control-title{font-size:10px}
-.onex-3d-control .control-sub{font-size:10px}
-.hero-kicker{font-size:10px}
-.hero-sub{font-size:10px}
-.hero-actions .btn{font-size:10px}
-.onex-metric .metric-label{font-size:10px}
-.metric-trend{font-size:10px}
-}
-@media (max-width:380px){
-.nav-item{font-size:10px}
-.hero-actions .btn{font-size:10px}
-}
-@media (max-width:640px){
-.mob-brand-text b{font-size:12px}
-.mob-brand-text span{font-size:10.5px}
-.mob-status{font-size:10.5px}
-.sidebar .nav-item{font-size:13px}
-.sidebar .nav-sec{font-size:11px}
-.sidebar .sb-foot button,.sidebar .sb-foot a.btn{font-size:12px}
-.page-sub{font-size:11px}
-.top-server b{font-size:12px}
-.top-server small{font-size:10.5px}
-.top-chip{font-size:10.5px}
-.top-avatar{font-size:11px}
-.onex-3d-control .control-title{font-size:11px}
-.onex-3d-control .control-sub{font-size:10px}
-.version-mini-copy b{font-size:10px}
-.version-mini-copy strong{font-size:11px}
-.hero-kicker{font-size:11px}
-.hero-sub{font-size:11px}
-.hero-actions .btn{font-size:11px}
-.onex-metric .metric-label{font-size:11px}
-.metric-label{font-size:11px}
-.onex-card-title{font-size:11px}
-.field label{font-size:11px}
-.field input,.field select,.field textarea{font-size:16px}
-.btn{font-size:11px}
-table{font-size:11px}
-.range-tab{font-size:11px}
-.toast{font-size:11px}
-}
-@media (max-width:480px){
-.mob-brand-text b{font-size:11px}
-.mob-brand-text span{font-size:10px}
-.mob-status{font-size:10px}
-.page-sub{font-size:11px}
-.top-server b{font-size:11px}
-.top-server small{font-size:10px}
-.onex-3d-control .control-title{font-size:10.5px}
-.onex-3d-control .control-sub{font-size:10px}
-.hero-kicker{font-size:10.5px}
-.version-mini-copy b{font-size:10px}
-.version-mini-copy strong{font-size:11px}
-.hero-actions .btn{font-size:11px}
-.onex-metric .metric-label{font-size:10.5px}
-.card-title{font-size:11px}
-}
-.top-setting-btn{font-size:11px}
-.top-notify-btn{font-size:11px}
-.notify-panel-head button{font-size:20px}
-.notify-item-meta{font-size:11px}
-.notify-update-btn{font-size:11px}
-.cfg-primary-btn{font-size:11px}
-.cfg-stat-card small{font-size:11px}
-.cfg-stat-card b{font-size:20px}
-.cfg-search-box>span{font-size:23px}
-.cfg-search-box input{font-size:11px}
-.cfg-select{font-size:11px}
-.cfg-list-head b{font-size:13px}
-.cfg-list-head small{font-size:11px}
-.cfg-name-row b{font-size:13px}
-.cfg-proto{font-size:11px}
-.cfg-meta{font-size:11px}
-.cfg-status{font-size:11px}
-.cfg-usage-ring span{font-size:7px}
-.cfg-usage-copy b{font-size:11px}
-.cfg-menu-head span{font-size:12px}
-.cfg-menu-head small{font-size:10.5px}
-.cfg-menu button{font-size:11px}
-.cfg-active-toggle{font-size:11px}
-.cfg-page-hero .page-sub{font-size:11px}
-.cfg-search-box input{font-size:13px}
-.cfg-list-head b{font-size:15px}
-.cfg-list-head small,.cfg-check-all{font-size:10px}
-.cfg-name-row b{font-size:15px}
-.cfg-proto{font-size:11px}
-.cfg-meta{font-size:11px}
-.cfg-status{font-size:11px}
-.cfg-usage-copy b{font-size:11px}
-@media(max-width:560px){
-.cfg-page-hero .page-sub{font-size:11px}
-.cfg-stat-card small{font-size:11px}
-.cfg-name-row b{font-size:13px}
-.cfg-proto{font-size:11px}
-.cfg-meta{font-size:11px}
-.cfg-active-toggle{font-size:10.5px}
-.cfg-status{font-size:11px}
-.cfg-menu button{font-size:11px}
-.cfg-menu-head span{font-size:12px}
-.cfg-menu-head small{font-size:10.5px}
-.cfg-primary-btn{font-size:11px}
-.cfg-stat-card b{font-size:16px}
-.cfg-stat-card small{font-size:10.5px}
-.cfg-select{font-size:10.5px}
-.cfg-meta{font-size:10.5px}
-.cfg-name-row b{font-size:11px}
-.cfg-proto{font-size:10.5px}
-.cfg-menu button{font-size:11px}
-}
-.protocol-trigger-sub{font-size:11px}
-.protocol-picker-subtitle{font-size:11px}
-.protocol-section-title b{font-size:13px}
-.protocol-option-name{font-size:11px}
-.protocol-option-desc{font-size:10.5px}
-.protocol-picker-section-head b{font-size:12px}
-.protocol-picker-section-head small{font-size:10.5px}
-.protocol-picker-section-head>span{font-size:11px}
-.protocol-selected-info{font-size:11px}
-.protocol-picker-confirm{font-size:11px}
-@media(max-width:560px){
-.protocol-option-name{font-size:11px}
-.protocol-option-desc{font-size:10px}
-.protocol-selected-info{font-size:10.5px}
-.protocol-picker-confirm{font-size:11px}
-}
-.advanced-toggle-copy b{font-size:14px}
-.advanced-toggle-copy small{font-size:11px}
-.advanced-toggle-state{font-size:11px}
-.advanced-note>span{font-size:18px}
-.advanced-note b{font-size:11px}
-.advanced-note small{font-size:11px}
-.advanced-section-head b{font-size:11px}
-.advanced-section-head small{font-size:10.5px}
-.advanced-check b{font-size:9px}
-.advanced-check small{font-size:8px}
-.advanced-subtitle{font-size:11px}
-.advanced-port-chip{font-size:11px}
-.advanced-port-chip b{font-size:11px}
-.advanced-port-chip button{font-size:14px}
-.advanced-help{font-size:10.5px}
-.advanced-validation-status{font-size:11px}
-.advanced-preview-head{font-size:11px}
-.advanced-preview pre{font-size:11px}
-@media(max-width:380px){
-.protocol-option-name{font-size:11px!important}
-}
-.all-proto-toggle b{font-size:12px}
-.all-proto-toggle small{font-size:11px}
-#page-dash button{font-size:inherit}
-#page-dash .hero p{font-size:13px}
-#page-dash .version b{font-size:12px}
-#page-dash .alert button{font-size:11px}
-#page-dash .dock strong{font-size:12.5px}
-#page-dash .dock small{font-size:11px}
-#page-dash .metric label{font-size:12px}
-#page-dash .metric strong{font-size:25px}
-#page-dash .metric small{font-size:11px}
-#page-dash .range button{font-size:11px}
-#page-dash .healthrow .tag{font-size:11px}
-#page-dash .healthrow label{font-size:12px}
-#page-dash .healthrow b{font-size:11px}
-#page-dash .telegram p{font-size:11px}
-#page-dash .tr.headrow{font-size:11px}
-.config-edit-banner b{font-size:11px}
-.config-edit-banner small{font-size:11px}
-.config-edit-banner-hint{font-size:10.5px}
-@media(max-width:560px){
-.create-edit-actions .btn{font-size:11px}
-}
-.onex-security-head p{font-size:11px}
-.security-health{font-size:11px}
-.security-section-title>span{font-size:15px}
-.security-section-title b{font-size:12px}
-.security-section-title small{font-size:11px}
-.security-login-meta{font-size:11px}
-.security-stats>div span{font-size:15px}
-.security-stats small{font-size:10.5px}
-.security-stats b{font-size:18px}
-.security-stat-action{font-size:11px}
-.security-action-row b{font-size:11px}
-.security-action-row small{font-size:10.5px}
-.security-recent-row{font-size:11px}
-.security-recent-state{font-size:10.5px}
-.security-empty{font-size:11px}
-.security-details-head button{font-size:18px}
-.security-detail-row{font-size:11px}
-@media(max-width:650px){
-.security-health{font-size:11px}
-}
-.tg-copy b{font-size:14px}
-.tg-copy span{font-size:13px}
-@media(max-width:600px){
-.tg-copy b{font-size:13px}
-.tg-copy span{font-size:12px}
-}
-@media (max-width:640px){
-#page-dash .hero-sub{font-size:10px}
-#page-dash .onex-metric .metric-label{font-size:10px}
-#page-dash .metric-trend{font-size:10px}
-#page-dash .onex-card-title{font-size:10.5px}
-#page-dash .chart-labels{font-size:10px}
-#page-dash .chart-badge{font-size:10px}
-#page-dash .health-icon{font-size:10px}
-#page-dash .health-name{font-size:10px}
-#page-dash .health-pct{font-size:10px}
-#page-dash .xray-state{font-size:10px}
-#page-dash .tg-title{font-size:10px}
-#page-dash .tg-desc{font-size:10px}
-#page-dash .tg-btn{font-size:10px}
-#page-dash .quick-name{font-size:10px}
-#page-dash .quick-desc{font-size:10px}
-#page-dash .info-row{font-size:10px}
-#page-dash .recent-card .btn{font-size:10px}
-#page-dash .recent-table{font-size:10px}
-#page-dash .recent-table th{font-size:10px}
-#page-dash .onex-footer{font-size:10px}
-}
-@media (max-width:380px){
-#page-dash .onex-metric .metric-label{font-size:10px}
-}
-.admin-card-sub{font-size:11px}
-.admin-table-head{font-size:11px}
-.admin-user-name{font-size:12px}
-.admin-user-label{font-size:11px}
-.admin-badge{font-size:11px}
-.admin-role{font-size:11px}
-.admin-active-row span{font-size:11px}
-.admin-perm-group h4{font-size:11px}
-.admin-perm-item{font-size:11px}
-.admin-activity-item{font-size:11px}
-.admin-activity-time{font-size:11px}
-.admin-detail-box span{font-size:10.5px}
-.admin-detail-box b{font-size:11px}
-.admin-detail-perm{font-size:10.5px}
-.admin-selected-note{font-size:11px}
-@media(max-width:640px){
-.admin-table-head{font-size:10.5px}
-.admin-user-name{font-size:11px}
-.admin-user-label{font-size:10.5px}
-.admin-badge,.admin-role{font-size:10.5px}
-.admin-perm-item{font-size:11px}
-.admin-activity-item{font-size:11px}
-.admin-detail-box span{font-size:10px}
-.admin-detail-box b{font-size:11px}
-}
-@media(max-width:430px){
-.admin-create-card .field input,.admin-create-card .field select{font-size:11px}
-}
-@media (max-width:640px){
-.sidebar .nav-item{font-size:12px!important}
-}
-.stats-subtitle{font-size:11px}
-.stats-refresh-btn{font-size:11px}
-.stats-range .range-tab{font-size:11px}
-.stats-kpi small{font-size:11px}
-.stats-kpi b{font-size:23px}
-.stats-kpi em{font-size:11px}
-.stats-panel-head b{font-size:16px}
-.stats-panel-head small{font-size:11px}
-.stats-live-badge{font-size:10.5px}
-.stats-legend{font-size:11px}
-.traffic-axis{font-size:11px}
-.uptime-ring span{font-size:18px}
-.uptime-body small{font-size:11px}
-.uptime-body strong{font-size:23px}
-.uptime-body em{font-size:11px}
-.server-stat-list span{font-size:11px}
-.server-stat-list b{font-size:11px}
-.summary-grid span{font-size:10.5px}
-.summary-grid b{font-size:13px}
-@media(max-width:560px){
-.stats-refresh-btn{font-size:0}
-.stats-refresh-btn:first-letter{font-size:20px}
-.stats-subtitle{font-size:10.5px}
-.stats-range .range-tab{font-size:11px}
-.stats-kpi b{font-size:17px}
-.stats-kpi small{font-size:10.5px}
-.stats-kpi em{font-size:10px}
-.stats-panel-head b{font-size:13px}
-.stats-panel-head small{font-size:10.5px}
-.stats-legend{font-size:10.5px}
-.traffic-axis{font-size:11px}
-.uptime-ring span{font-size:15px}
-.uptime-body strong{font-size:18px}
-.summary-grid b{font-size:12px}
-}
-.tg-hero-brand span,.tg-card-head span{font-size:10.5px}
-.tg-hero p{font-size:11px}
-.tg-hero-status{font-size:11px}
-.tg-stat small{font-size:10.5px}
-.tg-stat b{font-size:18px}
-.tg-stat em{font-size:10px}
-.tg-tabs button,.tg-audience button{font-size:11px}
-.tg-card-head p{font-size:11px}
-.tg-card-badge{font-size:10.5px}
-.tg-field label{font-size:11px}
-.tg-field input,.tg-input-wrap input,.tg-search input,.tg-user-tools input,.tg-user-tools select{font-size:11px}
-.tg-input-wrap button{font-size:11px}
-.tg-toggle-row b,.tg-notify-list b{font-size:11px}
-.tg-toggle-row small,.tg-notify-list small{font-size:10.5px}
-.tg-btn{font-size:11px}
-.tg-link-btn{font-size:10.5px}
-.tg-search span{font-size:19px}
-.tg-user-copy b{font-size:11px}
-.tg-user-copy small{font-size:10px}
-.tg-user-state{font-size:10px}
-.tg-audience button{font-size:10.5px}
-.tg-glass textarea{font-size:11px}
-.tg-broadcast-foot span,.tg-send-preview span{font-size:10.5px}
-.tg-broadcast-foot b,.tg-send-preview b{font-size:12px}
-.tg-activity-row b{font-size:10.5px}
-.tg-activity-row small{font-size:10px}
-.tg-user-actions button{font-size:10.5px}
-.tg-config-owner b{font-size:11px}
-.tg-config-owner span{font-size:10.5px}
-.tg-security-row{font-size:11px}
-.tg-help-list{font-size:11px}
-.tg-empty{font-size:11px}
-.tg-result{font-size:11px}
-.tg-build-badge{font-size:10px}
-@media(max-width:560px){
-.tg-hero p{font-size:10.5px}
-.tg-hero-status{font-size:10.5px}
-.tg-stat b{font-size:15px}
-.tg-stat small{font-size:10px}
-.tg-tabs button{font-size:10.5px}
-}
-.sb-logo-caption span{font-size:17px}
-.sb-logo-caption b{font-size:11px}
-.theme-preview-head b,.theme-panel-head h2,.theme-custom-head h3{font-size:16px}
-.theme-kicker{font-size:10.5px}
-.theme-mini-top b{font-size:10.5px}
-.theme-current-row{font-size:11px}
-.theme-current-row strong{font-size:11px}
-.theme-reset-btn{font-size:11px}
-.theme-preset b{font-size:11px}
-.theme-preset small{font-size:10px}
-.theme-color-grid label{font-size:10.5px}
-.theme-apply-custom{font-size:11px}
-.theme-mode-box b{font-size:11px}
-.theme-mode-box small{font-size:10px}
-.theme-mode-buttons button{font-size:10.5px}
-.theme-save-note{font-size:10.5px}
-.theme-save-note>span:first-child{font-size:11px}
-@media(max-width:560px){
-.sb-logo-caption span{font-size:14px}
-.sb-logo-caption b{font-size:9px}
-}
-html.onex-glass .page th{font-size:11px!important}
-#page-dash .home-core-pill{font-size:11px}
-#page-dash .metric strong small{font-size:.6em}
-#cfgx .cfgx-head b{font-size:14px}
-#cfgx .cfgx-head small{font-size:10.5px}
-#cfgx .cfgx-note{font-size:11px}
-#cfgx .cfgx-field label{font-size:11.5px}
-#cfgx input:not([type=checkbox]),#cfgx select{font-size:13px}
-#cfgx .cfgx-proto b{font-size:11.5px}
-#cfgx .cfgx-proto small{font-size:11px}
-#cfgx .cfgx-bundle label{font-size:11px!important}
-#cfgx .cfgx-bundle label em{font-size:11px}
-
-/* ---------- 1) DESKTOP SHELL (PC) ---------- */
-@media (min-width:901px){
-  .main{min-width:0}
-  .main>.onex-topbar,.main>.onex-control-dock,.main>.page{max-width:1680px;margin-left:auto;margin-right:auto}
-  /* top bar: never overlap, wrap nicely on smaller laptops */
-  .onex-topbar{height:auto!important;min-height:66px;flex-wrap:wrap;row-gap:10px}
-  .top-server{flex:1 1 240px;min-width:0;overflow:hidden}
-  .top-server small{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-  .top-actions{flex:0 1 auto;flex-wrap:wrap;justify-content:flex-end;min-width:0}
-  .top-notify-btn,.top-setting-btn{font-size:11.5px}
-  /* groups page: the detail pane needs room, stack before it gets crushed */
-}
-@media (min-width:901px) and (max-width:1280px){
-  .group-workspace{grid-template-columns:1fr!important}
-  .group-detail-pane{min-height:0}
-}
-.page img,.page canvas{max-width:100%}
-.page .card,.page .g2>*,.page .form-row>*,.dashboard-grid>*{min-width:0}
-.page .table-wrap{max-width:100%;overflow-x:auto;-webkit-overflow-scrolling:touch}
-
-/* ---------- 2) HOME DASHBOARD: layout follows the REAL content width
-   (the old breakpoints ignored the 252px sidebar, so cards were squeezed) ---------- */
-#page-dash{container-type:inline-size;container-name:onexdash}
-@container onexdash (max-width:1399px){
-  #page-dash .grid{grid-template-columns:repeat(2,minmax(0,1fr));grid-template-areas:"hero chart" "dock chart" "metrics metrics" "health telegram" "recent recent" "quick info"}
-}
-@container onexdash (max-width:1079px){
-  #page-dash .grid{grid-template-columns:repeat(2,minmax(0,1fr));grid-template-areas:"hero hero" "dock dock" "metrics metrics" "chart chart" "health telegram" "recent recent" "quick info"}
-}
-@container onexdash (max-width:699px){
-  #page-dash .grid{grid-template-columns:minmax(0,1fr);grid-template-areas:"hero" "dock" "metrics" "chart" "health" "telegram" "recent" "quick" "info"}
-  #page-dash .metrics{grid-template-columns:1fr 1fr}
-  #page-dash .metric{border-bottom:1px solid var(--line)}
-}
-@container onexdash (max-width:520px){
-  #page-dash .dock{grid-template-columns:1fr}
-  #page-dash .tr{grid-template-columns:1.3fr 1fr 1fr 56px 34px;gap:8px;padding:11px 4px}
-}
-#page-dash .metric strong{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-#page-dash .dock button>span:last-child,#page-dash .quickitem>span:last-child{min-width:0}
-#page-dash .dock strong,#page-dash .dock small{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-
-/* ---------- 3) TABLET 641–900px: use the drawer menu (was a squeezed 252px sidebar) ---------- */
-@media (min-width:641px) and (max-width:900px){
-  html,body{overflow-x:hidden}
-  body{display:block!important;padding-top:0!important}
-  .mob-bar{display:flex!important;position:fixed!important;top:0;left:0;right:0;height:62px;padding:0 16px;align-items:center;justify-content:space-between;z-index:1250!important}
-  .mob-menu-btn{width:44px;height:44px;border-radius:12px;border:1px solid var(--card-b);display:flex;align-items:center;justify-content:center;cursor:pointer}
-  .mob-status{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--t2)}
-  .mob-status i{width:8px;height:8px;border-radius:50%}
-  .sidebar{position:fixed!important;top:0!important;right:0!important;bottom:0!important;left:auto!important;width:min(80vw,330px)!important;max-width:330px!important;transform:translateX(105%)!important;transition:transform .24s ease!important;z-index:1300!important;overflow-y:auto!important}
-  .sidebar.mobile-open{transform:translateX(0)!important}
-  .sidebar.collapsed{width:min(80vw,330px)!important}
-  .sidebar .sb-toggle{display:none!important}
-  .sidebar .nav-label,.sidebar .sb-foot span,.sidebar .nav-sec,.sidebar.collapsed .nav-label,.sidebar.collapsed .sb-foot span,.sidebar.collapsed .nav-sec{display:block!important}
-  .sidebar.collapsed .onex-sidebar-copy{display:flex!important}
-  .sidebar.collapsed .nav-item{justify-content:flex-start;padding:11px 16px;gap:11px}
-  .overlay{display:none!important;position:fixed!important;inset:0!important;background:rgba(0,0,0,.55);z-index:1200!important}
-  .overlay.show{display:block!important}
-  .main,.main.expanded{width:100%!important;max-width:100%!important;margin:0!important;padding:78px 18px 40px!important}
-  .onex-topbar{height:auto!important;flex-wrap:wrap;row-gap:8px}
-}
-
-/* ---------- 4) PHONE fixes ---------- */
-@media (max-width:640px){
-  /* body already reserves the fixed mobile bar; main was adding a 2nd 70px gap */
-  .main,.main.expanded{padding:14px 12px 40px!important}
-  .onex-topbar{flex-wrap:wrap;row-gap:8px}
-  .top-actions{flex-wrap:wrap;justify-content:flex-end}
-  .page,.page>*{min-width:0;max-width:100%}
-  .modal{max-width:calc(100vw - 20px)!important}
-}
-@media (max-width:480px){.main,.main.expanded{padding:12px 10px 34px!important}}
-
-/* ---------- 5) THEME: colored themes looked milky/white.
-   Neutral white overlays, borders and text are now tinted by the theme itself ---------- */
-html.onex-glass:not(.light){
-  --g-line:rgb(var(--p-rgb) / .11)!important;
-  --g-line2:rgb(var(--p-rgb) / .17)!important;
-  --g-surf:linear-gradient(160deg,color-mix(in srgb,rgb(20 21 27 / .9) 90%,var(--accent)),color-mix(in srgb,rgb(10 11 15 / .94) 94%,var(--accent)))!important;
-  --g-surf2:linear-gradient(160deg,rgb(var(--p-rgb) / .055),rgb(var(--s-rgb) / .02))!important;
-  --g-shadow:0 1px 0 rgb(var(--p-rgb) / .07) inset,0 30px 70px -40px rgb(0 0 0 / .95)!important;
-  --g-tx:color-mix(in srgb,#e6e9f0 93%,var(--accent))!important;
-  --t1:color-mix(in srgb,#e6e9f0 93%,var(--accent))!important;
-  --t2:color-mix(in srgb,rgb(205 210 222 / .8) 88%,var(--accent))!important;
-  --t3:color-mix(in srgb,rgb(150 156 172 / .82) 86%,var(--accent))!important;
-  --g-mut:color-mix(in srgb,rgb(170 175 190) 86%,var(--accent))!important;
-  --g-dim:color-mix(in srgb,rgb(118 123 138) 86%,var(--accent))!important;
-}
-html.onex-glass:not(.light) body{color:var(--t1)}
-html.onex-glass:not(.light) .sidebar{border-left-color:rgb(var(--p-rgb) / .14)!important}
-html.onex-glass:not(.light) .card,html.onex-glass:not(.light) .panel,html.onex-glass:not(.light) .stat-card,html.onex-glass:not(.light) .dash-card,html.onex-glass:not(.light) .glass-card,html.onex-glass:not(.light) .table-wrap,html.onex-glass:not(.light) .chart-card,html.onex-glass:not(.light) .quick-card,html.onex-glass:not(.light) .activity-card,html.onex-glass:not(.light) .config-card,html.onex-glass:not(.light) .settings-card{border-color:rgb(var(--p-rgb) / .15)!important}
-html.onex-glass:not(.light) .nav-item:hover{background:rgb(var(--p-rgb) / .08)!important}
-html.onex-glass:not(.light) .btn:not(.btn-p):not(.btn-primary):not(.btn-d):not(.danger):not(.delete-all-confirm),
-html.onex-glass:not(.light) .stats-refresh-btn,html.onex-glass:not(.light) .cfg-filter-btn,html.onex-glass:not(.light) .theme-reset-btn,html.onex-glass:not(.light) .logs-advanced-btn,
-html.onex-glass:not(.light) .group-copy-btn,html.onex-glass:not(.light) .tg-btn.secondary,html.onex-glass:not(.light) .tg-link-btn,html.onex-glass:not(.light) .top-notify-btn,html.onex-glass:not(.light) .cfg-menu-btn{
-  background:rgb(var(--p-rgb) / .07)!important;box-shadow:none!important}
-html.onex-glass:not(.light) .btn:not(.btn-p):not(.btn-primary):not(.btn-d):not(.danger):not(.delete-all-confirm):hover{color:var(--t1)!important;background:rgb(var(--p-rgb) / .13)!important}
-html.onex-glass:not(.light) .page .cfg-card:hover,html.onex-glass:not(.light) .page .group-card:hover,html.onex-glass:not(.light) #page-dash .quickitem:hover,html.onex-glass:not(.light) #page-dash .dock button:hover{background:linear-gradient(160deg,rgb(var(--p-rgb) / .1),rgb(var(--s-rgb) / .04))!important}
-html.onex-glass:not(.light) .main input:not([type=checkbox]):not([type=radio]):not([type=color]):hover,html.onex-glass:not(.light) .main select:hover,html.onex-glass:not(.light) .main textarea:hover{border-color:rgb(var(--p-rgb) / .32)!important}
-html.onex-glass:not(.light) .modal,html.onex-glass:not(.light) .delete-all-modal,html.onex-glass:not(.light) .update-prompt-modal,html.onex-glass:not(.light) .logs-detail-modal,
-html.onex-glass:not(.light) .cfg-menu,html.onex-glass:not(.light) .top-notify-panel,html.onex-glass:not(.light) .group-card-menu{
-  background:linear-gradient(160deg,color-mix(in srgb,rgb(22 23 30 / .97) 88%,var(--accent)),color-mix(in srgb,rgb(9 10 14 / .98) 94%,var(--accent)))!important;
-  box-shadow:0 1px 0 rgb(var(--p-rgb) / .08) inset,0 50px 100px -30px rgb(0 0 0 / .95),0 0 60px -24px rgb(var(--p-rgb) / .4)!important}
-html.onex-glass:not(.light) .top-setting-group,html.onex-glass:not(.light) .top-chip,html.onex-glass:not(.light) .range-mini,html.onex-glass:not(.light) .quick-item,html.onex-glass:not(.light) .mini-action,
-html.onex-glass:not(.light) .group-filter,html.onex-glass:not(.light) .group-three-dot,html.onex-glass:not(.light) .modal-x,html.onex-glass:not(.light) #page-logs .logs-filter,
-html.onex-glass:not(.light) .theme-current-row,html.onex-glass:not(.light) .theme-preset,html.onex-glass:not(.light) .theme-color-grid label,
-html.onex-glass:not(.light) #page-dash #heroRefresh,html.onex-glass:not(.light) #page-dash .home-link-btn{background:rgb(var(--p-rgb) / .06)!important}
-html.onex-glass:not(.light) .recent-table th{background:rgb(var(--p-rgb) / .05)!important}
-html.onex-glass:not(.light) .onex-card-head,html.onex-glass:not(.light) .recent-table td,html.onex-glass:not(.light) .info-row{border-color:rgb(var(--p-rgb) / .1)!important}
-html.onex-glass:not(.light) #page-dash .track,html.onex-glass:not(.light) #page-dash .usage .bar{background:rgb(var(--p-rgb) / .1)!important}
-html.onex-glass:not(.light) #page-dash .version{background:rgb(0 0 0 / .22)!important}
-html.onex-glass:not(.light) #page-dash .telegram a{color:var(--on,#fff)!important}
-html.onex-glass:not(.light) .top-setting-btn.active{color:var(--t1)!important}
-html.onex-glass:not(.light) .page-title,html.onex-glass:not(.light) .section-title{text-shadow:none}
-html.onex-glass:not(.light) #cfgx .cfgx-proto,html.onex-glass:not(.light) #cfgx .cfgx-bundle label,html.onex-glass:not(.light) #cfgx .cfgx-switch,html.onex-glass:not(.light) #cfgx .cfgx-suffix{background:rgb(var(--p-rgb) / .045)!important;border-color:rgb(var(--p-rgb) / .14)!important}
-html.onex-glass:not(.light) #cfgx input:not([type=checkbox]),html.onex-glass:not(.light) #cfgx select{border-color:rgb(var(--p-rgb) / .16)!important}
-html.onex-glass:not(.light) #cfgx .cfgx-radio,html.onex-glass:not(.light) #cfgx .cfgx-bundle label i{border-color:rgb(var(--p-rgb) / .35)!important}
-</style>
 </body>
 </html>
 """
@@ -15130,6 +14543,144 @@ border:1px solid rgb(255 255 255 / .15);box-shadow:0 1px 0 rgb(255 255 255 / .12
 h2{font-size:22px;font-weight:900}p{margin-top:10px;color:#a3abc6;font-size:13.5px;line-height:1.9}
 a{display:inline-block;margin-top:20px;padding:12px 20px;border-radius:14px;text-decoration:none;font-weight:800;color:#0b0d14;background:linear-gradient(135deg,#38d9ff,#8b5cf6)}
 small{display:block;margin-top:16px;font:500 11px "JetBrains Mono",monospace;color:#6d7594}
+
+
+/* ============================================================
+   ONEX RESPONSIVE + COLOR REPAIR PASS
+   Layout-only hardening. Keeps the existing components and JS intact.
+   ============================================================ */
+
+/* Prevent flex/grid children from forcing their parent wider than the viewport. */
+.page, .page > *, .card, .panel, .onex-card, .cfg-list-shell,
+.group-workspace, .group-list-pane, .group-detail-pane,
+.cfg-card, .cfg-main, .cfg-side, .cfg-usage-copy, .page-head,
+.onex-topbar, .onex-control-dock, .dashboard-hero { min-width: 0; }
+.page img, .page svg, .page canvas { max-width: 100%; }
+.page button, .page input, .page select, .page textarea { max-width: 100%; }
+.page h1, .page h2, .page h3, .page h4, .page p, .page b, .page strong,
+.page span, .page small, .page label { overflow-wrap: anywhere; }
+
+/* Desktop: give dense pages a stable readable measure and stop narrow side columns colliding. */
+@media (min-width: 901px){
+  .main { padding-inline: clamp(18px, 2.2vw, 36px); }
+  .page { width: 100%; max-width: 1680px; margin-inline: auto; }
+  .metrics, .onex-metrics, .cfg-stat-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .group-workspace { grid-template-columns: minmax(0, 1.35fr) minmax(320px, .75fr); }
+  .cfg-card { grid-template-columns: 56px minmax(0, 1fr) minmax(155px, 190px) 34px; }
+  .cfg-usage-track { width: min(110px, 100%); }
+}
+@media (min-width: 901px) and (max-width: 1180px){
+  .cfg-card { grid-template-columns: 50px minmax(0, 1fr) minmax(130px, 160px) 32px; gap: 9px; }
+  .cfg-proto-icon { width: 50px; height: 50px; }
+  .cfg-side { padding-right: 8px; }
+  .cfg-usage-track { width: 76px; }
+  .group-workspace { grid-template-columns: minmax(0, 1.15fr) minmax(290px, .85fr); }
+}
+
+/* Make long labels and controls wrap instead of overlapping at tablet widths. */
+.cfg-page-hero, .cfg-tools, .cfg-list-head, .group-hero,
+.logs-page-head, .tg-card-head, .stats-panel-head { min-width: 0; }
+.cfg-page-hero > *, .cfg-list-head > *, .group-hero > *, .logs-page-head > * { min-width: 0; }
+.cfg-page-hero .page-sub, .page-sub { max-width: 72ch; }
+.cfg-name-row, .cfg-side-top, .cfg-meta, .cfg-usage { min-width: 0; }
+.cfg-usage-copy b { display: block; overflow: hidden; text-overflow: ellipsis; }
+
+/* Light themes: remove the milky white gradient/inset cast from non-white palettes. */
+html.light.onex-themed,
+html.light.onex-glass {
+  --light-surface: color-mix(in srgb, var(--bg2) 88%, var(--accent) 12%);
+  --light-surface-2: color-mix(in srgb, var(--bg3) 84%, var(--accent) 16%);
+  --light-border: color-mix(in srgb, var(--accent) 20%, rgb(23 23 23 / .16));
+}
+html.light.onex-themed .page .card,
+html.light.onex-themed .page .metric,
+html.light.onex-themed .page .onex-card,
+html.light.onex-themed .page .onex-metric,
+html.light.onex-themed .page .quick-item,
+html.light.onex-themed .page .support-tile,
+html.light.onex-themed .page .table-wrap,
+html.light.onex-themed .page .cfg-page-hero,
+html.light.onex-themed .page .cfg-stat-card,
+html.light.onex-themed .page .cfg-search-box,
+html.light.onex-themed .page .cfg-filter-btn,
+html.light.onex-themed .page .cfg-list-shell,
+html.light.onex-themed .page .cfg-card,
+html.light.onex-themed .page .group-hero,
+html.light.onex-themed .page .group-list-pane,
+html.light.onex-themed .page .group-detail-pane,
+html.light.onex-themed .page .group-card,
+html.light.onex-themed .page .admin-card,
+html.light.onex-themed .page .stats-panel,
+html.light.onex-themed .page .stats-kpi,
+html.light.onex-themed .page .tg-glass {
+  background: var(--light-surface) !important;
+  background-image: none !important;
+  border-color: var(--light-border) !important;
+  box-shadow: 0 10px 28px color-mix(in srgb, var(--accent) 8%, rgb(23 23 23 / .10)) !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+html.light.onex-themed .page .cfg-card,
+html.light.onex-themed .page .group-card,
+html.light.onex-themed .page .cfg-side,
+html.light.onex-themed .page .group-info-card,
+html.light.onex-themed .page .group-link-card,
+html.light.onex-themed .page .group-proto-card,
+html.light.onex-themed .page .group-manage-card,
+html.light.onex-themed .page .group-configs-card,
+html.light.onex-themed .page input,
+html.light.onex-themed .page select,
+html.light.onex-themed .page textarea {
+  background: var(--light-surface-2) !important;
+  background-image: none !important;
+  border-color: var(--light-border) !important;
+}
+html.light.onex-themed .page .cfg-card::before,
+html.light.onex-themed .page .cfg-card::after,
+html.light.onex-themed .page .group-card::before,
+html.light.onex-themed .page .group-card::after { display: none !important; }
+
+/* Mobile: stack controls cleanly, preserve touch targets, and avoid clipped content. */
+@media (max-width: 760px){
+  .page-head, .cfg-page-hero, .group-hero, .logs-page-head, .tg-card-head,
+  .stats-panel-head { width: 100%; }
+  .page-head > *, .cfg-page-hero > *, .group-hero > *, .logs-page-head > * { max-width: 100%; }
+  .cfg-page-hero, .cfg-tools, .group-hero, .logs-page-head { align-items: stretch; }
+  .cfg-tools { flex-wrap: wrap; }
+  .cfg-search-box { flex: 1 1 220px; }
+  .cfg-filter-btn { flex: 0 0 44px; }
+  .cfg-page-hero .page-title { line-height: 1.45; }
+  .group-workspace { grid-template-columns: minmax(0, 1fr); }
+  .group-detail-pane { min-height: 0; }
+  .group-link-line { grid-template-columns: minmax(0, 1fr) 52px; }
+  .group-manage-actions { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .cfg-card { overflow: hidden; }
+  .cfg-card .cfg-side { min-width: 0; }
+  .cfg-active-toggle { max-width: 100%; }
+}
+@media (max-width: 560px){
+  .main, .main.expanded { overflow-x: hidden; }
+  .page-head { gap: 10px; margin-bottom: 14px; }
+  .page-title { font-size: clamp(18px, 5vw, 21px); }
+  .page-sub { font-size: 11px; line-height: 1.75; }
+  .cfg-stat-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .cfg-card { grid-template-columns: 43px minmax(0, 1fr) 32px; }
+  .cfg-side { grid-column: 2 / -1; }
+  .group-info-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .group-manage-actions { grid-template-columns: 1fr; }
+  .group-manage-actions button { min-height: 40px; }
+  .logs-advanced-row.open { grid-template-columns: 1fr; }
+  .range-tabs { overflow-x: auto; grid-template-columns: repeat(4, minmax(72px, 1fr)); }
+}
+@media (max-width: 380px){
+  .main, .main.expanded { padding-inline: 8px !important; }
+  .cfg-stat-grid { gap: 6px; }
+  .cfg-stat-card { min-width: 0; }
+  .group-info-grid { grid-template-columns: 1fr; }
+  .group-link-line { grid-template-columns: 1fr; }
+  .group-copy-btn { width: 100%; }
+}
+
 </style></head>
 <body><div class="box"><div class="ic">!</div><h2>خطای داخلی پنل ONEX</h2><p>مشکلی پیش آمد. لطفاً لاگ سرور (Railway) را بررسی کنید و دوباره تلاش کنید.</p><a href="/dashboard">بازگشت به پنل</a><small>ONEX · internal error</small></div></body>
 </html>
