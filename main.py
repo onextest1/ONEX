@@ -1,4 +1,66 @@
 # ============================================================
+# ONEX SELF-UPDATE BOOTLOADER (1.3.9)
+# Zero-config in-panel updates: the panel downloads the newest public release
+# into the data dir and re-executes itself from there. No Railway/GitHub
+# tokens are needed. A bundled build that is newer (manual redeploy) always
+# wins, and a broken update is abandoned after 3 failed boots.
+# ============================================================
+import os as _ob_os, sys as _ob_sys, json as _ob_json
+from pathlib import Path as _ob_Path
+
+
+def _ob_ver(v):
+    out = []
+    for part in str(v or "0").strip().lstrip("vV").split(".")[:8]:
+        d = "".join(ch for ch in part if ch.isdigit())
+        out.append(int(d or "0"))
+    while len(out) < 3:
+        out.append(0)
+    return tuple(out)
+
+
+def _onex_bootloader():
+    if _ob_os.environ.get("ONEX_SELF_UPDATED_BOOT") == "1":
+        return
+    here = _ob_Path(__file__).resolve().parent
+    data = _ob_Path(_ob_os.environ.get("RAILWAY_VOLUME_MOUNT_PATH") or _ob_os.environ.get("DATA_DIR") or "./data").resolve()
+    # Pin the data dir so the updated copy keeps using the same state files.
+    if not _ob_os.environ.get("RAILWAY_VOLUME_MOUNT_PATH"):
+        _ob_os.environ["DATA_DIR"] = str(data)
+    _ob_os.environ.setdefault("ONEX_BUNDLED_DIR", str(here))
+    root = data / "onex_update"
+    cur = root / "current"
+    try:
+        if not (cur / "main.py").exists():
+            return
+        upd_v = _ob_json.loads((cur / "version.json").read_text(encoding="utf-8")).get("version")
+        try:
+            own_v = _ob_json.loads((here / "version.json").read_text(encoding="utf-8")).get("version")
+        except Exception:
+            own_v = "0"
+        if _ob_ver(upd_v) <= _ob_ver(own_v):
+            return
+        attempts_file = root / "boot_attempts"
+        attempts = int((attempts_file.read_text() or "0").strip()) if attempts_file.exists() else 0
+        if attempts >= 3:
+            print("[ONEX] downloaded update failed to boot 3 times; using bundled build", flush=True)
+            return
+        attempts_file.write_text(str(attempts + 1))
+        sha_file = cur / ".onex_commit"
+        if sha_file.exists():
+            _ob_os.environ["RAILWAY_GIT_COMMIT_SHA"] = sha_file.read_text().strip()
+        _ob_os.environ["ONEX_SELF_UPDATED_BOOT"] = "1"
+        print(f"[ONEX] booting downloaded update v{upd_v}", flush=True)
+        _ob_os.chdir(str(cur))
+        _ob_os.execv(_ob_sys.executable, [_ob_sys.executable, str(cur / "main.py")])
+    except Exception as exc:  # never block the bundled panel from starting
+        print(f"[ONEX] update bootloader skipped: {exc}", flush=True)
+
+
+if __name__ == "__main__":
+    _onex_bootloader()
+
+# ============================================================
 # Railway Ready
 # Designed by @Mehtif
 # ============================================================
@@ -39,7 +101,7 @@ from fastapi.middleware.cors import CORSMiddleware
 # ============================================================
 
 APP_NAME = "ONEX"
-APP_VERSION = "1.3.8"
+APP_VERSION = "1.3.9"
 
 SUPPORT_USERNAME = "@V2rayTun0"
 SUPPORT_URL = "https://t.me/V2rayTun0"
@@ -135,6 +197,14 @@ RAILWAY_API_TOKEN = os.environ.get("RAILWAY_API_TOKEN", "").strip()
 RAILWAY_SERVICE_ID = os.environ.get("RAILWAY_SERVICE_ID", "").strip()
 RAILWAY_ENVIRONMENT_ID = os.environ.get("RAILWAY_ENVIRONMENT_ID", "").strip()
 ONEX_CURRENT_COMMIT_SHA = os.environ.get("RAILWAY_GIT_COMMIT_SHA", os.environ.get("ONEX_COMMIT_SHA", "")).strip()
+# Fork auto-sync: Railway builds from the user's own repo (often a fork).
+# Railway exposes the connected repo; ONEX_DEPLOY_REPO can override it.
+_rw_owner = os.environ.get("RAILWAY_GIT_REPO_OWNER", "").strip()
+_rw_name = os.environ.get("RAILWAY_GIT_REPO_NAME", "").strip()
+DEPLOY_REPO = (os.environ.get("ONEX_DEPLOY_REPO", "").strip()
+               or (f"{_rw_owner}/{_rw_name}" if _rw_owner and _rw_name else ""))
+DEPLOY_BRANCH = (os.environ.get("ONEX_DEPLOY_BRANCH", "").strip()
+                 or os.environ.get("RAILWAY_GIT_BRANCH", "").strip() or UPDATE_BRANCH)
 
 
 # ============================================================
@@ -1464,6 +1534,42 @@ def group_subscription_lines_for_link(
     return lines
 
 
+def link_config_uris(link: dict, uid: str, host: str) -> list[str]:
+    """Every real config URI of one link, exactly as its subscription emits them.
+
+    Used by /sub/{uuid}, the dashboard copy boxes and the browser info page so
+    all three always contain the very same full list (every selected protocol
+    of the bundle, every clean IP / config copy).
+    """
+    link = link or {}
+    clean_ips = list(link.get("clean_ips") or [])
+    protocols = [p for p in link_sub_protocols(link) if p in PROTOCOLS] or [
+        normalize_protocol(str(link.get("protocol", DEFAULT_PROTOCOL)))
+    ]
+    multi = bool(link.get("all_protocols") or link.get("bundle_protocols"))
+    cfg_count = 1 if multi else max(1, min(40, int(link.get("config_count") or 1)))
+    if clean_ips:
+        hosts = list(clean_ips)
+        while len(hosts) < cfg_count:
+            hosts.extend(clean_ips)
+        hosts = hosts[:max(cfg_count, len(clean_ips) if multi else cfg_count)]
+    else:
+        hosts = [host] * cfg_count
+    used_names: set = set()
+    uris = []
+    for idx, target in enumerate(hosts, 1):
+        for proto in protocols:
+            name = subscription_config_name(link, proto, used_names, idx if len(hosts) > 1 else 0)
+            uris.append(generate_vless_link(
+                uid, target, remark=name, protocol=proto,
+                fingerprint=link.get("fingerprint", DEFAULT_FINGERPRINT),
+                alpn=DEFAULT_ALPN_BY_PROTOCOL.get(proto, link.get("alpn")),
+                port=protocol_public_port(link, proto, link.get("port", DEFAULT_PORT)),
+                link=link,
+            ))
+    return uris
+
+
 def get_link_info(
     link: dict,
     uid: str,
@@ -1484,6 +1590,10 @@ def get_link_info(
     cfg_count = int(link.get("config_count") or 1)
     show_vless = len(clean_ips) <= 1 and cfg_count <= 1
     cat = CATEGORIES.get(str(link.get("category_id") or "0")) or {}
+    try:
+        _all_uris = link_config_uris(link, uid, host)
+    except Exception:
+        _all_uris = [vless_link_for_link(link, uid, host)]
     return {
         "uuid": uid,
         "name": link.get("label", ""),
@@ -1516,6 +1626,9 @@ def get_link_info(
         "show_vless": show_vless,
         "vless": vless_link_for_link(link, uid, host) if show_vless else "",
         "vless_full": vless_link_for_link(link, uid, host),
+        "vless_all": "\n".join(_all_uris),
+        "configs_total": len(_all_uris),
+        "sub_protocols": link_sub_protocols(link),
         "sub": f"https://{host}/sub/{uid}",
         "info": f"https://{host}/info/{uid}",
         "support": SUPPORT_USERNAME,
@@ -4694,6 +4807,25 @@ def subscription_metadata_headers(used_bytes: int, limit_bytes: int, expires_at,
 # SINGLE SUB
 # ============================================================
 
+_SUB_CLIENT_MARKERS = (
+    "v2ray", "xray", "sing-box", "singbox", "clash", "mihomo", "stash", "hiddify",
+    "nekobox", "nekoray", "streisand", "shadowrocket", "quantumult", "surge", "loon",
+    "foxray", "v2box", "happ", "karing", "okhttp", "dart", "flclash", "throne",
+)
+
+
+def request_is_browser(request: Request) -> bool:
+    """True only for a normal web browser; every VPN client gets raw base64."""
+    qp = request.query_params
+    if qp.get("raw") or qp.get("format") in ("raw", "base64", "b64"):
+        return False
+    ua = (request.headers.get("user-agent") or "").lower()
+    accept = (request.headers.get("accept") or "").lower()
+    if not ua or any(m in ua for m in _SUB_CLIENT_MARKERS):
+        return False
+    return "mozilla" in ua and "text/html" in accept
+
+
 @app.get("/sub/{uuid}")
 async def subscription_single(
     uuid: str,
@@ -4734,24 +4866,14 @@ async def subscription_single(
         time_text = "∞"
     label = str(link.get("label") or "Config")
     stats_remark = f"{label} | {volume_text} | {time_text}"
-    used_names = set()
+    # A real browser (not a VPN client) gets the readable subscription page that
+    # lists every config of this sub.  VPN clients keep receiving base64.
+    if request_is_browser(request):
+        return await info_page(uuid, request)
     # 1) usage info (remaining volume + remaining time) with icons, always first
     lines = subscription_info_lines(uuid, link)
-    # 2) one real config per selected protocol (all 8 when "all protocols" is on)
-    protocols = link_sub_protocols(link)
-    multi = bool(link.get("all_protocols") or link.get("bundle_protocols"))
-    cfg_count = 1 if multi else max(1, min(40, int(link.get("config_count") or 1)))
-    if clean_ips:
-        hosts = list(clean_ips)
-        while len(hosts) < cfg_count:
-            hosts.extend(clean_ips)
-        hosts = hosts[:max(cfg_count, len(clean_ips) if multi else cfg_count)]
-    else:
-        hosts = [host] * cfg_count
-    for idx, target in enumerate(hosts, 1):
-        for proto in protocols:
-            name = subscription_config_name(link, proto, used_names, idx if len(hosts) > 1 else 0)
-            lines.append(generate_vless_link(uuid, target, remark=name, protocol=proto, fingerprint=link.get("fingerprint", DEFAULT_FINGERPRINT), alpn=DEFAULT_ALPN_BY_PROTOCOL.get(proto, link.get("alpn")), port=protocol_public_port(link, proto, link.get("port", DEFAULT_PORT)), link=link))
+    # 2) every config of this sub (all selected protocols, all clean IPs)
+    lines.extend(link_config_uris(link, uuid, host))
     content = base64.b64encode("\n".join(lines).encode()).decode()
     _vol_t, _time_t = subscription_usage_texts(link)
     profile_title = f"{label} | {_vol_t} | {_time_t}"
@@ -4832,7 +4954,11 @@ async def info_page(
         snapshot = dict(link)
 
     host = get_host(request)
-    vless_url = vless_link_for_link(snapshot, uid, host)
+    try:
+        all_config_uris = link_config_uris(snapshot, uid, host)
+    except Exception:
+        all_config_uris = [vless_link_for_link(snapshot, uid, host)]
+    vless_url = "\n".join(all_config_uris)
     sub_url = f"https://{host}/sub/{uid}"
     used = int(snapshot.get("used_bytes", 0) or 0)
     limit = int(snapshot.get("limit_bytes", 0) or 0)
@@ -4900,6 +5026,18 @@ async def info_page(
     protocol_escaped = escape_html(snapshot.get("protocol", "vless-ws"))
     fingerprint_escaped = escape_html(snapshot.get("fingerprint", "chrome"))
     vless_url_escaped = escape_html(vless_url)
+    from urllib.parse import unquote as _unq
+    _cfg_rows = []
+    for _i, _uri in enumerate(all_config_uris):
+        _nm = _unq(_uri.split("#", 1)[1]) if "#" in _uri else f"Config {_i + 1}"
+        _cfg_rows.append(
+            f'<div class="cfg-row"><div class="cfg-row-main"><span>{escape_html(_nm)}</span>'
+            f'<code id="cfgLine{_i}">{escape_html(_uri)}</code></div>'
+            f'<button class="sub-action" id="cfgBtn{_i}" type="button" onclick="pxCopy(\'cfgLine{_i}\',\'cfgBtn{_i}\')">'
+            f'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg><span>کپی</span></button></div>'
+        )
+    config_rows_html = "".join(_cfg_rows)
+    configs_total = len(all_config_uris)
     sub_url_escaped = escape_html(sub_url)
     dash_calc_offset = f"{339.29 - (339.29 * min(usage_percent, 100) / 100):.1f}"
 
@@ -5372,7 +5510,7 @@ async def info_page(
   .section-head{{position:relative;display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:17px;}}.section-head h2{{margin:4px 0 0;font-size:14px;font-weight:900;}}.section-icon{{width:38px;height:38px;border:1px solid rgba(255,255,255,.09);}}.section-icon svg{{width:18px;height:18px;}}.section-icon.red{{color:#ff4778;background:rgba(255,31,92,.09);border-color:rgba(255,71,120,.22);}}.section-icon.blue{{color:#60a5fa;background:rgba(59,130,246,.09);border-color:rgba(96,165,250,.20);}}.section-icon.purple{{color:#a78bfa;background:rgba(139,92,246,.09);border-color:rgba(167,139,250,.20);}}
   .sub-url-box{{position:relative;padding:14px 15px;border-radius:16px;border:1px solid rgba(255,71,120,.17);background:linear-gradient(135deg,rgba(255,31,92,.055),rgba(5,10,20,.42));color:#f5a1b8;font:11px/1.8 ui-monospace,Consolas,monospace;word-break:break-all;box-shadow:inset 0 1px 0 rgba(255,255,255,.05);}}.sub-actions{{display:flex;gap:9px;flex-wrap:wrap;margin-top:11px;}}.sub-action{{display:inline-flex;align-items:center;justify-content:center;gap:7px;padding:10px 14px;border-radius:13px;border:1px solid rgba(96,165,250,.20);background:rgba(59,130,246,.08);color:#cfe2ff;font-size:11px;font-weight:800;cursor:pointer;transition:.18s ease;}}.sub-action svg{{width:15px;height:15px;}}.sub-action:hover{{transform:translateY(-1px);background:rgba(59,130,246,.15);}}.sub-action.primary{{color:#fff;border-color:rgba(255,71,120,.42);background:linear-gradient(135deg,#ff1f5c,#c91550);box-shadow:0 7px 22px rgba(255,31,92,.18);}}.sub-action.primary:hover{{background:linear-gradient(135deg,#ff3a70,#df1b59);}}
   .telegram-sub-card{{position:relative;display:flex;align-items:center;gap:14px;padding:17px 18px;border-radius:22px;border:1px solid rgba(255,71,120,.24);background:linear-gradient(120deg,rgba(255,31,92,.10),rgba(19,33,60,.76),rgba(10,17,32,.86));box-shadow:inset 0 1px 0 rgba(255,255,255,.08),0 14px 34px rgba(0,0,0,.25);overflow:hidden;}}.telegram-sub-card:after{{content:"";position:absolute;inset:auto -15% -60% 30%;height:130px;background:rgba(255,31,92,.10);filter:blur(40px);pointer-events:none;}}.tg-sub-icon{{width:50px;height:50px;flex:0 0 50px;border-radius:16px;display:grid;place-items:center;color:#fff;background:linear-gradient(145deg,#ff1f5c,#c91550);box-shadow:0 8px 24px rgba(255,31,92,.22);}}.tg-sub-icon svg{{width:26px;height:26px;}}.tg-sub-copy{{min-width:0;flex:1;position:relative;z-index:1;}}.tg-sub-copy>span{{display:block;font-size:8px;letter-spacing:.13em;color:rgba(255,255,255,.38);font-weight:900;}}.tg-sub-copy strong{{display:block;margin-top:3px;font-size:13px;font-weight:900;}}.tg-sub-copy small{{display:block;margin-top:3px;color:rgba(255,255,255,.45);font-size:10px;}}.tg-sub-copy b{{display:inline-block;margin-top:5px;color:#ff6b92;font-size:11px;}}.tg-sub-join{{position:relative;z-index:1;display:inline-flex;align-items:center;gap:8px;padding:10px 14px;border-radius:13px;color:#fff;text-decoration:none;font-size:11px;font-weight:900;border:1px solid rgba(255,71,120,.38);background:rgba(255,31,92,.13);}}.tg-sub-join svg{{width:15px;height:15px;}}
-  .usage-row{{position:relative;display:flex;align-items:center;gap:22px;}}.usage-ring{{position:relative;width:122px;height:122px;flex:0 0 122px;}}.usage-ring>div{{position:absolute;inset:0;display:grid;place-content:center;text-align:center;}}.usage-ring b{{font-size:19px;font-weight:900;}}.usage-ring span{{display:block;margin-top:3px;color:rgba(255,255,255,.40);font-size:9px;}}.usage-main{{min-width:0;flex:1}}.usage-main>strong{{display:block;font-size:21px;font-weight:900;}}.usage-main>strong i{{font-size:12px;color:rgba(255,255,255,.40);font-style:normal;font-weight:700;}}.usage-mini{{display:flex;justify-content:space-between;gap:10px;padding:10px 0;border-bottom:1px solid rgba(255,255,255,.06);font-size:10px;}}.usage-mini span{{color:rgba(255,255,255,.42);}}.usage-mini b{{color:rgba(255,255,255,.82);font-weight:800;}}.service-list{{position:relative;display:grid;gap:0;}}.service-list div{{display:flex;justify-content:space-between;gap:12px;padding:11px 0;border-bottom:1px solid rgba(255,255,255,.06);font-size:10px;}}.service-list div:last-child{{border-bottom:0;}}.service-list span{{color:rgba(255,255,255,.42);}}.service-list b{{font-size:10px;font-weight:800;text-align:left;}}.tech-grid{{position:relative;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;}}.tech-grid>div{{padding:12px;border-radius:15px;border:1px solid rgba(255,255,255,.06);background:rgba(3,8,17,.25);}}.tech-grid span{{display:block;color:rgba(255,255,255,.36);font-size:9px;}}.tech-grid b{{display:block;margin-top:6px;color:#d7caff;font-size:11px;word-break:break-word;}}.direct-config{{position:relative;display:flex;align-items:center;gap:10px;padding:12px;border-radius:16px;border:1px solid rgba(255,255,255,.07);background:rgba(3,8,17,.25);}}.direct-config>div{{min-width:0;flex:1;}}.direct-config span{{display:block;color:rgba(255,255,255,.36);font-size:9px;margin-bottom:5px;}}.direct-config code{{display:block;color:#f0a1ba;font:10px/1.8 ui-monospace,Consolas,monospace;word-break:break-all;}}.download-grid{{position:relative;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;}}.download-grid a{{display:flex;align-items:center;gap:10px;min-width:0;padding:12px;border-radius:16px;border:1px solid rgba(96,165,250,.15);background:rgba(59,130,246,.055);color:#fff;text-decoration:none;transition:.18s ease;}}.download-grid a:hover{{border-color:rgba(255,71,120,.30);transform:translateY(-1px);}}.app-icon{{width:38px;height:38px;flex:0 0 38px;border-radius:12px;display:grid;place-items:center;color:#ff5d88;font-size:10px;font-weight:900;border:1px solid rgba(255,71,120,.25);background:rgba(255,31,92,.09);}}.download-grid b{{display:block;font-size:11px;}}.download-grid span{{display:block;margin-top:3px;color:rgba(255,255,255,.38);font-size:8px;line-height:1.4;}}.download-grid i{{margin-right:auto;color:#ff5d88;font-style:normal;font-size:9px;font-weight:900;white-space:nowrap;}}
+  .usage-row{{position:relative;display:flex;align-items:center;gap:22px;}}.usage-ring{{position:relative;width:122px;height:122px;flex:0 0 122px;}}.usage-ring>div{{position:absolute;inset:0;display:grid;place-content:center;text-align:center;}}.usage-ring b{{font-size:19px;font-weight:900;}}.usage-ring span{{display:block;margin-top:3px;color:rgba(255,255,255,.40);font-size:9px;}}.usage-main{{min-width:0;flex:1}}.usage-main>strong{{display:block;font-size:21px;font-weight:900;}}.usage-main>strong i{{font-size:12px;color:rgba(255,255,255,.40);font-style:normal;font-weight:700;}}.usage-mini{{display:flex;justify-content:space-between;gap:10px;padding:10px 0;border-bottom:1px solid rgba(255,255,255,.06);font-size:10px;}}.usage-mini span{{color:rgba(255,255,255,.42);}}.usage-mini b{{color:rgba(255,255,255,.82);font-weight:800;}}.service-list{{position:relative;display:grid;gap:0;}}.service-list div{{display:flex;justify-content:space-between;gap:12px;padding:11px 0;border-bottom:1px solid rgba(255,255,255,.06);font-size:10px;}}.service-list div:last-child{{border-bottom:0;}}.service-list span{{color:rgba(255,255,255,.42);}}.service-list b{{font-size:10px;font-weight:800;text-align:left;}}.tech-grid{{position:relative;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;}}.tech-grid>div{{padding:12px;border-radius:15px;border:1px solid rgba(255,255,255,.06);background:rgba(3,8,17,.25);}}.tech-grid span{{display:block;color:rgba(255,255,255,.36);font-size:9px;}}.tech-grid b{{display:block;margin-top:6px;color:#d7caff;font-size:11px;word-break:break-word;}}.cfg-list{{position:relative;display:grid;gap:9px;margin-bottom:12px;}}.cfg-row{{display:flex;align-items:center;gap:10px;padding:11px 12px;border-radius:15px;border:1px solid rgba(255,255,255,.07);background:rgba(3,8,17,.25);}}.cfg-row-main{{min-width:0;flex:1;}}.cfg-row-main span{{display:block;color:rgba(255,255,255,.62);font-size:10px;font-weight:800;margin-bottom:4px;}}.cfg-row-main code{{display:block;color:#f0a1ba;font:10px/1.7 ui-monospace,Consolas,monospace;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;direction:ltr;text-align:left;}}.cfg-row .sub-action{{flex:0 0 auto;}}.cfg-copy-all{{width:100%;justify-content:center;}}.direct-config{{position:relative;display:flex;align-items:center;gap:10px;padding:12px;border-radius:16px;border:1px solid rgba(255,255,255,.07);background:rgba(3,8,17,.25);}}.direct-config>div{{min-width:0;flex:1;}}.direct-config span{{display:block;color:rgba(255,255,255,.36);font-size:9px;margin-bottom:5px;}}.direct-config code{{display:block;color:#f0a1ba;font:10px/1.8 ui-monospace,Consolas,monospace;word-break:break-all;}}.download-grid{{position:relative;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;}}.download-grid a{{display:flex;align-items:center;gap:10px;min-width:0;padding:12px;border-radius:16px;border:1px solid rgba(96,165,250,.15);background:rgba(59,130,246,.055);color:#fff;text-decoration:none;transition:.18s ease;}}.download-grid a:hover{{border-color:rgba(255,71,120,.30);transform:translateY(-1px);}}.app-icon{{width:38px;height:38px;flex:0 0 38px;border-radius:12px;display:grid;place-items:center;color:#ff5d88;font-size:10px;font-weight:900;border:1px solid rgba(255,71,120,.25);background:rgba(255,31,92,.09);}}.download-grid b{{display:block;font-size:11px;}}.download-grid span{{display:block;margin-top:3px;color:rgba(255,255,255,.38);font-size:8px;line-height:1.4;}}.download-grid i{{margin-right:auto;color:#ff5d88;font-style:normal;font-size:9px;font-weight:900;white-space:nowrap;}}
   @media (max-width:700px){{.sub-hero-content{{padding:16px;gap:11px;flex-wrap:wrap;}}.sub-brand-icon{{width:50px;height:50px;border-radius:14px;}}.sub-brand-icon svg{{width:27px;height:27px;}}.sub-hero h1{{font-size:17px}}.sub-hero p{{font-size:9px}}.sub-status{{margin-right:auto;font-size:9px;padding:6px 9px}}.sub-actions{{display:grid;grid-template-columns:1fr 1fr;}}.sub-actions .sub-action:last-child{{grid-column:1/-1}}.telegram-sub-card{{align-items:flex-start;flex-wrap:wrap;padding:14px}}.tg-sub-copy{{width:calc(100% - 64px)}}.tg-sub-join{{width:100%;justify-content:center}}.usage-row{{gap:13px}}.usage-ring{{width:105px;height:105px;flex-basis:105px}}.usage-ring svg{{width:105px;height:105px}}.tech-grid{{grid-template-columns:1fr}}.direct-config{{align-items:stretch;flex-direction:column}}.direct-config .sub-action{{width:100%}}.download-grid{{grid-template-columns:1fr}}.download-grid a{{padding:11px}}.sub-glass{{border-radius:20px}}.sub-url-box{{font-size:10px;}}}}
 </style>
 </head>
@@ -5437,8 +5575,10 @@ async def info_page(
 
   <!-- Direct config -->
   <section class="sub-glass p-5 sm:p-6">
-    <div class="section-head"><div><span class="section-kicker">DIRECT CONFIG</span><h2>کانفیگ مستقیم</h2></div><div class="section-icon red"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 9h8M8 13h5"/><path d="M5 3h14a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2h-5l-4 4v-4H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2Z"/></svg></div></div>
-    <div class="direct-config"><div><span>VLESS / ONEX</span><code id="vlessLinkText">{vless_url_escaped}</code></div><button class="sub-action primary" id="vlessCopyBtn" type="button" onclick="pxCopy('vlessLinkText','vlessCopyBtn')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg><span>کپی</span></button></div>
+    <div class="section-head"><div><span class="section-kicker">ALL CONFIGS · {configs_total}</span><h2>همه کانفیگ‌های این ساب</h2></div><div class="section-icon red"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 9h8M8 13h5"/><path d="M5 3h14a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2h-5l-4 4v-4H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2Z"/></svg></div></div>
+    <div class="cfg-list">{config_rows_html}</div>
+    <code id="vlessLinkText" style="display:none">{vless_url_escaped}</code>
+    <button class="sub-action primary cfg-copy-all" id="vlessCopyBtn" type="button" onclick="pxCopy('vlessLinkText','vlessCopyBtn')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg><span>کپی همه کانفیگ‌ها ({configs_total})</span></button>
   </section>
 
   <!-- Downloads -->
@@ -5465,7 +5605,7 @@ async def info_page(
 </div>
 
 <script>
-const vlessUrlData = "{vless_url}";
+const vlessUrlData = document.getElementById('vlessLinkText').textContent;
 
 // Theme toggle logic with localStorage support (2 themes total)
 function toggleTheme() {{
@@ -5560,6 +5700,8 @@ function fallbackCopy(text, cb) {{
   if (cb) cb();
 }}
 </script>
+
+
 </body>
 </html>"""
     return HTMLResponse(info_html)
@@ -7398,48 +7540,275 @@ def _is_newer_version(remote, local):
     return _version_tuple(remote) > _version_tuple(local)
 
 
-async def fetch_update_info():
-    """Read public release metadata and the latest GitHub commit."""
+_UPDATE_CACHE = {"at": 0.0, "data": None}
+UPDATE_CACHE_TTL = 300  # seconds; the panel polls often, GitHub rate-limits hard
+GITHUB_TOKEN = (os.environ.get("ONEX_GITHUB_TOKEN") or os.environ.get("GITHUB_TOKEN") or "").strip()
+
+
+async def fetch_update_info(force: bool = False):
+    """Read public release metadata and the latest GitHub commit (cached).
+
+    Unauthenticated GitHub API calls are limited to 60/hour per IP and
+    Railway egress IPs are shared, so polling every 45s used to exhaust the
+    quota and every check/deploy then failed.  Results are cached and the
+    commit lookup is optional: version.json alone is enough to update.
+    """
+    now = time.time()
+    cached = _UPDATE_CACHE.get("data")
+    if cached and not force and now - _UPDATE_CACHE.get("at", 0) < UPDATE_CACHE_TTL:
+        return dict(cached)
+    headers = {"User-Agent": "ONEX-Panel-Updater", "Cache-Control": "no-cache"}
+    api_headers = {**headers, "Accept": "application/vnd.github+json"}
+    if GITHUB_TOKEN:
+        api_headers["Authorization"] = f"Bearer {GITHUB_TOKEN}"
+    timeout = httpx.Timeout(10.0, connect=5.0)
+    try:
+        async with httpx.AsyncClient(timeout=timeout, follow_redirects=True) as client:
+            version_resp = await client.get(UPDATE_VERSION_URL, headers=headers, params={"t": int(now)})
+            version_resp.raise_for_status()
+            meta = version_resp.json()
+            if not isinstance(meta, dict):
+                raise ValueError("version.json must contain a JSON object")
+            sha = ""
+            try:
+                commit_resp = await client.get(
+                    f"{UPDATE_GITHUB_API}/commits/{quote(UPDATE_BRANCH, safe='')}",
+                    headers=api_headers,
+                )
+                if commit_resp.status_code == 200:
+                    sha = str((commit_resp.json() or {}).get("sha") or "").strip()
+                else:
+                    logger.warning("GitHub commit lookup returned %s", commit_resp.status_code)
+            except Exception as exc:
+                logger.warning("GitHub commit lookup failed: %s", exc)
+            if not sha and cached:
+                sha = cached.get("commit_sha") or ""
+    except Exception:
+        if cached:
+            return dict(cached)
+        raise
+    data = {
+        "version": str(meta.get("version") or "").strip(),
+        "title": str(meta.get("title") or "").strip(),
+        "message": str(meta.get("message") or "").strip(),
+        "changelog": meta.get("changelog") if isinstance(meta.get("changelog"), list) else [],
+        "published_at": str(meta.get("published_at") or "").strip(),
+        "commit_sha": sha,
+        "repo": UPDATE_REPO,
+        "branch": UPDATE_BRANCH,
+        "release_url": str(meta.get("release_url") or f"https://github.com/{UPDATE_REPO}/commits/{UPDATE_BRANCH}").strip(),
+    }
+    _UPDATE_CACHE["at"] = now
+    _UPDATE_CACHE["data"] = data
+    return dict(data)
+
+
+async def _railway_graphql(query: str, variables: dict) -> dict:
+    """Call Railway GraphQL, supporting account/workspace AND project tokens.
+
+    Account/workspace tokens use `Authorization: Bearer`, project tokens use
+    `Project-Access-Token`.  Using the wrong header returns "Not Authorized",
+    which is the classic cause of "update failed" in the panel.
+    """
+    header_sets = [
+        {"Authorization": f"Bearer {RAILWAY_API_TOKEN}"},
+        {"Project-Access-Token": RAILWAY_API_TOKEN},
+    ]
+    last_error = "unknown error"
+    async with httpx.AsyncClient(timeout=httpx.Timeout(25.0, connect=8.0)) as client:
+        for extra in header_sets:
+            try:
+                response = await client.post(
+                    RAILWAY_API_URL,
+                    json={"query": query, "variables": variables},
+                    headers={"Content-Type": "application/json", "User-Agent": "ONEX-Panel-Updater", **extra},
+                )
+            except Exception as exc:
+                last_error = f"network: {exc}"
+                continue
+            try:
+                data = response.json()
+            except Exception:
+                data = {}
+            errors = data.get("errors") if isinstance(data, dict) else None
+            if response.status_code < 400 and not errors:
+                return data.get("data") or {}
+            msg = "; ".join(str(e.get("message") or e) for e in (errors or []) if e) or f"HTTP {response.status_code}"
+            last_error = msg
+            if "not authorized" not in msg.lower() and response.status_code not in (401, 403):
+                break  # auth was fine, the request itself failed
+    raise RuntimeError(last_error)
+
+
+def _is_fork_deploy() -> bool:
+    return bool(DEPLOY_REPO) and DEPLOY_REPO.lower() != UPDATE_REPO.lower()
+
+
+async def sync_fork_with_upstream() -> dict:
+    """Bring the user's fork up to date with the ONEX repo before deploying.
+
+    Uses GitHub's merge-upstream API (same as the "Sync fork" button).
+    Returns {"synced": bool, "sha": <fork head sha>, "note": str}.
+    """
+    if not _is_fork_deploy():
+        return {"synced": False, "sha": "", "note": "not a fork"}
+    if not GITHUB_TOKEN:
+        raise RuntimeError(
+            f"پنل از فورک «{DEPLOY_REPO}» دیپلوی شده؛ برای همگام‌سازی خودکار متغیر ONEX_GITHUB_TOKEN "
+            "(توکن گیت‌هاب با دسترسی Contents: Read and write روی فورک) را در Railway اضافه کنید "
+            "یا یک‌بار دکمه Sync fork را در گیت‌هاب بزنید."
+        )
     headers = {
         "Accept": "application/vnd.github+json",
+        "Authorization": f"Bearer {GITHUB_TOKEN}",
         "User-Agent": "ONEX-Panel-Updater",
+        "X-GitHub-Api-Version": "2022-11-28",
     }
-    timeout = httpx.Timeout(10.0, connect=5.0)
-    async with httpx.AsyncClient(timeout=timeout, follow_redirects=True) as client:
-        version_resp = await client.get(UPDATE_VERSION_URL, headers=headers)
-        version_resp.raise_for_status()
-        meta = version_resp.json()
-        if not isinstance(meta, dict):
-            raise ValueError("version.json must contain a JSON object")
+    api = f"https://api.github.com/repos/{DEPLOY_REPO}"
+    async with httpx.AsyncClient(timeout=httpx.Timeout(20.0, connect=8.0)) as client:
+        r = await client.post(f"{api}/merge-upstream", headers=headers, json={"branch": DEPLOY_BRANCH})
+        if r.status_code == 409:
+            raise RuntimeError("همگام‌سازی فورک به دلیل تداخل (conflict) انجام نشد؛ فورک را دستی با ریپوی اصلی یکی کنید.")
+        if r.status_code in (401, 403):
+            raise RuntimeError("توکن گیت‌هاب اجازه نوشتن روی فورک را ندارد (Contents: Read and write لازم است).")
+        if r.status_code == 404:
+            raise RuntimeError(f"ریپو یا برنچ «{DEPLOY_REPO}@{DEPLOY_BRANCH}» پیدا نشد یا توکن به آن دسترسی ندارد.")
+        if r.status_code >= 400:
+            raise RuntimeError(f"همگام‌سازی فورک ناموفق بود: HTTP {r.status_code} {r.text[:200]}")
+        info = r.json() if r.content else {}
+        head = await client.get(f"{api}/commits/{quote(DEPLOY_BRANCH, safe='')}", headers=headers)
+        sha = str((head.json() or {}).get("sha") or "").strip() if head.status_code == 200 else ""
+    merge_type = str(info.get("merge_type") or "")
+    logger.info("Fork sync %s@%s: %s (%s)", DEPLOY_REPO, DEPLOY_BRANCH, merge_type or "ok", sha[:8])
+    return {"synced": merge_type != "none", "sha": sha, "note": info.get("message") or merge_type}
 
-        commit_resp = await client.get(
-            f"{UPDATE_GITHUB_API}/commits/{quote(UPDATE_BRANCH, safe='')}",
-            headers=headers,
-        )
-        commit_resp.raise_for_status()
-        commit_data = commit_resp.json()
-        sha = str(commit_data.get("sha") or "").strip()
-        return {
-            "version": str(meta.get("version") or "").strip(),
-            "title": str(meta.get("title") or "").strip(),
-            "message": str(meta.get("message") or "").strip(),
-            "changelog": meta.get("changelog") if isinstance(meta.get("changelog"), list) else [],
-            "published_at": str(meta.get("published_at") or "").strip(),
-            "commit_sha": sha,
-            "repo": UPDATE_REPO,
-            "branch": UPDATE_BRANCH,
-            "release_url": str(meta.get("release_url") or f"https://github.com/{UPDATE_REPO}/commits/{UPDATE_BRANCH}").strip(),
-        }
+
+SELF_UPDATE_ROOT = DATA_DIR / "onex_update"
+_SELF_UPDATE_LOCK = asyncio.Lock()
+
+
+def _self_update_install(zip_path: Path, sha: str) -> Path:
+    """Extract, validate and atomically activate a downloaded release (sync)."""
+    import py_compile
+    import shutil
+    import subprocess
+    import sys
+    import zipfile
+
+    staging = SELF_UPDATE_ROOT / "staging"
+    shutil.rmtree(staging, ignore_errors=True)
+    staging.mkdir(parents=True, exist_ok=True)
+    with zipfile.ZipFile(zip_path) as zf:
+        for member in zf.namelist():
+            target = (staging / member).resolve()
+            if not str(target).startswith(str(staging.resolve())):
+                raise RuntimeError("unsafe path in update archive")
+        zf.extractall(staging)
+    candidates = [p.parent for p in staging.rglob("main.py") if (p.parent / "version.json").exists()]
+    if not candidates:
+        raise RuntimeError("main.py / version.json در فایل بروزرسانی پیدا نشد")
+    src = min(candidates, key=lambda p: len(p.parts))
+    py_compile.compile(str(src / "main.py"), doraise=True)
+    new_v = json.loads((src / "version.json").read_text(encoding="utf-8")).get("version")
+    if not new_v:
+        raise RuntimeError("version.json نسخه ندارد")
+
+    # Install new dependencies only when requirements.txt actually changed.
+    running_dir = BASE_DIR
+    try:
+        old_req = (running_dir / "requirements.txt").read_text(encoding="utf-8")
+    except Exception:
+        old_req = ""
+    new_req_file = src / "requirements.txt"
+    if new_req_file.exists() and new_req_file.read_text(encoding="utf-8") != old_req:
+        try:
+            subprocess.run(
+                [sys.executable, "-m", "pip", "install", "--disable-pip-version-check", "-q", "-r", str(new_req_file)],
+                check=False, timeout=240,
+            )
+        except Exception as exc:
+            logger.warning("pip install for update skipped: %s", exc)
+
+    (src / ".onex_commit").write_text(sha or "", encoding="utf-8")
+    cur = SELF_UPDATE_ROOT / "current"
+    prev = SELF_UPDATE_ROOT / "previous"
+    shutil.rmtree(prev, ignore_errors=True)
+    if cur.exists():
+        cur.rename(prev)
+    shutil.move(str(src), str(cur))
+    shutil.rmtree(staging, ignore_errors=True)
+    (SELF_UPDATE_ROOT / "boot_attempts").write_text("1")
+    return cur
+
+
+async def _self_update_restart(cur: Path, sha: str):
+    import sys
+    await asyncio.sleep(1.5)  # let the HTTP response reach the browser
+    try:
+        await save_state()
+    except Exception:
+        pass
+    os.environ["ONEX_SELF_UPDATED_BOOT"] = "1"
+    if sha:
+        os.environ["RAILWAY_GIT_COMMIT_SHA"] = sha
+    logger.info("Restarting into downloaded update at %s", cur)
+    os.chdir(str(cur))
+    os.execv(sys.executable, [sys.executable, str(cur / "main.py")])
+
+
+async def self_update_from_github(remote: dict) -> dict:
+    """Zero-config update: download the public release and restart into it."""
+    if _SELF_UPDATE_LOCK.locked():
+        raise RuntimeError("یک بروزرسانی در حال انجام است")
+    async with _SELF_UPDATE_LOCK:
+        sha = str(remote.get("commit_sha") or "").strip()
+        ref = sha or UPDATE_BRANCH
+        url = f"https://codeload.github.com/{UPDATE_REPO}/zip/{quote(ref, safe='')}"
+        SELF_UPDATE_ROOT.mkdir(parents=True, exist_ok=True)
+        zip_path = SELF_UPDATE_ROOT / "download.zip"
+        size = 0
+        async with httpx.AsyncClient(timeout=httpx.Timeout(120.0, connect=10.0), follow_redirects=True) as client:
+            async with client.stream("GET", url, headers={"User-Agent": "ONEX-Panel-Updater"}) as resp:
+                if resp.status_code != 200:
+                    raise RuntimeError(f"دانلود نسخه جدید از گیت‌هاب ناموفق بود (HTTP {resp.status_code})")
+                with open(zip_path, "wb") as fh:
+                    async for chunk in resp.aiter_bytes(256 * 1024):
+                        size += len(chunk)
+                        if size > 300 * 1024 * 1024:
+                            raise RuntimeError("فایل بروزرسانی بیش از حد بزرگ است")
+                        fh.write(chunk)
+        cur = await asyncio.to_thread(_self_update_install, zip_path, sha)
+        try:
+            zip_path.unlink()
+        except Exception:
+            pass
+        asyncio.get_running_loop().create_task(_self_update_restart(cur, sha))
+        return {"path": str(cur)}
+
+
+@app.on_event("startup")
+async def _self_update_mark_healthy():
+    if os.environ.get("ONEX_SELF_UPDATED_BOOT") != "1":
+        return
+
+    async def _mark():
+        await asyncio.sleep(30)
+        try:
+            (SELF_UPDATE_ROOT / "boot_attempts").write_text("0")
+        except Exception:
+            pass
+    asyncio.get_running_loop().create_task(_mark())
 
 
 @app.get("/api/update/check")
-async def api_update_check(token=Depends(require_auth)):
+async def api_update_check(force: int = 0, token=Depends(require_auth)):
     try:
-        remote = await fetch_update_info()
+        remote = await fetch_update_info(force=bool(force))
         remote_version = remote.get("version") or APP_VERSION
         version_newer = _is_newer_version(remote_version, APP_VERSION)
         commit_changed = bool(
-            remote.get("commit_sha")
+            not _is_fork_deploy()
+            and remote.get("commit_sha")
             and ONEX_CURRENT_COMMIT_SHA
             and remote.get("commit_sha") != ONEX_CURRENT_COMMIT_SHA
         )
@@ -7461,6 +7830,10 @@ async def api_update_check(token=Depends(require_auth)):
             "published_at": remote.get("published_at", ""),
             "release_url": remote.get("release_url", ""),
             "configured": bool(RAILWAY_API_TOKEN and RAILWAY_SERVICE_ID and RAILWAY_ENVIRONMENT_ID),
+            "deploy_repo": DEPLOY_REPO or UPDATE_REPO,
+            "fork_deploy": _is_fork_deploy(),
+            "fork_sync_ready": (not _is_fork_deploy()) or bool(GITHUB_TOKEN),
+            "missing_config": [k for k, v in (("RAILWAY_API_TOKEN", RAILWAY_API_TOKEN), ("RAILWAY_SERVICE_ID", RAILWAY_SERVICE_ID), ("RAILWAY_ENVIRONMENT_ID", RAILWAY_ENVIRONMENT_ID)) if not v],
         }
     except Exception as exc:
         logger.warning("Update check failed: %s", exc)
@@ -7480,59 +7853,80 @@ async def api_update_deploy(token=Depends(require_auth)):
     if meta.get("role") != "owner":
         raise HTTPException(403, detail="فقط مالک پنل می‌تواند پنل را بروزرسانی کند")
 
-    if not (RAILWAY_API_TOKEN and RAILWAY_SERVICE_ID and RAILWAY_ENVIRONMENT_ID):
-        raise HTTPException(503, detail="تنظیمات اتصال امن Railway برای بروزرسانی کامل نشده است")
+    railway_ready = bool(RAILWAY_API_TOKEN and RAILWAY_SERVICE_ID and RAILWAY_ENVIRONMENT_ID)
+    # Railway redeploys need a token (and a GitHub token for forks). Without
+    # them we fall back to the zero-config self-update, so users never have
+    # to set anything.
+    use_railway = railway_ready and (not _is_fork_deploy() or bool(GITHUB_TOKEN))
 
     try:
-        remote = await fetch_update_info()
+        try:
+            remote = await fetch_update_info(force=True)
+        except Exception as exc:
+            logger.warning("Update metadata unavailable, deploying latest commit anyway: %s", exc)
+            remote = {"version": "", "commit_sha": ""}
         remote_version = remote.get("version") or APP_VERSION
         version_newer = _is_newer_version(remote_version, APP_VERSION)
-        commit_changed = bool(remote.get("commit_sha") and ONEX_CURRENT_COMMIT_SHA and remote.get("commit_sha") != ONEX_CURRENT_COMMIT_SHA)
-        if not (version_newer or commit_changed):
+        commit_sha = remote.get("commit_sha") or ""
+        commit_changed = bool(not _is_fork_deploy() and commit_sha and ONEX_CURRENT_COMMIT_SHA and commit_sha != ONEX_CURRENT_COMMIT_SHA)
+        if remote.get("version") and not (version_newer or commit_changed):
             return {
                 "ok": True,
                 "update_available": False,
                 "message": "پنل شما آخرین نسخه را دارد",
                 "current_version": APP_VERSION,
                 "latest_version": remote_version,
-                "latest_commit": remote.get("commit_sha"),
+                "latest_commit": commit_sha,
             }
 
-        commit_sha = remote.get("commit_sha")
-        if not commit_sha:
-            raise RuntimeError("GitHub commit SHA not found")
+        if not use_railway:
+            await self_update_from_github(remote)
+            log_activity("system", f"بروزرسانی خودکار پنل به نسخه {remote_version} شروع شد", "ok")
+            return {
+                "ok": True,
+                "update_started": True,
+                "method": "self",
+                "current_version": APP_VERSION,
+                "latest_version": remote_version,
+                "message": "نسخه جدید دانلود شد؛ پنل چند ثانیه دیگر با نسخه جدید دوباره بالا می‌آید.",
+            }
 
-        mutation = """
-        mutation ServiceInstanceDeployV2($serviceId: String!, $environmentId: String!, $commitSha: String) {
-          serviceInstanceDeployV2(serviceId: $serviceId, environmentId: $environmentId, commitSha: $commitSha)
-        }
-        """
-        payload = {
-            "query": mutation,
-            "variables": {
-                "serviceId": RAILWAY_SERVICE_ID,
-                "environmentId": RAILWAY_ENVIRONMENT_ID,
-                "commitSha": commit_sha,
-            },
-        }
-        async with httpx.AsyncClient(timeout=httpx.Timeout(20.0, connect=8.0)) as client:
-            response = await client.post(
-                RAILWAY_API_URL,
-                json=payload,
-                headers={
-                    "Authorization": f"Bearer {RAILWAY_API_TOKEN}",
-                    "Content-Type": "application/json",
-                    "User-Agent": "ONEX-Panel-Updater",
-                },
-            )
-            response.raise_for_status()
-            data = response.json()
+        # Forked deployments: Railway only sees the fork, so sync it first
+        # and deploy the fork's new head commit instead of the upstream SHA.
+        fork_note = ""
+        if _is_fork_deploy():
+            fork = await sync_fork_with_upstream()
+            commit_sha = fork.get("sha") or ""
+            fork_note = f" (فورک {DEPLOY_REPO} همگام شد)"
 
-        if data.get("errors"):
-            raise RuntimeError(str(data["errors"]))
-        deployment_id = ((data.get("data") or {}).get("serviceInstanceDeployV2") or "").strip()
+        deployment_id = ""
+        first_error = None
+        if commit_sha:
+            try:
+                data = await _railway_graphql(
+                    """mutation Deploy($serviceId: String!, $environmentId: String!, $commitSha: String) {
+                      serviceInstanceDeployV2(serviceId: $serviceId, environmentId: $environmentId, commitSha: $commitSha)
+                    }""",
+                    {"serviceId": RAILWAY_SERVICE_ID, "environmentId": RAILWAY_ENVIRONMENT_ID, "commitSha": commit_sha},
+                )
+                deployment_id = str(data.get("serviceInstanceDeployV2") or "").strip()
+            except Exception as exc:
+                first_error = exc
+                logger.warning("serviceInstanceDeployV2 failed, trying latestCommit deploy: %s", exc)
         if not deployment_id:
-            raise RuntimeError("Railway did not return a deployment id")
+            # Fallback: deploy the latest commit of the connected branch.
+            try:
+                data = await _railway_graphql(
+                    """mutation DeployLatest($serviceId: String!, $environmentId: String!) {
+                      serviceInstanceDeploy(serviceId: $serviceId, environmentId: $environmentId, latestCommit: true)
+                    }""",
+                    {"serviceId": RAILWAY_SERVICE_ID, "environmentId": RAILWAY_ENVIRONMENT_ID},
+                )
+                if not data.get("serviceInstanceDeploy"):
+                    raise RuntimeError("Railway did not accept the deployment")
+                deployment_id = "latest"
+            except Exception as exc:
+                raise RuntimeError(str(first_error or exc))
 
         log_activity("system", f"بروزرسانی پنل به نسخه {remote_version} شروع شد", "ok")
         return {
@@ -7541,13 +7935,18 @@ async def api_update_deploy(token=Depends(require_auth)):
             "current_version": APP_VERSION,
             "latest_version": remote_version,
             "deployment_id": deployment_id,
-            "message": "بروزرسانی شروع شد؛ پنل پس از استقرار نسخه جدید دوباره در دسترس قرار می‌گیرد.",
+            "message": "بروزرسانی شروع شد؛ پنل پس از استقرار نسخه جدید دوباره در دسترس قرار می‌گیرد." + fork_note,
+            "fork_synced": bool(fork_note),
         }
     except HTTPException:
         raise
     except Exception as exc:
         logger.exception("Panel update deployment failed")
-        raise HTTPException(502, detail=f"شروع بروزرسانی ناموفق بود: {exc}")
+        hint = ""
+        low = str(exc).lower()
+        if "not authorized" in low or "401" in low or "403" in low:
+            hint = " (توکن Railway نامعتبر است یا به این پروژه دسترسی ندارد؛ یک Project Token یا Account Token جدید بسازید)"
+        raise HTTPException(502, detail=f"شروع بروزرسانی ناموفق بود: {exc}{hint}")
 
 
 @app.get("/api/news")
@@ -9530,6 +9929,8 @@ html.light .protocol-picker-bg{background:color-mix(in srgb, rgb(23 23 23 / .28)
 .onex-x-shadow{filter:drop-shadow(0 0 8px rgba(var(--accent-rgb),.52)) drop-shadow(0 0 16px rgba(var(--purple-rgb),.24))}
 .onex-brand-word{font-family:Inter,system-ui,sans-serif;font-weight:900;letter-spacing:.055em;color:#f8fbff;line-height:.9;white-space:nowrap}
 .onex-brand-word .x{background:linear-gradient(135deg,var(--accent) 5%,var(--accent) 46%,var(--purple) 92%);-webkit-background-clip:text;background-clip:text;color:transparent;text-shadow:none}
+.onex-brand-word{direction:ltr!important;unicode-bidi:isolate!important}.onex-brand-word .brand-vpn{display:inline-block;margin-left:8px;margin-inline-start:8px;font-size:.42em;font-weight:800;letter-spacing:.22em;color:#dbeafe;vertical-align:middle;opacity:.9}
+html.light .onex-brand-word .brand-vpn{color:#334155}
 .onex-brand-sub{font:700 7px/1.2 Inter,system-ui,sans-serif;letter-spacing:.32em;color:color-mix(in srgb, rgb(180 180 180 / .62) 82%, var(--accent));margin-top:5px;white-space:nowrap}
 html.light .onex-brand-word{color:color-mix(in srgb, rgb(23 23 23) 92%, var(--accent))}
 html.light .onex-brand-sub{color:color-mix(in srgb, rgb(114 114 114) 82%, var(--accent))}
@@ -9647,7 +10048,7 @@ html.light .onex-topbar-brand{background:#fff;border-color:rgba(var(--accent-rgb
   <button class="mob-menu-btn" id="mobMenuBtn" aria-label="منو">
     <span class="mobile-bars" aria-hidden="true"><i></i><i></i><i></i></span>
   </button>
-  <div class="mob-brand onex-approved-mobile"><div class="onex-mobile-mark"><svg class="onex-x-svg onex-x-shadow" viewBox="0 0 100 100" role="img" aria-label="ONEX logo"><defs><linearGradient id="mxa" x1="8" y1="8" x2="90" y2="92" gradientUnits="userSpaceOnUse"><stop stop-color="#2ec9ff"/><stop offset=".48" stop-color="#2376ff"/><stop offset="1" stop-color="#7b42ff"/></linearGradient><linearGradient id="mxb" x1="88" y1="10" x2="22" y2="93" gradientUnits="userSpaceOnUse"><stop stop-color="#6b50ff"/><stop offset=".62" stop-color="#843fff"/><stop offset="1" stop-color="#a855f7"/></linearGradient></defs><path d="M10 12h20l27 29-14 14L10 20z" fill="url(#mxa)"/><path d="M10 88h20l28-30-14-14L10 80z" fill="url(#mxa)"/><path d="M90 12H70L43 41l14 14 33-35z" fill="url(#mxb)"/><path d="M90 88H70L42 58l14-14 34 36z" fill="url(#mxb)"/><path d="M42 42 58 58 50 67 34 50z" fill="#0f5ce7" opacity=".78"/><path d="M58 42 42 58 50 67 66 50z" fill="#7137f0" opacity=".78"/></svg></div><div class="onex-mobile-copy"><div class="onex-brand-word">ONE<span class="x">X</span></div></div></div>
+  <div class="mob-brand onex-approved-mobile"><div class="onex-mobile-mark"><svg class="onex-x-svg onex-x-shadow" viewBox="0 0 100 100" role="img" aria-label="ONEX logo"><defs><linearGradient id="mxa" x1="8" y1="8" x2="90" y2="92" gradientUnits="userSpaceOnUse"><stop stop-color="#2ec9ff"/><stop offset=".48" stop-color="#2376ff"/><stop offset="1" stop-color="#7b42ff"/></linearGradient><linearGradient id="mxb" x1="88" y1="10" x2="22" y2="93" gradientUnits="userSpaceOnUse"><stop stop-color="#6b50ff"/><stop offset=".62" stop-color="#843fff"/><stop offset="1" stop-color="#a855f7"/></linearGradient></defs><path d="M10 12h20l27 29-14 14L10 20z" fill="url(#mxa)"/><path d="M10 88h20l28-30-14-14L10 80z" fill="url(#mxa)"/><path d="M90 12H70L43 41l14 14 33-35z" fill="url(#mxb)"/><path d="M90 88H70L42 58l14-14 34 36z" fill="url(#mxb)"/><path d="M42 42 58 58 50 67 34 50z" fill="#0f5ce7" opacity=".78"/><path d="M58 42 42 58 50 67 66 50z" fill="#7137f0" opacity=".78"/></svg></div><div class="onex-mobile-copy"><div class="onex-brand-word">ONE<span class="x">X</span><span class="brand-vpn">PANEL</span></div></div></div>
   <div class="mob-status"><i></i><span>آنلاین</span></div>
 </div>
 <div class="overlay" id="overlay"></div>
@@ -9658,7 +10059,7 @@ html.light .onex-topbar-brand{background:#fff;border-color:rgba(var(--accent-rgb
   </button>
   <div class="sb-logo onex-approved-brand" aria-label="ONEX Panel">
     <div class="onex-sidebar-mark"><svg class="onex-x-svg onex-x-shadow" viewBox="0 0 100 100" role="img" aria-label="ONEX logo"><defs><linearGradient id="sxa" x1="8" y1="8" x2="90" y2="92" gradientUnits="userSpaceOnUse"><stop stop-color="#2ec9ff"/><stop offset=".48" stop-color="#2376ff"/><stop offset="1" stop-color="#7b42ff"/></linearGradient><linearGradient id="sxb" x1="88" y1="10" x2="22" y2="93" gradientUnits="userSpaceOnUse"><stop stop-color="#6b50ff"/><stop offset=".62" stop-color="#843fff"/><stop offset="1" stop-color="#a855f7"/></linearGradient></defs><path d="M10 12h20l27 29-14 14L10 20z" fill="url(#sxa)"/><path d="M10 88h20l28-30-14-14L10 80z" fill="url(#sxa)"/><path d="M90 12H70L43 41l14 14 33-35z" fill="url(#sxb)"/><path d="M90 88H70L42 58l14-14 34 36z" fill="url(#sxb)"/><path d="M42 42 58 58 50 67 34 50z" fill="#0f5ce7" opacity=".78"/><path d="M58 42 42 58 50 67 66 50z" fill="#7137f0" opacity=".78"/></svg></div>
-    <div class="onex-sidebar-copy"><div class="onex-brand-word">ONE<span class="x">X</span></div></div>
+    <div class="onex-sidebar-copy"><div class="onex-brand-word">ONE<span class="x">X</span><span class="brand-vpn">PANEL</span></div></div>
   </div>
   <nav class="nav">
     <div class="nav-sec" data-i18n="sec_panel">پنــــل</div>
@@ -9699,9 +10100,10 @@ html.light .onex-topbar-brand{background:#fff;border-color:rgba(var(--accent-rgb
       <svg class="nav-ico nav-ico-admins" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 20 6v5c0 5-3.2 8.2-8 10-4.8-1.8-8-5-8-10V6l8-3Z"/><circle cx="12" cy="10" r="2.2"/><path d="M8.5 16c.8-2 2-2.8 3.5-2.8s2.7.8 3.5 2.8"/></svg>
       <span class="nav-label" data-i18n="nav_admins">ادمین‌هـا</span>
     </button>
+    <div class="nav-sec nav-sec-appearance" data-i18n="sec_appearance">شخصی‌سازی</div>
     <button class="nav-item" data-page="theme" data-perm="settings">
       <svg class="nav-ico nav-ico-theme" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a9 9 0 0 0 0 18h1.5a2.5 2.5 0 0 0 0-5H12a2 2 0 0 1 0-4h1.5a2.5 2.5 0 0 0 0-4H12Z"/><circle cx="7.5" cy="9" r="1"/><circle cx="9" cy="5.8" r="1"/><circle cx="14.5" cy="6" r="1"/><circle cx="17" cy="9" r="1"/></svg>
-      <span class="nav-label" data-i18n="nav_theme">تم</span><span class="nav-new-badge" data-i18n="nav_theme_new">جدید</span>
+      <span class="nav-label" data-i18n="nav_theme">تم و ظاهر</span><span class="nav-new-badge" data-i18n="nav_theme_new">جدید</span>
     </button>
     <button class="nav-item" data-page="settings" data-perm="settings">
       <svg class="nav-ico nav-ico-settings" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 7h14M5 12h14M5 17h14"/><circle cx="9" cy="7" r="2.2" fill="var(--bg2)"/><circle cx="15" cy="12" r="2.2" fill="var(--bg2)"/><circle cx="11" cy="17" r="2.2" fill="var(--bg2)"/></svg>
@@ -9721,7 +10123,7 @@ html.light .onex-topbar-brand{background:#fff;border-color:rgba(var(--accent-rgb
 <div class="onex-topbar">
   <div class="onex-topbar-brand" aria-label="ONEX Panel">
     <div class="onex-topbar-mark"><svg class="onex-x-svg onex-x-shadow" viewBox="0 0 100 100" role="img" aria-label="ONEX logo"><defs><linearGradient id="txa" x1="8" y1="8" x2="90" y2="92" gradientUnits="userSpaceOnUse"><stop stop-color="#2ec9ff"/><stop offset=".48" stop-color="#2376ff"/><stop offset="1" stop-color="#7b42ff"/></linearGradient><linearGradient id="txb" x1="88" y1="10" x2="22" y2="93" gradientUnits="userSpaceOnUse"><stop stop-color="#6b50ff"/><stop offset=".62" stop-color="#843fff"/><stop offset="1" stop-color="#a855f7"/></linearGradient></defs><path d="M10 12h20l27 29-14 14L10 20z" fill="url(#txa)"/><path d="M10 88h20l28-30-14-14L10 80z" fill="url(#txa)"/><path d="M90 12H70L43 41l14 14 33-35z" fill="url(#txb)"/><path d="M90 88H70L42 58l14-14 34 36z" fill="url(#txb)"/><path d="M42 42 58 58 50 67 34 50z" fill="#0f5ce7" opacity=".78"/><path d="M58 42 42 58 50 67 66 50z" fill="#7137f0" opacity=".78"/></svg></div>
-    <div class="onex-topbar-copy"><div class="onex-brand-word">ONE<span class="x">X</span></div></div>
+    <div class="onex-topbar-copy"><div class="onex-brand-word">ONE<span class="x">X</span><span class="brand-vpn">PANEL</span></div></div>
   </div>
   <div class="top-server"><span class="top-dot"></span><b>سرور آنلاین</b><span class="top-sep"></span><small id="topHost">—</small><span class="top-sep"></span><small id="topUptime">Uptime: —</small></div>
   <div class="top-actions">
@@ -9836,13 +10238,142 @@ html.light .onex-topbar-brand{background:#fff;border-color:rgba(var(--accent-rgb
   <div class="onex-footer"><span><b>Fast · Secure · Stable</b></span><span>ساخته‌شده توسط <b>Mehtif</b> · کانال رسمی <b>@V2rayTun0</b></span></div>
 </section>
 <section class="page" id="page-configs">
-  <div class="cfg-page-hero"><div><div class="page-title"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71 1.71"/></svg><span data-i18n="nav_configs">کانفیگ‌ها</span></div><div class="page-sub" data-i18n="configs_sub">مدیریت و مشاهده لیست کانفیگ‌های سرویس</div></div><div class="cfg-hero-actions"><button class="btn btn-sm" onclick="refreshAll()" title="بروزرسانی">↻</button><button class="cfg-primary-btn" onclick="goPage('create')">＋ ساخت کانفیگ</button></div></div>
-  <div class="cfg-stat-grid"><div class="cfg-stat-card cyan"><span class="cfg-stat-icon">▱</span><div><small>کل کانفیگ‌ها</small><b id="cfgStatTotal">0</b></div></div><div class="cfg-stat-card purple"><span class="cfg-stat-icon">◉</span><div><small>مصرف شده</small><b id="cfgStatUsed">0 B</b></div></div><div class="cfg-stat-card blue"><span class="cfg-stat-icon">♧</span><div><small>فعال</small><b id="cfgStatActive">0</b></div></div><div class="cfg-stat-card pink"><span class="cfg-stat-icon">⌫</span><div><small>منقضی شده</small><b id="cfgStatExpired">0</b></div></div></div>
-  <div class="cfg-tools"><div class="cfg-search-box"><span>⌕</span><input id="cfgSearch" placeholder="جستجوی نام، UUID یا لینک..." oninput="filterConfigs()"></div><button class="cfg-filter-btn" onclick="toggleConfigFilters()">☷</button></div>
-  <div class="cfg-filter-row" id="cfgFilterRow"><button class="cfg-select on" data-status="all" onclick="setCfgStatus('all',this)">وضعیت <b>همه</b>⌄</button><button class="cfg-select on" data-sort="newest" onclick="setCfgSort('newest',this)">مرتب‌سازی <b>جدیدترین</b>⌄</button><button class="cfg-select" data-status="active" onclick="setCfgStatus('active',this)">● فعال</button><button class="cfg-select" data-status="expired" onclick="setCfgStatus('expired',this)">● منقضی</button></div>
-  <div class="cfg-list-shell"><div class="cfg-list-head"><div><b>کانفیگ‌های سرویس</b><small id="cfgVisibleCount">0 مورد</small></div><label class="cfg-check-all"><input type="checkbox" id="chkAll" onchange="toggleSelectAll(this.checked);updateBulkBar()"><span>انتخاب همه</span></label></div><div id="cfgCards" class="cfg-cards"><div class="cfg-empty">در حال بارگذاری...</div></div></div>
-  <button type="button" class="delete-all-configs-glass" onclick="openDeleteAllConfigs()"><span class="delete-all-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6M10 11v5M14 11v5"/></svg></span><span class="delete-all-copy"><b>حذف همه کانفیگ‌ها</b><small>تمام کانفیگ‌های ساخته‌شده را پاک می‌کند</small></span><span class="delete-all-arrow">‹</span></button>
-  <table id="linksTable" style="display:none"><tbody></tbody></table>
+<div class="ocx-root">
+  <header class="ocx-top">
+    <div><h1>کانفیگ‌های من</h1><p>مدیریت کانفیگ‌ها، دقیق و سریع</p></div>
+    <button type="button" class="ocx-delall" onclick="openDeleteAllConfigs()" title="حذف همه کانفیگ‌ها" aria-label="حذف همه کانفیگ‌ها"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6M10 11v5M14 11v5"/></svg></button>
+  </header>
+  <section class="ocx-summary">
+    <div class="ocx-metric"><strong id="cfgStatTotal">0</strong><small>کل</small></div>
+    <div class="ocx-metric ok"><strong id="cfgStatActive">0</strong><small>فعال</small></div>
+    <div class="ocx-metric bad"><strong id="cfgStatExpired">0</strong><small>منقضی</small></div>
+    <div class="ocx-metric"><strong id="cfgStatUsed">0 B</strong><small>مصرف کل</small></div>
+  </section>
+  <label class="ocx-search"><input id="cfgSearch" dir="rtl" placeholder="جستجوی نام، پروتکل یا UUID" oninput="filterConfigs()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg></label>
+  <nav class="ocx-filters" id="cfgFilterRow">
+    <button type="button" class="ocx-filter on" data-status="all" onclick="setCfgStatus('all',this)">همه</button>
+    <button type="button" class="ocx-filter" data-status="active" onclick="setCfgStatus('active',this)">فعال</button>
+    <button type="button" class="ocx-filter" data-status="off" onclick="setCfgStatus('off',this)">خاموش</button>
+    <button type="button" class="ocx-filter" data-status="expired" onclick="setCfgStatus('expired',this)">منقضی</button>
+    <button type="button" class="ocx-filter" data-status="hi" onclick="setCfgStatus('hi',this)">پرمصرف</button>
+  </nav>
+  <div class="ocx-bar">
+    <button type="button" class="ocx-new" onclick="goPage('create')">+ کانفیگ جدید</button>
+    <label class="ocx-all"><input type="checkbox" id="chkAll" onchange="toggleSelectAll(this.checked);updateBulkBar()"><span>انتخاب همه</span><small id="cfgVisibleCount">0 مورد</small></label>
+  </div>
+  <div id="cfgCards" class="ocx-cards"><div class="ocx-empty">در حال بارگذاری...</div></div>
+</div>
+<table id="linksTable" style="display:none"><tbody></tbody></table>
+<style>
+#page-configs .ocx-root{
+--o-a:var(--accent,#3b82f6);--o-a2:var(--accent2,#60a5fa);--o-p:var(--purple,#8b5cf6);
+--o-text:var(--t1,#f1f4fb);--o-muted:var(--t3,#949daf);--o-sub:var(--t2,#a4acbb);
+--o-green:#4fd89a;--o-yellow:#ffbf42;--o-red:#ee7084;--o-mono:'JetBrains Mono',ui-monospace,monospace;
+--o-glass:color-mix(in srgb,var(--o-a) 7%,rgb(16 18 26 / .55));
+--o-glass-2:color-mix(in srgb,var(--o-a) 12%,rgb(22 25 36 / .6));
+--o-line:color-mix(in srgb,var(--o-a2) 24%,rgb(255 255 255 / .06));
+--o-line-2:color-mix(in srgb,var(--o-a2) 45%,rgb(255 255 255 / .08));
+--o-track:color-mix(in srgb,var(--o-a) 14%,rgb(255 255 255 / .07));
+--o-shine:inset 0 1px 0 rgb(255 255 255 / .08);
+--o-blur:blur(18px) saturate(140%);
+color:var(--o-text);font-family:Vazirmatn,system-ui,sans-serif;max-width:760px;margin:0 auto;padding:4px 2px 24px;text-align:left;direction:ltr;background:none}
+html.light #page-configs .ocx-root{
+--o-text:#161a24;--o-muted:#6b7385;--o-sub:#4d5566;
+--o-glass:color-mix(in srgb,var(--o-a) 6%,rgb(255 255 255 / .72));
+--o-glass-2:color-mix(in srgb,var(--o-a) 10%,rgb(255 255 255 / .82));
+--o-line:color-mix(in srgb,var(--o-a) 18%,rgb(20 24 40 / .06));
+--o-line-2:color-mix(in srgb,var(--o-a) 40%,rgb(20 24 40 / .08));
+--o-track:color-mix(in srgb,var(--o-a) 14%,rgb(20 24 40 / .08));
+--o-shine:inset 0 1px 0 rgb(255 255 255 / .9);
+--o-green:#16a36a;--o-yellow:#c98a0c;--o-red:#dc4a64}
+#page-configs .ocx-root *{box-sizing:border-box}
+#page-configs .ocx-root button{font-family:inherit;cursor:pointer}
+#page-configs .ocx-glass,#page-configs .ocx-top,#page-configs .ocx-summary,#page-configs .ocx-search,#page-configs .ocx-card,#page-configs .ocx-bar{backdrop-filter:var(--o-blur);-webkit-backdrop-filter:var(--o-blur)}
+#page-configs .ocx-top{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:12px;padding:14px 16px;border:1px solid var(--o-line);border-radius:20px;background:var(--o-glass);box-shadow:var(--o-shine),0 14px 34px rgb(0 0 0 / .14)}
+#page-configs .ocx-top>div{direction:rtl;text-align:left}
+#page-configs .ocx-top h1{margin:0;font-size:21px;font-weight:900;color:var(--o-text)}
+#page-configs .ocx-top p{margin:3px 0 0;color:var(--o-muted);font-size:12px}
+#page-configs .ocx-delall{width:42px;height:42px;flex:none;display:grid;place-items:center;border:1px solid color-mix(in srgb,var(--o-red) 45%,transparent);border-radius:13px;background:color-mix(in srgb,var(--o-red) 12%,transparent);color:var(--o-red);padding:0;transition:background .2s}
+#page-configs .ocx-delall svg{width:20px;height:20px}
+#page-configs .ocx-delall:hover{background:color-mix(in srgb,var(--o-red) 22%,transparent)}
+#page-configs .ocx-summary{display:flex;gap:26px;align-items:flex-end;margin-bottom:12px;padding:14px 18px;border:1px solid var(--o-line);border-radius:20px;background:var(--o-glass);box-shadow:var(--o-shine)}
+#page-configs .ocx-metric strong{display:block;font:700 24px/1.2 var(--o-mono);color:var(--o-text);white-space:nowrap}
+#page-configs .ocx-metric.ok strong{color:var(--o-green)}
+#page-configs .ocx-metric.bad strong{color:var(--o-red)}
+#page-configs .ocx-metric small{display:block;margin-top:3px;color:var(--o-muted);font-size:12px}
+#page-configs .ocx-search{display:flex;align-items:center;gap:12px;height:52px;padding:0 16px;margin-bottom:12px;border:1px solid var(--o-line);border-radius:16px;background:var(--o-glass);box-shadow:var(--o-shine);color:var(--o-muted);transition:border-color .2s}
+#page-configs .ocx-search:focus-within{border-color:var(--o-a)}
+#page-configs .ocx-search svg{width:21px;height:21px;flex:none;color:var(--o-a2)}
+#page-configs .ocx-search input{text-align:right;flex:1;min-width:0;height:100%;border:0;outline:0;background:none;color:var(--o-text);font:500 14px Vazirmatn,sans-serif;box-shadow:none;padding:0}
+#page-configs .ocx-search input::placeholder{color:var(--o-muted)}
+#page-configs .ocx-root .ocx-search input{background:transparent!important;border:0!important;box-shadow:none!important}
+#page-configs .ocx-filters{display:flex;gap:9px;overflow-x:auto;margin-bottom:14px;padding-bottom:2px;scrollbar-width:none}
+#page-configs .ocx-filter{height:42px;padding:0 18px;border-radius:99px;border:1px solid var(--o-line);background:var(--o-glass);backdrop-filter:var(--o-blur);-webkit-backdrop-filter:var(--o-blur);color:var(--o-sub);font-weight:700;font-size:13px;white-space:nowrap;transition:background .2s,border-color .2s,color .2s}
+#page-configs .ocx-filter:hover{border-color:var(--o-line-2)}
+#page-configs .ocx-filter.on{background:linear-gradient(135deg,var(--o-a),var(--o-p));border-color:transparent;color:#fff;box-shadow:0 8px 20px color-mix(in srgb,var(--o-a) 30%,transparent)}
+#page-configs .ocx-bar{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:16px;padding:8px 8px 8px 14px;border:1px solid var(--o-line);border-radius:18px;background:var(--o-glass);box-shadow:var(--o-shine)}
+#page-configs .ocx-new{height:46px;padding:0 22px;border:0;border-radius:13px;background:linear-gradient(135deg,var(--o-a),var(--o-p));color:#fff;font-weight:900;font-size:14px;box-shadow:0 10px 24px color-mix(in srgb,var(--o-a) 32%,transparent);transition:transform .15s,filter .2s}
+#page-configs .ocx-new:hover{filter:brightness(1.08);transform:translateY(-1px)}
+#page-configs .ocx-all{direction:rtl;display:flex;align-items:center;gap:7px;color:var(--o-muted);font-size:12px;cursor:pointer}
+#page-configs .ocx-all input{width:18px;height:18px;accent-color:var(--o-a);margin:0}
+#page-configs .ocx-all small{font-family:var(--o-mono);color:var(--o-muted)}
+#page-configs .ocx-cards{display:grid;gap:14px}
+#page-configs .ocx-card{position:relative;background:var(--o-glass);border:1px solid var(--o-line);border-radius:22px;padding:19px 19px 12px;box-shadow:var(--o-shine),0 16px 38px rgb(0 0 0 / .16);transition:border-color .2s,transform .25s cubic-bezier(.16,1,.3,1)}
+#page-configs .ocx-card:hover{border-color:var(--o-line-2);transform:translateY(-2px)}
+#page-configs .ocx-card.dead{opacity:.78}
+#page-configs .ocx-head{display:flex;align-items:flex-start;gap:16px}
+#page-configs .ocx-ring{--pct:0;--ring:var(--o-a);width:108px;height:108px;flex:none;border-radius:50%;display:grid;place-items:center;position:relative}
+#page-configs .ocx-ring:before{content:"";position:absolute;inset:0;border-radius:50%;background:conic-gradient(var(--ring) calc(var(--pct)*1%),var(--o-track) 0);-webkit-mask:radial-gradient(farthest-side,transparent calc(100% - 10px),#000 calc(100% - 9px));mask:radial-gradient(farthest-side,transparent calc(100% - 10px),#000 calc(100% - 9px))}
+#page-configs .ocx-ring-c{position:relative;z-index:1;text-align:center;line-height:1.15}
+#page-configs .ocx-ring-c b{display:block;font:700 24px var(--o-mono);color:var(--o-text)}
+#page-configs .ocx-ring-c small{display:block;margin-top:3px;font-size:11px;color:var(--o-muted);font-family:var(--o-mono)}
+#page-configs .ocx-info{flex:1;min-width:0;padding-top:3px;text-align:left}
+#page-configs .ocx-name{font-size:21px;font-weight:900;color:var(--o-text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;direction:auto}
+#page-configs .ocx-proto{display:inline-block;margin-top:7px;padding:5px 10px;border-radius:8px;background:color-mix(in srgb,var(--o-a) 16%,transparent);border:1px solid color-mix(in srgb,var(--o-a2) 22%,transparent);color:var(--o-a2);font:700 12px var(--o-mono);direction:ltr;letter-spacing:.03em}
+#page-configs .ocx-meta{display:flex;flex-wrap:wrap;gap:14px;margin-top:12px;color:var(--o-sub);font-size:12.5px}
+#page-configs .ocx-meta span{direction:rtl;display:inline-flex;align-items:center;gap:5px;white-space:nowrap}
+#page-configs .ocx-meta svg{width:15px;height:15px}
+#page-configs .ocx-meta .st-on{color:var(--o-green);font-weight:800}
+#page-configs .ocx-meta .st-off{color:var(--o-muted);font-weight:800}
+#page-configs .ocx-meta .st-dead{color:var(--o-red);font-weight:800}
+#page-configs .ocx-meta .warn{color:var(--o-yellow)}
+#page-configs .ocx-meta .gone{color:var(--o-red)}
+#page-configs .ocx-toggle{width:50px;height:28px;flex:none;border:1px solid var(--o-line);border-radius:99px;background:var(--o-track);position:relative;padding:0;transition:background .2s,border-color .2s}
+#page-configs .ocx-toggle:after{content:"";position:absolute;top:3px;left:3px;width:20px;height:20px;border-radius:50%;background:var(--o-muted);transition:transform .25s cubic-bezier(.16,1,.3,1),background .2s}
+#page-configs .ocx-toggle.on{background:color-mix(in srgb,var(--o-a) 35%,transparent);border-color:color-mix(in srgb,var(--o-a) 60%,transparent)}
+#page-configs .ocx-toggle.on:after{background:var(--o-a);transform:translateX(22px);box-shadow:0 0 10px color-mix(in srgb,var(--o-a) 70%,transparent)}
+#page-configs .ocx-rule{border-top:1px dashed var(--o-line);margin:18px 0 12px}
+#page-configs .ocx-actions{display:flex;align-items:center;gap:10px}
+#page-configs .ocx-dots{width:30px;height:44px;flex:none;border:0;background:transparent;color:var(--o-muted);font-size:24px;padding:0;line-height:1}
+#page-configs .ocx-dots:hover{color:var(--o-a2)}
+#page-configs .ocx-act{flex:1;min-width:0;height:46px;display:inline-flex;align-items:center;justify-content:center;gap:7px;border:1px solid var(--o-line);border-radius:14px;background:var(--o-glass-2);color:var(--o-text);font-weight:800;font-size:14px;padding:0 8px;box-shadow:var(--o-shine);transition:border-color .2s,background .2s}
+#page-configs .ocx-act svg{width:18px;height:18px;flex:none;color:var(--o-a2)}
+#page-configs .ocx-act:hover{border-color:var(--o-line-2);background:color-mix(in srgb,var(--o-a) 18%,transparent)}
+#page-configs .ocx-chk{flex:none;display:grid;place-items:center;width:34px;height:44px;cursor:pointer}
+#page-configs .ocx-chk input{width:22px;height:22px;margin:0;accent-color:var(--o-a)}
+#page-configs .ocx-menu{direction:rtl;position:absolute;right:14px;bottom:64px;width:210px;display:none;flex-direction:column;padding:7px;background:color-mix(in srgb,var(--o-a) 10%,rgb(18 20 30 / .92));border:1px solid var(--o-line-2);border-radius:15px;box-shadow:0 18px 44px rgb(0 0 0 / .45);backdrop-filter:blur(22px) saturate(150%);-webkit-backdrop-filter:blur(22px) saturate(150%);z-index:20}
+html.light #page-configs .ocx-menu{background:color-mix(in srgb,var(--o-a) 6%,rgb(255 255 255 / .95));box-shadow:0 18px 44px rgb(20 24 40 / .16)}
+#page-configs .ocx-menu.open{display:flex}
+#page-configs .ocx-menu button{height:40px;border:0;border-radius:10px;background:transparent;color:var(--o-text);text-align:right;padding:0 12px;font-size:13px;font-weight:700}
+#page-configs .ocx-menu button:hover{background:color-mix(in srgb,var(--o-a) 16%,transparent)}
+#page-configs .ocx-menu .danger{color:var(--o-red)}
+#page-configs .ocx-empty{direction:rtl;text-align:center;padding:46px 16px;border:1px dashed var(--o-line);border-radius:20px;background:var(--o-glass);color:var(--o-muted);font-size:13px}
+#page-configs .ocx-root :focus-visible{outline:2px solid var(--o-a2);outline-offset:2px}
+@media(max-width:560px){
+#page-configs .ocx-summary{gap:18px;padding:12px 14px}
+#page-configs .ocx-metric strong{font-size:21px}
+#page-configs .ocx-card{padding:17px 14px 11px}
+#page-configs .ocx-head{gap:13px}
+#page-configs .ocx-ring{width:96px;height:96px}
+#page-configs .ocx-ring-c b{font-size:21px}
+#page-configs .ocx-name{font-size:18px}
+#page-configs .ocx-meta{gap:10px;font-size:11.5px}
+#page-configs .ocx-actions{gap:7px}
+#page-configs .ocx-act{height:44px;font-size:13px;gap:5px}
+#page-configs .ocx-dots{width:22px}
+#page-configs .ocx-chk{width:26px}
+}
+</style>
 </section>
 
 <style>
@@ -9873,15 +10404,14 @@ html.light .onex-topbar-brand{background:#fff;border-color:rgba(var(--accent-rgb
     </div>
 
     <div class="cfgx-card">
-      <div class="cfgx-head"><span class="cfgx-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2 3 7l9 5 9-5-9-5Z"/><path d="m3 12 9 5 9-5"/><path d="m3 17 9 5 9-5"/></svg></span><div><b>🚀 انتخاب پروتکل</b><small>پروتکل اصلی کانفیگ - ۸ پروتکل ONEX VIP</small></div><span class="cfgx-badge" id="cfgxProtoBadge">—</span></div>
+      <div class="cfgx-head"><span class="cfgx-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2 3 7l9 5 9-5-9-5Z"/><path d="m3 12 9 5 9-5"/><path d="m3 17 9 5 9-5"/></svg></span><div><b>🚀 انتخاب پروتکل</b><small>پروتکل اصلی کانفیگ - ۶ پروتکل ONEX VIP</small></div><span class="cfgx-badge" id="cfgxProtoBadge">—</span></div>
       <div class="cfgx-proto-grid" id="cfgxProtoGrid"><div class="cfgx-empty">در حال بارگذاری پروتکل‌ها...</div></div>
     </div>
 
     <div class="cfgx-card">
-      <div class="cfgx-head"><span class="cfgx-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="2"/><rect x="14" y="3" width="7" height="7" rx="2"/><rect x="3" y="14" width="7" height="7" rx="2"/><path d="M17.5 14v7M14 17.5h7"/></svg></span><div><b>🔀 ترکیب پروتکل‌ها</b><small>انتخاب ۸ پروتکل ONEX VIP برای یک ساب (اختیاری)</small></div><span class="cfgx-badge" id="cfgxBundleBadge">0</span></div>
+      <div class="cfgx-head"><span class="cfgx-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="2"/><rect x="14" y="3" width="7" height="7" rx="2"/><rect x="3" y="14" width="7" height="7" rx="2"/><path d="M17.5 14v7M14 17.5h7"/></svg></span><div><b>🔀 ترکیب پروتکل‌ها</b><small>هر تعداد پروتکل که انتخاب کنی، همه داخل یک ساب ساخته می‌شوند · ۶ پروتکل ONEX VIP</small></div><span class="cfgx-badge" id="cfgxBundleBadge">0</span></div>
       <div id="protocolBundleOptions" class="cfgx-bundle"></div>
       <small class="cfgx-note">پروتکل اصلی خودکار داخل ترکیب قرار می‌گیرد.</small>
-      <label class="all-proto-toggle cfgx-switch" title="یک اکانت با همه پروتکل‌ها و یک ساب"><span><b>همه پروتکل‌ها در یک ساب</b><small>یک اکانت · ۸ پروتکل ONEX VIP · یک لینک اشتراک</small></span><input id="cAllProtocols" type="checkbox"><i aria-hidden="true"></i></label>
     </div>
 
     <div class="cfgx-card">
@@ -12353,67 +12883,6 @@ html.light #page-dash .metric strong{-webkit-text-fill-color:color-mix(in srgb, 
 @media (max-width:800px){#page-dash .home-legend span{display:none}}
 @media (prefers-reduced-motion:reduce){html.onex-glass *,html.onex-glass *::before,html.onex-glass *::after{animation-duration:.01ms!important;transition-duration:.01ms!important}}
 
-
-/* ============================================================
-   ONEX RESPONSIVE + COLOR REPAIR PASS (layout only, JS untouched)
-   ============================================================ */
-.page,.page>*,.card,.panel,.onex-card,.cfg-list-shell,.group-workspace,.group-list-pane,.group-detail-pane,
-.cfg-card,.cfg-main,.cfg-side,.cfg-usage-copy,.page-head,.onex-topbar,.onex-control-dock,.dashboard-hero{min-width:0}
-.page img,.page svg,.page canvas{max-width:100%}
-.page button,.page input,.page select,.page textarea{max-width:100%}
-.page h1,.page h2,.page h3,.page h4,.page p{overflow-wrap:anywhere}
-
-@media (min-width:901px){
-  .main{padding-inline:clamp(18px,2.2vw,36px)}
-  .page{width:100%;max-width:1680px;margin-inline:auto}
-  .group-workspace{grid-template-columns:minmax(0,1.35fr) minmax(320px,.75fr)}
-  .cfg-card{grid-template-columns:56px minmax(0,1fr) minmax(155px,190px) 34px}
-  .cfg-usage-track{width:min(110px,100%)}
-}
-@media (min-width:901px) and (max-width:1180px){
-  .metrics,.cfg-stat-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
-  .cfg-card{grid-template-columns:50px minmax(0,1fr) minmax(130px,160px) 32px;gap:9px}
-  .cfg-proto-icon{width:50px;height:50px}
-  .cfg-side{padding-right:8px}
-  .cfg-usage-track{width:76px}
-  .group-workspace{grid-template-columns:minmax(0,1fr)}
-}
-.cfg-page-hero,.cfg-tools,.cfg-list-head,.group-hero,.cfg-name-row,.cfg-side-top,.cfg-meta,.cfg-usage{min-width:0}
-.cfg-page-hero>*,.cfg-list-head>*,.group-hero>*{min-width:0}
-.cfg-usage-copy b{display:block;overflow:hidden;text-overflow:ellipsis}
-
-/* Light mode on colored themes: drop the milky white gradient + white inset glare */
-html.light .page .cfg-page-hero,html.light .page .cfg-stat-card,html.light .page .cfg-search-box,
-html.light .page .cfg-filter-btn,html.light .page .cfg-list-shell,html.light .page .cfg-card,
-html.light .page .card,html.light .page .metric,html.light .page .onex-card,html.light .page .onex-metric,
-html.light .page .quick-item,html.light .page .support-tile,html.light .page .table-wrap{
-  background-image:none!important;
-  background-color:color-mix(in srgb,#fff 94%,var(--accent))!important;
-  border-color:color-mix(in srgb,var(--accent) 16%,rgb(23 23 23 / .10))!important;
-  box-shadow:0 8px 24px color-mix(in srgb,var(--accent) 7%,rgb(23 23 23 / .08))!important;
-}
-html.light body::before{opacity:.55}
-
-@media (max-width:760px){
-  .cfg-tools{flex-wrap:wrap}
-  .cfg-search-box{flex:1 1 220px}
-  .group-workspace{grid-template-columns:minmax(0,1fr)}
-  .group-detail-pane{min-height:0}
-  .group-link-line{grid-template-columns:minmax(0,1fr) 52px}
-  .cfg-card .cfg-side{min-width:0}
-}
-@media (max-width:560px){
-  .main,.main.expanded{overflow-x:hidden}
-  .page-title{font-size:clamp(18px,5vw,21px)}
-  .cfg-stat-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
-  .group-manage-actions{grid-template-columns:1fr}
-  #page-logs .logs-advanced-row.open{grid-template-columns:1fr}
-}
-@media (max-width:380px){
-  .main,.main.expanded{padding-inline:8px!important}
-  .group-info-grid,.group-link-line{grid-template-columns:1fr}
-}
-
 </style>
 <section class="page" id="page-news">
   <div class="page-head">
@@ -12543,7 +13012,7 @@ html.light body::before{opacity:.55}
 <div class="modal-bg" id="resultModal">
   <div class="modal">
     <div class="modal-title" data-i18n="created_title">کانفیگ ساخته شد</div>
-    <div class="field"><label>VLESS</label><div class="link-box" id="resVless">—</div>
+    <div class="field"><label id="resVlessLabel">VLESS</label><div class="link-box" id="resVless">—</div>
       <button class="btn btn-p btn-sm" style="width:100%" onclick="copyText(document.getElementById('resVless').textContent)">
         <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
         <span data-i18n="copy_vless">کپی VLESS</span>
@@ -12601,8 +13070,8 @@ html.light body::before{opacity:.55}
 <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js"></script>
 <script>
 const I18N={
-fa:{sec_panel:'پنل',sec_sys:'سیستم',nav_dash:'داشبورد',nav_configs:'کانفیگ‌ها',nav_groups:'گروه‌ها',nav_create:'ساخت کانفیگ',nav_stats:'آمار',nav_logs:'لاگ فعالیت',nav_settings:'تنظیمات',nav_support:'پشتیبانی',nav_donate:'حمایت مالی',nav_news:'تلگرام',nav_admins:'ادمین‌ها',refresh_news:'بروزرسانی اطلاعیه',admins_sub:'مدیریت کاربران مدیریتی و سطح دسترسی آن‌ها',admin_create:'ساخت اکانت ادمین',admin_user:'نام کاربری',admin_pw:'رمز عبور',admin_pw2:'تکرار رمز',admin_perms:'دسترسی‌ها',admin_btn:'ساخت اکانت',admin_list:'لیست ادمین‌ها',refresh:'بروزرسانی',refresh_stats:'بروزرسانی آمار',refresh_panel:'بروزرسانی پنل',panel_version:'نسخه پنل',current_version:'ورژن فعلی',nav_telegram:'ربات ONEX',tg_sub:'توکن ربات و آیدی عددی ادمین · فعال‌سازی خودکار و وب‌هوک',tg_config:'پیکربندی ربات',tg_token:'توکن ربات (BotFather)',tg_admin:'آیدی عددی ادمین',tg_webhook:'فعال‌سازی Webhook (پیشنهادی روی Railway)',tg_activate:'ذخیره و فعال‌سازی ربات',tg_help:'راهنما',tg_h1:'از @BotFather یک ربات بساز و توکن را کپی کن',tg_h2:'آیدی عددی خودت را از @userinfobot بگیر',tg_h3:'ذخیره کن — وب‌هوک خودکار روی دامنه Railway ست می‌شود',logout:'خروج',loading:'در حال بارگذاری...',m_conns:'اتصالات فعال',m_traffic:'ترافیک کل',m_links:'کانفیگ‌ها',m_uptime:'آپتایم سرور',quick_create:'ساخت کانفیگ',quick_create_desc:'ساخت دستی با محدودیت ترافیک، سرعت و انقضا',configs_sub:'مدیریت لینک‌ها · VLESS و ساب',th_name:'نام',th_proto:'پروتکل',th_status:'وضعیت',th_usage:'مصرف',th_ops:'عملیات',manual_create:'ساخت دستی',label_name:'نام',label_proto:'پروتکل',label_limit:'محدودیت حجم',label_unit:'واحد',label_days:'انقضا (روز)',label_ip:'محدودیت IP',label_speed:'سرعت (Mbps)',btn_create:'ساخت',stats_sub:'ترافیک و اتصالات · فیلتر زمانی',r_day:'روز',r_week:'هفته',r_month:'ماه',r_all:'کل',panel_info:'اطلاعات کل پنل',lang_label:'زبان',change_pw:'تغییر رمز عبور',pw_cur:'رمز فعلی',pw_new:'رمز جدید',pw_cf:'تکرار رمز',btn_save:'ذخیره',github:'گیت‌هاب',telegram:'تلگرام',channel:'کانال پشتیبان',theme:'تم',theme_dark:'تم تیره',theme_light:'تم روشن',created_title:'کانفیگ ساخته شد',copy_vless:'کپی VLESS',copy_sub:'کپی ساب',sub_label:'سابسکریپشن',theme_page_title:'تم پنل ONEX',theme_page_sub:'رنگ‌بندی پنل را انتخاب کنید؛ تغییرات به‌صورت زنده اعمال و در مرورگر ذخیره می‌شوند.',theme_live_preview:'پیش‌نمایش زنده',theme_current:'تم فعلی',theme_presets:'تم‌های آماده',theme_reset:'بازنشانی',theme_custom:'رنگ‌بندی سفارشی',theme_primary:'رنگ اصلی',theme_secondary:'رنگ ثانویه',theme_background:'پس‌زمینه',theme_card:'کارت‌ها',theme_apply:'اعمال رنگ سفارشی',theme_mode:'حالت نمایش',theme_mode_sub:'تاریک، روشن یا هماهنگ با سیستم',theme_dark_mode:'تاریک',theme_light_mode:'روشن',theme_system_mode:'خودکار',theme_saved_note:'انتخاب شما روی همین مرورگر ذخیره می‌شود و بعد از Refresh باقی می‌ماند.',created_title:'کانفیگ ساخته شد'},
-en:{sec_panel:'PANEL',sec_sys:'SYSTEM',nav_dash:'Dashboard',nav_configs:'Configs',nav_groups:'Groups',nav_create:'Create Config',nav_stats:'Statistics',nav_logs:'Activity Log',nav_settings:'Settings',nav_theme:'Theme',nav_theme_new:'New',nav_support:'Support',nav_donate:'Donate',nav_news:'Telegram',nav_admins:'Admins',refresh_news:'Refresh news',admins_sub:'Manage admin users and their access levels',admin_create:'Create admin account',admin_user:'Username',admin_pw:'Password',admin_pw2:'Confirm password',admin_perms:'Permissions',admin_btn:'Create account',admin_list:'Admin list',refresh:'Refresh',refresh_stats:'Refresh stats',refresh_panel:'Update panel',panel_version:'Panel version',current_version:'Current version',nav_telegram:'ONEX Bot',tg_sub:'Bot token and numeric admin ID · auto activate and webhook',tg_config:'Bot configuration',tg_token:'Bot token (BotFather)',tg_admin:'Admin numeric ID',tg_webhook:'Enable Webhook (recommended on Railway)',tg_activate:'Save and activate bot',tg_help:'Guide',tg_h1:'Create a bot with @BotFather and copy the token',tg_h2:'Get your numeric ID from @userinfobot',tg_h3:'Save — webhook is set automatically on Railway domain',logout:'Logout',loading:'Loading...',m_conns:'Active connections',m_traffic:'Total traffic',m_links:'Configs',m_uptime:'Server uptime',quick_create:'Create Config',quick_create_desc:'Manual create with traffic, speed and expiry',configs_sub:'Manage links · VLESS and Sub',th_name:'Name',th_proto:'Protocol',th_status:'Status',th_usage:'Usage',th_ops:'Actions',manual_create:'Manual create',label_name:'Name',label_proto:'Protocol',label_limit:'Traffic limit',label_unit:'Unit',label_days:'Expiry (days)',label_ip:'IP limit',label_speed:'Speed (Mbps)',btn_create:'Create',stats_sub:'Traffic and connections · time filter',r_day:'Day',r_week:'Week',r_month:'Month',r_all:'All',panel_info:'Panel overview',lang_label:'Language',change_pw:'Change password',pw_cur:'Current password',pw_new:'New password',pw_cf:'Confirm password',btn_save:'Save',github:'GitHub',telegram:'Telegram',channel:'Support channel',theme:'Theme',theme_dark:'Dark theme',theme_light:'Light theme',created_title:'Config created',copy_vless:'Copy VLESS',copy_sub:'Copy Sub',sub_label:'Subscription'}
+fa:{sec_panel:'پنل',sec_sys:'سیستم',sec_appearance:'شخصی‌سازی',nav_dash:'داشبورد',nav_configs:'کانفیگ‌ها',nav_groups:'گروه‌ها',nav_create:'ساخت کانفیگ',nav_stats:'آمار',nav_logs:'لاگ فعالیت',nav_settings:'تنظیمات',nav_support:'پشتیبانی',nav_donate:'حمایت مالی',nav_news:'تلگرام',nav_admins:'ادمین‌ها',refresh_news:'بروزرسانی اطلاعیه',admins_sub:'مدیریت کاربران مدیریتی و سطح دسترسی آن‌ها',admin_create:'ساخت اکانت ادمین',admin_user:'نام کاربری',admin_pw:'رمز عبور',admin_pw2:'تکرار رمز',admin_perms:'دسترسی‌ها',admin_btn:'ساخت اکانت',admin_list:'لیست ادمین‌ها',refresh:'بروزرسانی',refresh_stats:'بروزرسانی آمار',refresh_panel:'بروزرسانی پنل',panel_version:'نسخه پنل',current_version:'ورژن فعلی',nav_telegram:'ربات ONEX',tg_sub:'توکن ربات و آیدی عددی ادمین · فعال‌سازی خودکار و وب‌هوک',tg_config:'پیکربندی ربات',tg_token:'توکن ربات (BotFather)',tg_admin:'آیدی عددی ادمین',tg_webhook:'فعال‌سازی Webhook (پیشنهادی روی Railway)',tg_activate:'ذخیره و فعال‌سازی ربات',tg_help:'راهنما',tg_h1:'از @BotFather یک ربات بساز و توکن را کپی کن',tg_h2:'آیدی عددی خودت را از @userinfobot بگیر',tg_h3:'ذخیره کن — وب‌هوک خودکار روی دامنه Railway ست می‌شود',logout:'خروج',loading:'در حال بارگذاری...',m_conns:'اتصالات فعال',m_traffic:'ترافیک کل',m_links:'کانفیگ‌ها',m_uptime:'آپتایم سرور',quick_create:'ساخت کانفیگ',quick_create_desc:'ساخت دستی با محدودیت ترافیک، سرعت و انقضا',configs_sub:'مدیریت لینک‌ها · VLESS و ساب',th_name:'نام',th_proto:'پروتکل',th_status:'وضعیت',th_usage:'مصرف',th_ops:'عملیات',manual_create:'ساخت دستی',label_name:'نام',label_proto:'پروتکل',label_limit:'محدودیت حجم',label_unit:'واحد',label_days:'انقضا (روز)',label_ip:'محدودیت IP',label_speed:'سرعت (Mbps)',btn_create:'ساخت',stats_sub:'ترافیک و اتصالات · فیلتر زمانی',r_day:'روز',r_week:'هفته',r_month:'ماه',r_all:'کل',panel_info:'اطلاعات کل پنل',lang_label:'زبان',change_pw:'تغییر رمز عبور',pw_cur:'رمز فعلی',pw_new:'رمز جدید',pw_cf:'تکرار رمز',btn_save:'ذخیره',github:'گیت‌هاب',telegram:'تلگرام',channel:'کانال پشتیبان',theme:'تم',theme_dark:'تم تیره',theme_light:'تم روشن',created_title:'کانفیگ ساخته شد',copy_vless:'کپی VLESS',copy_sub:'کپی ساب',sub_label:'سابسکریپشن',theme_page_title:'تم پنل ONEX',theme_page_sub:'رنگ‌بندی پنل را انتخاب کنید؛ تغییرات به‌صورت زنده اعمال و در مرورگر ذخیره می‌شوند.',theme_live_preview:'پیش‌نمایش زنده',theme_current:'تم فعلی',theme_presets:'تم‌های آماده',theme_reset:'بازنشانی',theme_custom:'رنگ‌بندی سفارشی',theme_primary:'رنگ اصلی',theme_secondary:'رنگ ثانویه',theme_background:'پس‌زمینه',theme_card:'کارت‌ها',theme_apply:'اعمال رنگ سفارشی',theme_mode:'حالت نمایش',theme_mode_sub:'تاریک، روشن یا هماهنگ با سیستم',theme_dark_mode:'تاریک',theme_light_mode:'روشن',theme_system_mode:'خودکار',theme_saved_note:'انتخاب شما روی همین مرورگر ذخیره می‌شود و بعد از Refresh باقی می‌ماند.',created_title:'کانفیگ ساخته شد'},
+en:{sec_panel:'PANEL',sec_sys:'SYSTEM',sec_appearance:'APPEARANCE',nav_dash:'Dashboard',nav_configs:'Configs',nav_groups:'Groups',nav_create:'Create Config',nav_stats:'Statistics',nav_logs:'Activity Log',nav_settings:'Settings',nav_theme:'Theme',nav_theme_new:'New',nav_support:'Support',nav_donate:'Donate',nav_news:'Telegram',nav_admins:'Admins',refresh_news:'Refresh news',admins_sub:'Manage admin users and their access levels',admin_create:'Create admin account',admin_user:'Username',admin_pw:'Password',admin_pw2:'Confirm password',admin_perms:'Permissions',admin_btn:'Create account',admin_list:'Admin list',refresh:'Refresh',refresh_stats:'Refresh stats',refresh_panel:'Update panel',panel_version:'Panel version',current_version:'Current version',nav_telegram:'ONEX Bot',tg_sub:'Bot token and numeric admin ID · auto activate and webhook',tg_config:'Bot configuration',tg_token:'Bot token (BotFather)',tg_admin:'Admin numeric ID',tg_webhook:'Enable Webhook (recommended on Railway)',tg_activate:'Save and activate bot',tg_help:'Guide',tg_h1:'Create a bot with @BotFather and copy the token',tg_h2:'Get your numeric ID from @userinfobot',tg_h3:'Save — webhook is set automatically on Railway domain',logout:'Logout',loading:'Loading...',m_conns:'Active connections',m_traffic:'Total traffic',m_links:'Configs',m_uptime:'Server uptime',quick_create:'Create Config',quick_create_desc:'Manual create with traffic, speed and expiry',configs_sub:'Manage links · VLESS and Sub',th_name:'Name',th_proto:'Protocol',th_status:'Status',th_usage:'Usage',th_ops:'Actions',manual_create:'Manual create',label_name:'Name',label_proto:'Protocol',label_limit:'Traffic limit',label_unit:'Unit',label_days:'Expiry (days)',label_ip:'IP limit',label_speed:'Speed (Mbps)',btn_create:'Create',stats_sub:'Traffic and connections · time filter',r_day:'Day',r_week:'Week',r_month:'Month',r_all:'All',panel_info:'Panel overview',lang_label:'Language',change_pw:'Change password',pw_cur:'Current password',pw_new:'New password',pw_cf:'Confirm password',btn_save:'Save',github:'GitHub',telegram:'Telegram',channel:'Support channel',theme:'Theme',theme_dark:'Dark theme',theme_light:'Light theme',created_title:'Config created',copy_vless:'Copy VLESS',copy_sub:'Copy Sub',sub_label:'Subscription'}
 };
 let lang=localStorage.getItem('px_lang')||'fa';
 let statRange='month';
@@ -12677,12 +13146,13 @@ document.getElementById('sbToggle').onclick=()=>{
   document.getElementById('sbToggle').setAttribute('aria-label',sb.classList.contains('collapsed')?'باز کردن منو':'جمع کردن منو');
   localStorage.setItem('sb_c',sb.classList.contains('collapsed')?'1':'0');
 };
-if(localStorage.getItem('sb_c')==='1'){sb.classList.add('collapsed');main.classList.add('expanded')}
+function syncSidebarCollapse(){const mob=window.matchMedia('(max-width:640px)').matches;const c=!mob&&localStorage.getItem('sb_c')==='1';sb.classList.toggle('collapsed',c);main.classList.toggle('expanded',c)}
+syncSidebarCollapse();try{const __sbMq=window.matchMedia('(max-width:640px)');(__sbMq.addEventListener?__sbMq.addEventListener('change',syncSidebarCollapse):__sbMq.addListener(syncSidebarCollapse))}catch(e){}
 document.addEventListener('keydown',e=>{
   if(e.target.closest('input,textarea,select,[contenteditable="true"]'))return;
   if(e.key==='['||e.code==='BracketLeft'){
     e.preventDefault();
-    if(window.matchMedia('(max-width:900px)').matches){
+    if(window.matchMedia('(max-width:640px)').matches){
       if(sb.classList.contains('mobile-open')) closeMobileNav(); else openMobileNav();
     }else document.getElementById('sbToggle').click();
   }
@@ -12813,7 +13283,7 @@ function renderLinks(arr){
   (arr||[]).forEach(l=>window.__linksMap[String(l.uuid||l.id||'')]=l);
   renderConfigCards(getFilteredConfigs());
 }
-function getLinkUrl(l){if(!l)return '';return l.vless_full||l.vless||l.vless_link||l.link||''}
+function getLinkUrl(l){if(!l)return '';return l.vless_all||l.vless_full||l.vless||l.vless_link||l.link||''}
 function getSubUrl(l){if(!l)return '';return l.sub||l.sub_url||l.info||''}
 async function copyText(text){
   text=String(text||'').trim();
@@ -12893,8 +13363,14 @@ async function deleteLink(uid){
 }
 function showResult(data){
   if(!data)return;
-  document.getElementById('resVless').textContent=getLinkUrl(data)||'—';
+  const allCfg=getLinkUrl(data)||'';
+  const cfgCount=Number(data.configs_total)||(allCfg?allCfg.split('\n').filter(Boolean).length:0);
+  document.getElementById('resVless').textContent=allCfg||'—';
   document.getElementById('resSub').textContent=getSubUrl(data)||'—';
+  const lbl=document.getElementById('resVlessLabel');
+  if(lbl)lbl.textContent=cfgCount>1?(lang==='fa'?`همه کانفیگ‌های ساب (${cfgCount})`:`All configs in this sub (${cfgCount})`):'VLESS';
+  const cb=document.querySelector('#resultModal [data-i18n="copy_vless"]');
+  if(cb)cb.textContent=cfgCount>1?(lang==='fa'?`کپی همه کانفیگ‌ها (${cfgCount})`:`Copy all configs (${cfgCount})`):(lang==='fa'?'کپی VLESS':'Copy VLESS');
   document.getElementById('resultModal').classList.add('open');
 }
 function closeResult(){document.getElementById('resultModal').classList.remove('open')}
@@ -13206,10 +13682,15 @@ let __updateInfo=null;
 let __updateCheckBusy=false;
 let __updatePollTimer=null;
 function updateText(fa,en){return lang==='fa'?fa:en}
-function toggleNotifications(force){const panel=document.getElementById('topNotifyPanel'),btn=document.getElementById('topNotifyBtn');if(!panel||!btn)return;const open=typeof force==='boolean'?force:panel.hidden;panel.hidden=!open;btn.setAttribute('aria-expanded',open?'true':'false')}
+function positionNotifyPanel(){const panel=document.getElementById('topNotifyPanel'),btn=document.getElementById('topNotifyBtn');if(!panel||!btn)return;const r=btn.getBoundingClientRect(),vw=window.innerWidth,w=Math.min(320,vw-24);panel.style.width=w+'px';panel.style.top=Math.round(r.bottom+8)+'px';let left=r.right-w;if(left<12)left=12;if(left+w>vw-12)left=vw-12-w;panel.style.left=Math.round(left)+'px';panel.style.right='auto'}
+function toggleNotifications(force){const panel=document.getElementById('topNotifyPanel'),btn=document.getElementById('topNotifyBtn');if(!panel||!btn)return;if(panel.parentElement!==document.body)document.body.appendChild(panel);const open=typeof force==='boolean'?force:panel.hidden;panel.hidden=!open;btn.setAttribute('aria-expanded',open?'true':'false');if(open)positionNotifyPanel()}
+document.addEventListener('click',e=>{const panel=document.getElementById('topNotifyPanel'),btn=document.getElementById('topNotifyBtn');if(!panel||panel.hidden)return;if(panel.contains(e.target)||(btn&&btn.contains(e.target)))return;toggleNotifications(false)});
+window.addEventListener('resize',()=>{const p=document.getElementById('topNotifyPanel');if(p&&!p.hidden)positionNotifyPanel()});
+window.addEventListener('scroll',()=>{const p=document.getElementById('topNotifyPanel');if(p&&!p.hidden)positionNotifyPanel()},{passive:true});
+document.addEventListener('keydown',e=>{if(e.key==='Escape')toggleNotifications(false)});
 function renderNotifications(){const list=document.getElementById('notifyList'),badge=document.getElementById('notifyBadge');if(!list||!badge)return;if(!__updateInfo||!__updateInfo.update_available){badge.textContent='0';badge.classList.remove('show');list.innerHTML=`<div class="notify-empty">${updateText('اعلان جدیدی وجود ندارد.','No new notifications.')}</div>`;return;}badge.textContent='1';badge.classList.add('show');const r=__updateInfo;const changes=Array.isArray(r.changelog)&&r.changelog.length?`<div class="notify-item-text" style="margin-top:5px">${r.changelog.slice(0,4).map(x=>`• ${esc(String(x))}`).join('<br>')}</div>`:'';list.innerHTML=`<div class="notify-item"><div class="notify-item-title">🔄 ${esc(r.title||updateText('بروزرسانی جدید پنل','New panel update'))}</div><div class="notify-item-text">${esc(r.message||updateText('نسخه جدید پنل منتشر شده است.','A new panel version is available.'))}</div>${changes}<div class="notify-item-meta">${updateText('نسخه فعلی','Current version')}: ${esc(r.current_version||'—')} → ${esc(r.latest_version||'—')}</div><button type="button" class="notify-update-btn" onclick="toggleNotifications(false);panelUpdate()">${updateText('مشاهده و بروزرسانی','View update')}</button></div>`}
 async function checkPanelUpdateWithNotify(showToast=false){if(__updateCheckBusy)return __updateInfo;__updateCheckBusy=true;try{const r=await api('/api/update/check');if(r&&r.ok){const old=__updateInfo&&__updateInfo.latest_version;__updateInfo=r;setVersionLabels(r.current_version||'1.0.1',r.latest_version||r.current_version);renderNotifications();if(r.update_available&&old!==r.latest_version)showUpdatePrompt(r);if(r.update_available&&showToast&&old!==r.latest_version)toast(updateText(`نسخه جدید ${r.latest_version} آماده است`,`Version ${r.latest_version} is available`));}return r}catch(e){return null}finally{__updateCheckBusy=false}}
-function showUpdatePrompt(r){const modal=document.getElementById('updatePromptModal');if(!modal||!r||!r.update_available)return;const version=String(r.latest_version||'');if(!version)return;let seen='';try{seen=localStorage.getItem('onex_update_prompt_seen')||''}catch(e){}if(seen===version)return;const title=document.getElementById('updatePromptTitle'),text=document.getElementById('updatePromptText'),ver=document.getElementById('updatePromptVersion'),yes=document.getElementById('updatePromptConfirm'),later=document.getElementById('updatePromptLater');if(title)title.textContent=r.title||updateText('بروزرسانی جدید در دسترس است','New update is available');if(text)text.textContent=r.message||updateText('نسخه جدید پنل آماده است. آیا می‌خواهید پنل را بروزرسانی کنید؟','A new panel version is available. Would you like to update the panel?');if(ver)ver.textContent=updateText(`نسخه فعلی: ${r.current_version||'—'}  →  نسخه جدید: ${version}`,`Current: ${r.current_version||'—'}  →  New: ${version}`);modal.classList.add('open');modal.setAttribute('aria-hidden','false');const close=()=>{modal.classList.remove('open');modal.setAttribute('aria-hidden','true');try{localStorage.setItem('onex_update_prompt_seen',version)}catch(e){}};if(later)later.onclick=close;if(yes)yes.onclick=()=>{try{localStorage.setItem('onex_update_prompt_seen',version)}catch(e){}modal.classList.remove('open');modal.setAttribute('aria-hidden','true');panelUpdate();}}
+function showUpdatePrompt(r){const modal=document.getElementById('updatePromptModal');if(!modal||!r||!r.update_available)return;if(modal.parentElement!==document.body)document.body.appendChild(modal);const version=String(r.latest_version||'');if(!version)return;let seen='';let snooze=0;try{seen=localStorage.getItem('onex_update_prompt_seen')||'';snooze=Number(localStorage.getItem('onex_update_prompt_snooze')||0)}catch(e){}if(seen===version&&Date.now()<snooze)return;const title=document.getElementById('updatePromptTitle'),text=document.getElementById('updatePromptText'),ver=document.getElementById('updatePromptVersion'),yes=document.getElementById('updatePromptConfirm'),later=document.getElementById('updatePromptLater');if(title)title.textContent=r.title||updateText('بروزرسانی جدید در دسترس است','New update is available');if(text)text.textContent=r.message||updateText('نسخه جدید پنل آماده است. آیا می‌خواهید پنل را بروزرسانی کنید؟','A new panel version is available. Would you like to update the panel?');if(ver)ver.textContent=updateText(`نسخه فعلی: ${r.current_version||'—'}  →  نسخه جدید: ${version}`,`Current: ${r.current_version||'—'}  →  New: ${version}`);modal.classList.add('open');modal.setAttribute('aria-hidden','false');const close=()=>{modal.classList.remove('open');modal.setAttribute('aria-hidden','true');try{localStorage.setItem('onex_update_prompt_seen',version);localStorage.setItem('onex_update_prompt_snooze',String(Date.now()+6*3600*1000))}catch(e){}};if(later)later.onclick=close;if(yes)yes.onclick=()=>{try{localStorage.setItem('onex_update_prompt_seen',version)}catch(e){}modal.classList.remove('open');modal.setAttribute('aria-hidden','true');deployPanelUpdate();}}
 function startUpdateNotificationPolling(){if(__updatePollTimer)clearInterval(__updatePollTimer);checkPanelUpdateWithNotify(false);__updatePollTimer=setInterval(()=>checkPanelUpdateWithNotify(false),45000)}
 async function checkPanelUpdate(showToast=true){
   if(__updateCheckBusy)return __updateInfo;
@@ -13225,41 +13706,37 @@ async function checkPanelUpdate(showToast=true){
   finally{__updateCheckBusy=false}
 }
 async function panelUpdate(){
-  const m=document.getElementById('panelModal');
-  const t=document.getElementById('panelModalTitle');
-  const b=document.getElementById('panelModalBody');
-  t.textContent=updateText('در حال بررسی نسخه جدید...','Checking for updates...');
-  b.innerHTML='<div style="text-align:center;padding:20px"><div class="spin"></div></div>';
-  m.classList.add('open');
   const r=await checkPanelUpdate(false);
-  if(!r||!r.ok){
-    t.textContent=updateText('بررسی بروزرسانی','Update check');
-    b.innerHTML=`<p>${updateText('در حال حاضر امکان بررسی نسخه جدید وجود ندارد.','The update server could not be reached right now.')}</p>`;
-    return;
-  }
-  if(!r.update_available){
-    t.textContent=updateText('پنل به‌روز است','Panel is up to date');
-    b.innerHTML=`<div style="text-align:center;padding:18px"><div style="font-size:34px;margin-bottom:8px">✓</div><p style="margin-bottom:6px">${updateText('نسخه فعلی پنل: ','Current panel version: ')}<strong>${esc(r.current_version)}</strong></p><p style="color:var(--t3)">${updateText('نسخه جدیدی منتشر نشده است.','No newer version has been released.')}</p></div>`;
-    return;
-  }
-  t.textContent=updateText('بروزرسانی پنل','Panel update');
-  const changes=Array.isArray(r.changelog)&&r.changelog.length?`<div style="margin:12px 0;text-align:right"><strong>${updateText('تغییرات نسخه جدید:','What’s new:')}</strong><ul style="margin:8px 0;padding-right:20px">${r.changelog.slice(0,8).map(x=>`<li>${esc(String(x))}</li>`).join('')}</ul></div>`:'';
-  b.innerHTML=`<div style="padding:4px 0"><p style="margin-bottom:8px"><strong>${esc(r.title||('ONEX '+r.latest_version))}</strong></p><p style="margin-bottom:8px">${esc(r.message||updateText('نسخه جدید پنل آماده است.','A new panel version is available.'))}</p>${changes}<p style="color:var(--t3);font-size:12px">${updateText('نسخه فعلی: ','Current: ')}${esc(r.current_version)} &nbsp;→&nbsp; ${updateText('نسخه جدید: ','New: ')}${esc(r.latest_version)}</p><button type="button" class="btn btn-primary" id="panelDoUpdate" style="width:100%;margin-top:14px">${updateText('شروع بروزرسانی پنل','Update panel now')}</button></div>`;
-  document.getElementById('panelDoUpdate').onclick=deployPanelUpdate;
+  if(r&&r.ok&&!r.update_available){toast(updateText('پنل شما آخرین نسخه را دارد','Panel is up to date'));return}
+  if(r&&r.ok&&r.update_available){showUpdatePromptNow(r);return}
+  // Version check failed (network / GitHub limit): let the server try anyway.
+  if(confirm(updateText('بررسی نسخه انجام نشد. بروزرسانی به آخرین نسخه انجام شود؟','Version check failed. Update to the latest version anyway?')))deployPanelUpdate();
 }
+function showUpdatePromptNow(r){try{localStorage.removeItem('onex_update_prompt_seen');localStorage.removeItem('onex_update_prompt_snooze')}catch(e){}showUpdatePrompt(r)}
+
 async function deployPanelUpdate(){
   const btn=document.getElementById('panelDoUpdate');
   if(btn){btn.disabled=true;btn.textContent=updateText('در حال شروع بروزرسانی...','Starting update...')}
-  const r=await api('/api/update/deploy',{method:'POST',headers:{'Content-Type':'application/json'},body:'{}'});
+  toast(updateText('در حال شروع بروزرسانی...','Starting update...'));
+  let r=null,errText='';
+  try{
+    const res=await fetch('/api/update/deploy',{method:'POST',cache:'no-store',credentials:'same-origin',headers:{'Content-Type':'application/json'},body:'{}'});
+    if(res.status===401){location.href='/login';return}
+    try{r=await res.json()}catch(e){r=null}
+    if(!res.ok){errText=(r&&(r.detail||r.error))||('HTTP '+res.status);r=null}
+  }catch(e){errText=updateText('ارتباط با سرور برقرار نشد','Could not reach the server')}
   if(r&&r.ok&&r.update_started){
     const b=document.getElementById('panelModalBody');
     if(b)b.innerHTML=`<div style="text-align:center;padding:18px"><div class="spin" style="margin:0 auto 14px"></div><p>${updateText('بروزرسانی شروع شد. پنل پس از استقرار نسخه جدید دوباره در دسترس قرار می‌گیرد.','The update has started. The panel will become available again after the new deployment is live.')}</p><p style="color:var(--t3);font-size:12px;margin-top:8px">${esc(r.latest_version||'')}</p></div>`;
-    setTimeout(()=>{location.reload()},12000);
+    toast(updateText('بروزرسانی شروع شد؛ چند دقیقه صبر کنید...','Update started, please wait a few minutes...'));
+    waitForNewVersion(r.latest_version);
     return;
   }
   if(btn){btn.disabled=false;btn.textContent=updateText('شروع بروزرسانی پنل','Update panel now')}
-  toast((r&&r.detail)||updateText('شروع بروزرسانی ناموفق بود','Could not start the update'));
+  if(r&&r.ok&&r.update_available===false){toast(r.message||updateText('پنل شما آخرین نسخه را دارد','Panel is up to date'));return}
+  toast(errText||(r&&r.message)||updateText('شروع بروزرسانی ناموفق بود','Could not start the update'));
 }
+function waitForNewVersion(target){let tries=0;const tick=async()=>{tries++;try{const res=await fetch('/api/update/check?force=1',{cache:'no-store',credentials:'same-origin'});if(res.ok){const d=await res.json();if(d&&d.current_version&&(!target||d.current_version===target)){location.reload();return}}}catch(e){}if(tries<60)setTimeout(tick,10000);else location.reload()};setTimeout(tick,20000)}
 
 let __tgUsers=[]; let __tgAudience='all';
 function switchTgTab(tab){document.querySelectorAll('#tgTabs button').forEach(b=>b.classList.toggle('on',b.dataset.tgTab===tab));document.querySelectorAll('.tg-tab-panel').forEach(p=>p.classList.toggle('on',p.dataset.tgPanel===tab));if(tab==='users')renderTelegramUsers(false);}
@@ -13873,7 +14350,7 @@ async function restoreBot(){
    ============================================================ */
 const RAILWAY_SUB_PROTOCOLS=['vless-ws','siderail-vless-xhttp','xhttp-packet-up','xhttp-stream-up','vmess-ws','trojan-ws','vless-httpupgrade','xhttp-stream-one'];
 const PROTOCOL_PICKER_GROUPS=[
-  {title:'ONEX VIP',subtitle:'۸ پروتکل اصلی ONEX',ids:['vless-ws','siderail-vless-xhttp','xhttp-packet-up','xhttp-stream-up','vmess-ws','trojan-ws','vless-httpupgrade','xhttp-stream-one'],kind:'vip'},
+  {title:'ONEX VIP',subtitle:'۶ پروتکل اصلی ONEX',ids:['vless-ws','siderail-vless-xhttp','xhttp-packet-up','xhttp-stream-up','vmess-ws','trojan-ws','vless-httpupgrade','xhttp-stream-one'],kind:'vip'},
   {title:'ONEX VPS',subtitle:'پروتکل‌های VPS متقدم',ids:['trojan','shadowsocks','socks5','http','hysteria2','vless-reality','vless-grpc-reality','vmess','tuic','anytls','naive','shadowtls','snell','hysteria'],kind:'vps'}
 ];
 const PROTOCOL_PICKER_NAMES={"vless-ws":"ONEX Base","siderail-vless-xhttp":"ONEX XHTTP","vmess-ws":"ONEX VMess","trojan-ws":"ONEX Trojan","vless-httpupgrade":"ONEX HTTPUpgrade","xhttp-packet-up":"ONEX Xhttp","xhttp-stream-up":"ONEX Gaming","xhttp-stream-one":"ONEX Stream","trojan":"Trojan","shadowsocks":"Shadowsocks","socks5":"SOCKS5","http":"HTTP Proxy","hysteria2":"Hysteria2","vless-reality":"VLESS Reality","vless-grpc-reality":"VLESS gRPC Reality","vmess":"VMess","tuic":"TUIC","anytls":"AnyTLS","naive":"NaiveProxy","shadowtls":"ShadowTLS","snell":"Snell","hysteria":"Hysteria"};
@@ -13887,7 +14364,7 @@ function protocolIconMarkup(id){
 }
 function setupProtocolPickers(){['cProto','aProto'].forEach(id=>{const sel=document.getElementById(id);if(!sel)return;sel.classList.add('protocol-native');sel.style.setProperty('display','none','important');sel.setAttribute('aria-hidden','true');let trigger=sel.parentNode.querySelector(`.protocol-trigger[data-for="${id}"]`);if(!trigger){trigger=document.createElement('button');trigger.type='button';trigger.className='protocol-trigger';trigger.dataset.for=id;sel.parentNode.insertBefore(trigger,sel.nextSibling)}trigger.onclick=e=>{e.preventDefault();openProtocolPicker(id)};syncProtocolPicker(id)})}
 function syncProtocolPicker(id){const sel=document.getElementById(id),trigger=document.querySelector(`.protocol-trigger[data-for="${id}"]`);if(!sel||!trigger)return;const value=sel.value||'vless-ws';trigger.innerHTML=`<span class="protocol-trigger-main"><span class="protocol-trigger-icon">${protocolIconMarkup(value)}</span><span class="protocol-trigger-text"><span class="protocol-trigger-name">${esc(protocolPickerShort(value))}</span><span class="protocol-trigger-sub">${lang==='fa'?'برای تغییر، انتخاب کنید':'Tap to choose another protocol'}</span></span></span><span class="protocol-trigger-arrow">⌄</span>`}
-function syncAllProtocolToggle(){const sel=document.getElementById('cProto'),all=document.getElementById('cAllProtocols'),wrap=all?.closest('.all-proto-toggle');if(!sel||!all)return;const railway=RAILWAY_SUB_PROTOCOLS.includes(sel.value);if(!railway){all.checked=false;all.disabled=true;if(wrap){wrap.style.opacity='0.48';wrap.style.cursor='not-allowed';wrap.title=lang==='fa'?'این گزینه فقط برای پروتکل‌های Railway است':'This option is only for Railway protocols';}}else{all.disabled=false;if(wrap){wrap.style.opacity='1';wrap.style.cursor='pointer';wrap.title=lang==='fa'?'هر ۸ پروتکل ONEX VIP در یک ساب':'All 8 ONEX VIP protocols in one subscription';}}}
+function syncAllProtocolToggle(){const sel=document.getElementById('cProto'),all=document.getElementById('cAllProtocols'),wrap=all?.closest('.all-proto-toggle');if(!sel||!all)return;const railway=RAILWAY_SUB_PROTOCOLS.includes(sel.value);if(!railway){all.checked=false;all.disabled=true;if(wrap){wrap.style.opacity='0.48';wrap.style.cursor='not-allowed';wrap.title=lang==='fa'?'این گزینه فقط برای پروتکل‌های Railway است':'This option is only for Railway protocols';}}else{all.disabled=false;if(wrap){wrap.style.opacity='1';wrap.style.cursor='pointer';wrap.title=lang==='fa'?'هر ۶ پروتکل ONEX VIP در یک ساب':'All 6 ONEX VIP protocols in one subscription';}}}
 
 function ensureProtocolPicker(){let bg=document.getElementById('protocolPickerBg');if(bg)return bg;bg=document.createElement('div');bg.id='protocolPickerBg';bg.className='protocol-picker-bg';bg.innerHTML=`<div class="protocol-picker" role="dialog" aria-modal="true"><div class="protocol-picker-head"><div class="protocol-picker-head-icon"><span>✦</span></div><div class="protocol-picker-head-text"><div class="protocol-picker-title">${lang==='fa'?'انتخاب پروتکل':'Select Protocol'}</div><div class="protocol-picker-subtitle">${lang==='fa'?'پروتکل موردنظر را انتخاب کنید':'Choose the protocol you want to use'}</div></div><button type="button" class="protocol-picker-close" id="protocolPickerClose">×</button></div><div class="protocol-picker-scroll" id="protocolPickerScroll"></div><div class="protocol-picker-foot"><div class="protocol-selected-info" id="protocolSelectedInfo">—</div><button type="button" class="protocol-picker-confirm" id="protocolPickerConfirm">${lang==='fa'?'تأیید و ادامه →':'Confirm & Continue →'}</button></div></div>`;document.body.appendChild(bg);bg.addEventListener('click',e=>{if(e.target===bg)closeProtocolPicker()});bg.querySelector('#protocolPickerClose').onclick=closeProtocolPicker;bg.querySelector('#protocolPickerConfirm').onclick=confirmProtocolPicker;return bg}
 function openProtocolPicker(targetId){const sel=document.getElementById(targetId);if(!sel)return;const bg=ensureProtocolPicker();__protocolPickerTarget=targetId;const current=sel.value||'vless-ws';const available=new Set([...sel.options].map(o=>o.value));const sections=PROTOCOL_PICKER_GROUPS.map(g=>{const ids=g.ids.filter(id=>available.has(id));if(!ids.length)return '';return `<section class="protocol-picker-section ${g.kind||''}"><div class="protocol-picker-section-head"><div><b>${esc(g.title)}</b><small>${esc(g.subtitle||'')}</small></div><span>${ids.length}</span></div><div class="protocol-grid protocol-grid-all">${ids.map(id=>`<button type="button" class="protocol-option ${id===current?'selected':''}" data-proto="${id}"><span class="protocol-option-radio"></span>${protocolIconMarkup(id)}<span class="protocol-option-name">${esc(protocolPickerShort(id))}</span><span class="protocol-option-desc">${id===current?(lang==='fa'?'انتخاب‌شده · ':'Selected · ')+(PROTOCOL_PICKER_DESCS[id]||''):(PROTOCOL_PICKER_DESCS[id]|| (lang==='fa'?'برای انتخاب کلیک کنید':'Tap to choose'))}</span></button>`).join('')}</div></section>`}).join('');const scroll=bg.querySelector('#protocolPickerScroll');scroll.innerHTML=sections;scroll.querySelectorAll('.protocol-option').forEach(btn=>btn.addEventListener('click',()=>chooseProtocol(btn.dataset.proto)));bg.querySelector('#protocolSelectedInfo').textContent=(lang==='fa'?'پروتکل انتخاب‌شده: ':'Selected: ')+protocolPickerShort(current);bg.classList.add('open');document.body.style.overflow='hidden'}
@@ -13932,6 +14409,14 @@ function mixHex(hex,amount){const [r,g,b]=hexRgb(hex);const t=amount<0?0:255;con
 function applyOnexTheme(key, opts){
   let t=ONEX_THEMES[key]||ONEX_THEMES.blue;
   if(opts) t={...t,...opts};
+  // Light mode must never inherit the dark preset background/card colors.
+  // Every preset ships dark bg/card values; in light mode derive a soft tinted
+  // light surface from the accent instead, so every card/section stays white.
+  if(t.mode==='light'){
+    const lumOf=h=>{const [r,g,b]=hexRgb(h);return (r*.299+g*.587+b*.114)/255};
+    if(lumOf(t.bg||'#000')<.6) t={...t,bg:mixHex(t.p||'#2563eb',.94)};
+    if(lumOf(t.card||'#000')<.6) t={...t,card:'#ffffff'};
+  }
   const root=document.documentElement;
   const [pr,pg,pb]=hexRgb(t.p);
   const [sr,sg,sb]=hexRgb(t.s);
@@ -13944,9 +14429,11 @@ function applyOnexTheme(key, opts){
   // consumed by the final global theme layer below, including legacy cards that
   // still contain fixed colors in their original component CSS.
   if(t.mode==='light'){
+    root.style.setProperty('--p',t.p);root.style.setProperty('--s',t.s);root.style.setProperty('--p-rgb',`${pr} ${pg} ${pb}`);root.style.setProperty('--s-rgb',`${sr} ${sg} ${sb}`);
     root.style.setProperty('--t1','#0f172a');root.style.setProperty('--t2','#334155');root.style.setProperty('--t3','#64748b');
     root.style.setProperty('--card-b','rgba(15,23,42,.10)');root.style.setProperty('--input-bg','#f8fafc');
   }else{
+    ['--p','--s','--p-rgb','--s-rgb'].forEach(k=>root.style.removeProperty(k));
     root.style.setProperty('--t1','#f8fafc');root.style.setProperty('--t2','rgba(248,250,252,.72)');root.style.setProperty('--t3','rgba(248,250,252,.48)');
     root.style.setProperty('--card-b','rgba(148,163,184,.16)');root.style.setProperty('--input-bg','rgba(2,10,24,.62)');
   }
@@ -14478,6 +14965,251 @@ html.light #cfgx .advanced-section{background:color-mix(in srgb, rgb(23 23 23 / 
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot);else boot();
 })();
 </script>
+<style id="onex-light-consistency">
+#resultModal #resVless{white-space:pre-wrap;word-break:break-all;max-height:190px;overflow:auto;direction:ltr;text-align:left}
+/* ============================================================
+   ONEX LIGHT THEME CONSISTENCY LAYER
+   Loaded last: turns every leftover dark surface into a light one
+   while html.light is active. Dark mode is untouched.
+   ============================================================ */
+html.light{--g-surf:#ffffff;--g-line:color-mix(in srgb,rgba(15,23,42,.10) 78%,var(--accent))}
+html.light body{background:var(--bg)!important}
+
+/* ---- dashboard home (hero, dock, metrics, chart, health, recent, quick, info, telegram) ---- */
+html.light #page-dash{--surface:#ffffff;--surface2:color-mix(in srgb,#ffffff 93%,var(--accent));--text:var(--t1);--muted:var(--t2);--dim:var(--t3);--line:color-mix(in srgb,rgba(15,23,42,.10) 75%,var(--accent))}
+html.light #page-dash .glass{background:linear-gradient(145deg,#ffffff,color-mix(in srgb,#ffffff 95%,var(--accent)))!important;border:1px solid var(--line)!important;box-shadow:0 14px 34px -20px rgba(15,23,42,.22)!important;color:var(--t1)!important;backdrop-filter:none!important;-webkit-backdrop-filter:none!important}
+html.light #page-dash .telegram{background:radial-gradient(circle at 50% 0,rgba(var(--accent-rgb),.14),transparent 55%),#ffffff!important}
+html.light #page-dash .glass h1,html.light #page-dash .glass h2,html.light #page-dash .glass h3,html.light #page-dash .glass strong,html.light #page-dash .glass b,html.light #page-dash .glass label,html.light #page-dash .glass dd,html.light #page-dash .glass td{color:var(--t1)}
+html.light #page-dash .glass small,html.light #page-dash .glass dt,html.light #page-dash .glass p{color:var(--t2)}
+html.light #page-dash .home-user,html.light #homeUser{color:var(--accent)!important;-webkit-text-fill-color:var(--accent)!important;background:none!important}
+html.light #page-dash .version,html.light #page-dash .home-core-pill,html.light #page-dash .range,html.light #page-dash .proto,html.light #page-dash .kv>div{background:color-mix(in srgb,#ffffff 90%,var(--accent))!important;border-color:var(--line)!important;color:var(--t2)!important}
+html.light #page-dash .version b,html.light #page-dash .version span{color:var(--t1)!important}
+html.light #page-dash .dock button,html.light #page-dash .quickitem,html.light #page-dash .metric,html.light #page-dash .kpi{background:color-mix(in srgb,#ffffff 95%,var(--accent))!important;border-color:var(--line)!important;color:var(--t1)!important}
+html.light #page-dash .track,html.light #page-dash .usage .bar{background:rgba(15,23,42,.08)!important}
+html.light #page-dash .bars i{background:color-mix(in srgb,var(--accent) 28%,#e2e8f0)}
+html.light #page-dash .range button.active{background:rgba(var(--accent-rgb),.16)!important;color:var(--t1)!important}
+html.light #page-dash .home-link-btn{color:var(--accent)!important;background:rgba(var(--accent-rgb),.08)!important}
+
+/* ---- top bar / swatches ---- */
+html.light .hexa-swatches{background:color-mix(in srgb,#ffffff 88%,var(--accent))!important;border-color:var(--g-line)!important}
+html.light .sb-logo.onex-approved-brand{background:linear-gradient(180deg,rgba(var(--accent-rgb),.07),transparent)!important}
+
+/* ---- configs page ---- */
+html.light .cfg-tools,html.light .group-filters,html.light .stats-range,html.light .admin-table-wrap,html.light .tg-tabs{background:#ffffff!important;border-color:var(--g-line)!important;color:var(--t1)!important}
+html.light .cfg-usage-ring::after,html.light .uptime-ring::after{background:#ffffff!important;border-color:var(--g-line)!important}
+
+/* ---- links / telegram cards ---- */
+html.light .tg-link{background:linear-gradient(135deg,#ffffff,color-mix(in srgb,#ffffff 92%,var(--accent)))!important;border-color:rgba(var(--accent-rgb),.28)!important}
+html.light .tg-link b,html.light .tg-link span{color:var(--t1)!important}
+
+/* ---- result modal (config created) & every link/code box ---- */
+html.light .link-box,html.light .code-box,html.light .sub-box,html.light pre,html.light textarea{background:color-mix(in srgb,#ffffff 94%,var(--accent))!important;color:var(--t1)!important;border:1px solid var(--g-line)!important}
+html.light .link-box{white-space:pre-wrap;word-break:break-all;max-height:190px;overflow:auto;font-family:'JetBrains Mono',monospace;font-size:11px;line-height:1.7;direction:ltr;text-align:left}
+html.light .modal,html.light .update-prompt-modal{background:#ffffff!important;color:var(--t1)!important}
+html.light .modal-bg{background:rgba(15,23,42,.38)!important}
+
+/* ---- theme page preview ---- */
+html.light .theme-preview-window{background:color-mix(in srgb,#ffffff 92%,var(--accent))!important;border-color:var(--g-line)!important}
+html.light .theme-mini-chart{background:#ffffff!important;border-color:var(--g-line)!important}
+
+/* ---- neon text that disappears on white ---- */
+html.light .group-hero-kicker,html.light .theme-kicker{color:color-mix(in srgb,var(--accent) 78%,#0f172a)!important}
+html.light .stats-kpi em{color:#059669!important}
+html.light #cfgx .cfgx-bundle label em{color:var(--accent)!important;background:rgba(var(--accent-rgb),.12)!important}
+html.light #page-logs .logs-clear-btn{background:linear-gradient(135deg,var(--accent),var(--purple))!important;color:#ffffff!important;border:0!important}
+html.light .summary-grid div{background:color-mix(in srgb,#ffffff 93%,var(--accent))!important;border-color:var(--g-line)!important}
+html.light .summary-grid b{color:var(--t1)!important}
+html.light .summary-grid span{color:var(--t2)!important}
+html.light #homeUser,html.light #page-dash .home-user,html.light #page-dash .healthrow .tag,html.light #cfgx .cfgx-bundle label em{color:color-mix(in srgb,var(--accent) 62%,#0f172a)!important;-webkit-text-fill-color:currentColor!important}
+html.light [class*="live"] em,html.light .tg-live em,html.light #page-telegram em{color:#059669!important}
+html.light .onex-topbar-brand{background:#ffffff!important;border-color:rgba(var(--accent-rgb),.16)!important}
+html.light #panelLogoutBtn{background:rgba(220,38,38,.08)!important;border-color:rgba(220,38,38,.25)!important;color:#dc2626!important}
+html.light #panelLogoutBtn span,html.light #panelLogoutBtn svg{color:#dc2626!important}
+html.light .all-proto-toggle i{background:#cbd5e1!important}
+html.light .all-proto-toggle input:checked+i{background:linear-gradient(135deg,var(--accent),var(--purple))!important}
+</style>
+<style id="onex-neural-sidebar-final">
+/* Approved 3D neural sidebar: premium depth, restrained glow, clear active state. */
+:root{--neural-cyan:#27d7ff;--neural-violet:#8b5cf6;--neural-pink:#e445c4}
+.sidebar{position:relative;isolation:isolate;overflow:hidden;background:linear-gradient(180deg,#090b1c 0%,#0b102b 52%,#071c35 100%)!important;border-right:1px solid rgba(39,215,255,.22)!important;box-shadow:14px 0 45px rgba(3,10,35,.34),inset -1px 0 rgba(255,255,255,.05)!important}
+.sidebar:before{content:"";position:absolute;inset:0;z-index:-1;pointer-events:none;opacity:.28;background:radial-gradient(circle at 14% 12%,rgba(228,69,196,.55) 0 1px,transparent 2px),radial-gradient(circle at 18% 28%,rgba(39,215,255,.6) 0 1px,transparent 2px),radial-gradient(circle at 9% 61%,rgba(139,92,246,.55) 0 1px,transparent 2px),linear-gradient(150deg,transparent 10%,rgba(228,69,196,.08) 42%,transparent 55%,rgba(39,215,255,.08) 88%);background-size:125px 180px,170px 230px,210px 260px,100% 100%}
+.sidebar:after{content:"";position:absolute;z-index:-1;left:-25px;top:120px;width:90px;height:580px;opacity:.22;pointer-events:none;background:linear-gradient(180deg,transparent,rgba(228,69,196,.7),rgba(39,215,255,.7),transparent);filter:blur(18px);transform:rotate(12deg)}
+.sidebar .nav{position:relative;padding:10px 11px 14px;z-index:1}
+.sidebar .nav-item{position:relative;min-height:48px;margin:6px 0!important;padding:9px 13px!important;border:1px solid rgba(148,163,255,.13)!important;border-radius:15px!important;background:linear-gradient(135deg,rgba(255,255,255,.045),rgba(19,26,65,.28))!important;color:#cbd5f5!important;box-shadow:inset 0 1px rgba(255,255,255,.06),0 7px 14px rgba(0,0,0,.16)!important;transform:translateZ(0);transition:transform .25s cubic-bezier(.16,1,.3,1),border-color .25s,background .25s,box-shadow .25s,color .25s!important}
+.sidebar .nav-item:before{content:"";position:absolute;right:-1px;top:10px;bottom:10px;width:3px;border-radius:9px;background:linear-gradient(180deg,var(--neural-pink),var(--neural-cyan));opacity:0;box-shadow:0 0 13px rgba(39,215,255,.8);transition:opacity .25s}
+.sidebar .nav-item:hover{transform:translateX(-3px) translateY(-1px);border-color:rgba(39,215,255,.48)!important;background:linear-gradient(135deg,rgba(39,215,255,.12),rgba(139,92,246,.13))!important;color:#fff!important;box-shadow:inset 0 1px rgba(255,255,255,.14),0 10px 22px rgba(39,215,255,.12)!important}
+.sidebar .nav-item.on{transform:translateX(-4px);border-color:rgba(39,215,255,.82)!important;background:linear-gradient(110deg,rgba(39,215,255,.2),rgba(92,78,210,.3) 58%,rgba(228,69,196,.18))!important;color:#fff!important;box-shadow:inset 0 1px rgba(255,255,255,.22),0 0 0 1px rgba(39,215,255,.13),0 10px 28px rgba(39,215,255,.2)!important}
+.sidebar .nav-item.on:before{opacity:1}
+.sidebar .nav-ico{width:23px!important;height:23px!important;min-width:23px!important;filter:drop-shadow(0 2px 4px rgba(39,215,255,.25));color:#b6c8ff!important;transition:color .25s,filter .25s,transform .25s!important}
+.sidebar .nav-item:nth-of-type(2n) .nav-ico{color:#c79cff!important}
+.sidebar .nav-item:hover .nav-ico,.sidebar .nav-item.on .nav-ico{color:var(--neural-cyan)!important;filter:drop-shadow(0 0 7px rgba(39,215,255,.65));transform:scale(1.07)}
+.sidebar .nav-label{font-size:12px!important;font-weight:800!important;letter-spacing:.01em;color:inherit!important}
+.sidebar .nav-sec{margin:15px 5px 7px!important;padding:0 8px!important;color:rgba(181,199,255,.55)!important;font-size:9px!important;letter-spacing:.13em!important}
+.sidebar .nav-sec-appearance{display:flex;align-items:center;gap:8px;color:#c5b5ff!important}
+.sidebar .nav-sec-appearance:after{content:"";height:1px;flex:1;background:linear-gradient(90deg,rgba(139,92,246,.5),transparent)}
+.sidebar .nav-item[data-page="theme"]{border-color:rgba(228,69,196,.3)!important;background:linear-gradient(135deg,rgba(228,69,196,.12),rgba(39,215,255,.08))!important}
+.sidebar .nav-item[data-page="theme"] .nav-ico{color:#ef9ae8!important}
+.sidebar .nav-new-badge{border:1px solid rgba(228,69,196,.45)!important;background:rgba(228,69,196,.16)!important;color:#ffb7f5!important}
+.sidebar .sb-foot{position:relative;z-index:2;margin:0 11px 14px;padding-top:12px;border-top:1px solid rgba(139,92,246,.38)!important}
+.sidebar .sb-foot .danger{width:100%;min-height:46px;border-radius:15px!important;background:linear-gradient(135deg,rgba(255,76,113,.18),rgba(234,88,12,.14))!important;border:1px solid rgba(255,93,118,.48)!important;color:#ff9dac!important;box-shadow:inset 0 1px rgba(255,255,255,.08),0 8px 20px rgba(255,62,100,.12)!important}
+.sidebar .sb-foot .danger:hover{background:linear-gradient(135deg,rgba(255,76,113,.3),rgba(234,88,12,.22))!important;color:#fff!important;transform:translateY(-2px)}
+html.light .sidebar{background:linear-gradient(180deg,#f7f8ff,#edf3ff 55%,#eaf8ff)!important;border-right-color:rgba(37,99,235,.18)!important;box-shadow:8px 0 28px rgba(37,99,235,.1)!important}
+html.light .sidebar:before{opacity:.14}
+html.light .sidebar .nav-item{background:linear-gradient(135deg,rgba(255,255,255,.96),rgba(239,244,255,.86))!important;border-color:rgba(37,99,235,.12)!important;color:#334155!important;box-shadow:0 6px 14px rgba(30,64,175,.08)!important}
+html.light .sidebar .nav-item.on{background:linear-gradient(110deg,rgba(39,215,255,.2),rgba(124,58,237,.13))!important;border-color:rgba(37,99,235,.55)!important;color:#0f172a!important}
+html.light .sidebar .nav-item[data-page="theme"]{background:linear-gradient(135deg,rgba(236,72,153,.1),rgba(37,99,235,.08))!important}
+html.light .sidebar .nav-label{color:inherit!important}
+</style><script>
+/* ONEX config cards (standalone component, image design) */
+(function(){
+  var I={
+    link:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg>',
+    qr:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><path d="M14 14h3v3h-3zM20 20h1M17 20h-3"/></svg>',
+    user:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg>',
+    clock:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>'
+  };
+  var SHORT={'vless-ws':'VLESS·WS','xhttp-packet-up':'XHTTP·PACKET','xhttp-stream-up':'XHTTP·UP','xhttp-stream-one':'XHTTP·ONE','vless-reality':'REALITY','vless-grpc-reality':'GRPC·REALITY','vmess':'VMESS','vmess-ws':'VMESS·WS','trojan':'TROJAN','trojan-ws':'TROJAN·WS','hysteria2':'HY2','hysteria':'HYSTERIA','shadowsocks':'SS','socks5':'SOCKS5','http':'HTTP','tuic':'TUIC','anytls':'ANYTLS','naive':'NAIVE','shadowtls':'SHADOWTLS','snell':'SNELL','vless-httpupgrade':'VLESS·HTTPUP','siderail-vless-xhttp':'VLESS·XHTTP'};
+  function uidOf(l){return String(l.uuid||l.id||'')}
+  function menuId(uid){return 'ocxMenu_'+uid.replace(/[^a-zA-Z0-9_-]/g,'_')}
+  function daysLeft(l){if(!l.expires_at)return null;var t=new Date(l.expires_at).getTime();if(isNaN(t))return null;return Math.ceil((t-Date.now())/86400000)}
+  function pctOf(l){var lim=Number(l.limit_bytes||0);return lim>0?Math.min(100,Math.round(Number(l.used_bytes||0)/lim*100)):null}
+
+  window.setCfgStatus=function(v,el){cfgStatusFilter=v;document.querySelectorAll('#cfgFilterRow [data-status]').forEach(function(x){x.classList.toggle('on',x===el)});renderConfigCards(getFilteredConfigs())};
+  window.getFilteredConfigs=function(){
+    var q=((document.getElementById('cfgSearch')||{}).value||'').trim().toLowerCase();
+    var a=(__allLinks||[]).filter(function(l){
+      var dead=configExpired(l),active=l.active!==false&&!dead,p=pctOf(l);
+      if(cfgStatusFilter==='active'&&!active)return false;
+      if(cfgStatusFilter==='off'&&(dead||l.active!==false))return false;
+      if(cfgStatusFilter==='expired'&&!dead)return false;
+      if(cfgStatusFilter==='hi'&&!(p!==null&&p>=80))return false;
+      if(!q)return true;
+      return [l.label,l.name,l.protocol,l.protocol_label,l.uuid,l.id,l.sub,l.sub_url].map(function(x){return String(x||'').toLowerCase()}).some(function(x){return x.indexOf(q)>-1});
+    });
+    a.sort(function(x,y){return String(y.created_at||'').localeCompare(String(x.created_at||''))});
+    return a;
+  };
+  window.updateConfigStats=function(){
+    var all=__allLinks||[],set=function(id,v){var e=document.getElementById(id);if(e)e.textContent=v};
+    set('cfgStatTotal',all.length);
+    set('cfgStatActive',all.filter(function(l){return l.active!==false&&!configExpired(l)}).length);
+    set('cfgStatExpired',all.filter(configExpired).length);
+    set('cfgStatUsed',fmtB(all.reduce(function(n,l){return n+Number(l.used_bytes||0)},0)));
+  };
+  window.closeConfigMenus=function(){__openConfigMenuUid='';document.querySelectorAll('#cfgCards .ocx-menu.open').forEach(function(m){m.classList.remove('open')})};
+  window.toggleConfigMenu=function(e,uid){
+    e.preventDefault();e.stopPropagation();
+    var m=document.getElementById(menuId(uid));if(!m)return;
+    var was=m.classList.contains('open');closeConfigMenus();
+    if(!was){m.classList.add('open');__openConfigMenuUid=uid}
+  };
+  window.showConfigQr=function(uid){
+    var l=(window.__linksMap||{})[uid]||(__allLinks||[]).find(function(x){return uidOf(x)===String(uid)});
+    if(!l)return;var url=getLinkUrl(l);
+    if(!url){toast('لینکی برای QR نیست');return}
+    openGroupQr(url.split('\n')[0],l.label||l.name||'ONEX');
+  };
+  window.ocxMenu=function(a,uid,e){
+    closeConfigMenus();
+    if(a==='edit')return openConfigEditor(e,uid);
+    if(a==='info'){window.open('/info/'+encodeURIComponent(uid),'_blank','noopener');return}
+    if(a==='reset')return resetUsage(uid);
+    if(a==='delete')return deleteLink(uid);
+  };
+  window.renderConfigCards=function(arr){
+    var box=document.getElementById('cfgCards');if(!box)return;
+    var sel=new Set([].slice.call(document.querySelectorAll('#cfgCards .cfg-chk:checked')).map(function(c){return String(c.value)}));
+    var openUid=__openConfigMenuUid||'';
+    updateConfigStats();
+    var vc=document.getElementById('cfgVisibleCount');if(vc)vc.textContent=(arr||[]).length+' مورد';
+    if(!arr||!arr.length){box.innerHTML='<div class="ocx-empty">'+((__allLinks||[]).length?'کانفیگی با این فیلتر پیدا نشد':'هنوز کانفیگی نساختی. از «کانفیگ جدید» شروع کن')+'</div>';updateBulkBar();return}
+    box.innerHTML=arr.map(function(l){
+      var uid=uidOf(l),s=esc(uid),dead=configExpired(l),on=l.active!==false,p=pctOf(l),d=daysLeft(l),used=Number(l.used_bytes||0);
+      var ring=dead?'var(--o-red)':(p===null?'var(--o-a2)':(p>=80?'var(--o-yellow)':'var(--o-a)'));
+      var st=dead?'<span class="st-dead">● منقضی</span>':(on?'<span class="st-on">● فعال</span>':'<span class="st-off">● خاموش</span>');
+      var exp=d===null?'<span>'+I.clock+' بدون انقضا</span>':(d<=0?'<span class="gone">'+I.clock+' منقضی شده</span>':'<span class="'+(d<=5?'warn':'')+'">'+I.clock+' '+d+' روز مانده</span>');
+      var proto=SHORT[l.protocol]||String(l.protocol||'').toUpperCase();
+      if(l.all_protocols)proto+=' +MIX';
+      return '<article class="ocx-card'+(dead?' dead':'')+'" data-uid="'+s+'">'
+        +'<div class="ocx-head">'
+          +'<div class="ocx-ring" style="--pct:'+(p===null?100:p)+';--ring:'+ring+'"><div class="ocx-ring-c"><b>'+(p===null?'∞':p+'%')+'</b><small>'+esc(fmtB(used))+'</small></div></div>'
+          +'<div class="ocx-info"><div class="ocx-name">'+esc(l.label||l.name||uid.slice(0,8))+'</div><div class="ocx-proto">'+esc(proto)+'</div>'
+          +'<div class="ocx-meta">'+st+'<span>'+I.user+' '+Number(l.connected_ips||0)+' اتصال</span>'+exp+'</div></div>'
+          +'<button type="button" class="ocx-toggle'+(on?' on':'')+'" aria-pressed="'+on+'" aria-label="روشن/خاموش" onclick="toggleConfigActive(event,\''+s+'\','+(on?'false':'true')+')"></button>'
+        +'</div>'
+        +'<div class="ocx-rule"></div>'
+        +'<div class="ocx-actions">'
+          +'<label class="ocx-chk"><input type="checkbox" class="cfg-chk" value="'+s+'" onchange="updateBulkBar()" aria-label="انتخاب"></label>'
+          +'<button type="button" class="ocx-act" onclick="copyLinkById(\''+s+'\')">'+I.link+' لینک</button>'
+          +'<button type="button" class="ocx-act" onclick="copySubById(\''+s+'\')">ساب</button>'
+          +'<button type="button" class="ocx-act" onclick="showConfigQr(\''+s+'\')">'+I.qr+' QR</button>'
+          +'<button type="button" class="ocx-dots" aria-label="بیشتر" onclick="toggleConfigMenu(event,\''+s+'\')">⋮</button>'
+        +'</div>'
+        +'<div class="ocx-menu" id="'+menuId(uid)+'" onclick="event.stopPropagation()">'
+          +'<button type="button" onclick="ocxMenu(\'edit\',\''+s+'\',event)">ویرایش کانفیگ</button>'
+          +'<button type="button" onclick="ocxMenu(\'info\',\''+s+'\',event)">صفحه اطلاعات</button>'
+          +'<button type="button" onclick="ocxMenu(\'reset\',\''+s+'\',event)">ریست مصرف</button>'
+          +'<button type="button" class="danger" onclick="ocxMenu(\'delete\',\''+s+'\',event)">حذف کانفیگ</button>'
+        +'</div>'
+      +'</article>';
+    }).join('');
+    box.querySelectorAll('.cfg-chk').forEach(function(c){c.checked=sel.has(String(c.value))});
+    if(openUid){var m=document.getElementById(menuId(openUid));if(m){m.classList.add('open');__openConfigMenuUid=openUid}else{__openConfigMenuUid=''}}
+    updateBulkBar();
+  };
+  document.addEventListener('click',function(e){if(!e.target.closest('.ocx-menu')&&!e.target.closest('.ocx-dots'))closeConfigMenus()});
+  try{if(document.getElementById('cfgCards')&&Array.isArray(__allLinks))renderConfigCards(getFilteredConfigs())}catch(err){}
+})();
+</script>
+<style id="onex-layout-fix">
+/* ============================================================
+   ONEX LAYOUT FIX (desktop + mobile)
+   1) Desktop: the neural sidebar block forced position:relative,
+      so the sidebar sat in the flex row AND .main kept its
+      margin-right => content pushed ~2x sidebar width and the
+      sidebar scrolled away with the page. Restore fixed sidebar.
+   2) Collapse toggle was clipped by overflow:hidden.
+   3) Modals living inside .main were trapped under the sidebar
+      and positioned relative to .main (backdrop-filter).
+   4) Phone: doubled top offset (body padding + main padding).
+   ============================================================ */
+@media (min-width:641px){
+  .sidebar{position:fixed!important;top:0;right:0;bottom:0;left:auto;height:100vh;height:100dvh;
+    overflow:visible;
+    clip-path:polygon(0 0,100% 0,100% 100%,0 100%,0 calc(50% + 34px),-34px calc(50% + 34px),-34px calc(50% - 34px),0 calc(50% - 34px))}
+  .sidebar .nav{min-height:0;overflow-y:auto;overflow-x:hidden}
+  .sidebar .sb-foot{flex:0 0 auto}
+  .main{margin-right:var(--sb)}
+  .main.expanded{margin-right:var(--sb-c)}
+  .sidebar.collapsed .nav-item{padding:9px 0!important;justify-content:center}
+  .onex-topbar{min-width:0}
+  .onex-topbar .top-server{min-width:0;overflow:hidden}
+  .onex-topbar .top-server small{min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+}
+/* Nav pills: full width of the nav column (was 100%-20px with 0 margin => lopsided). */
+.sidebar .nav-item{width:100%!important}
+/* Modals inside .main: lift .main above sidebar/top bar while one is open. */
+.main:has(.modal-bg.open),.main:has(.logs-modal-bg.open){z-index:1400!important;-webkit-backdrop-filter:none!important;backdrop-filter:none!important}
+@media (max-width:640px){
+  .main,.main.expanded{padding-top:12px!important}
+}
+@media (max-width:480px){
+  .sidebar{top:56px!important;height:calc(100dvh - 56px)!important}
+  .main,.main.expanded{padding-top:10px!important}
+}
+</style>
+<style id="onex-notify-fix">/* 1.3.9: panel is moved to <body> by JS and positioned under the bell,
+   so parent stacking contexts (backdrop-filter/transform) can't hide it behind the dashboard. */
+.top-notify-panel{position:fixed!important;right:24px;top:70px;width:320px;max-width:calc(100vw - 24px)!important;max-height:min(70vh,520px);overflow:auto;z-index:2147483000!important}
+.top-notify-panel[hidden]{display:none!important}
+@media (max-width:700px){.top-notify-panel{right:12px;width:calc(100vw - 24px);max-width:none;top:66px}}
+.update-prompt-bg{z-index:2147483100!important;background:rgba(1,7,18,.72);backdrop-filter:blur(9px);-webkit-backdrop-filter:blur(9px)}
+.update-prompt-modal{width:min(440px,calc(100vw - 28px));padding:26px 24px 22px;border:1px solid rgba(88,180,255,.3);border-radius:22px;background:linear-gradient(160deg,rgba(18,24,42,.97),rgba(8,10,20,.98));box-shadow:0 28px 80px rgba(0,0,0,.55);text-align:center;color:var(--t1)}
+.update-prompt-icon{width:58px;height:58px;margin:0 auto 13px;border-radius:18px;display:grid;place-items:center;font-size:28px;font-weight:900;color:#fff;background:linear-gradient(135deg,var(--accent,#38d9ff),var(--accent2,#8b5cf6))}
+.update-prompt-title{font-size:18px;font-weight:900;margin-bottom:8px}.update-prompt-text{font-size:13px;line-height:1.9;color:var(--t2)}
+.update-prompt-version{margin:12px 0;padding:9px 12px;border-radius:11px;background:rgba(37,99,235,.08);border:1px solid rgba(96,165,250,.13);color:var(--t3);font-size:11px;direction:ltr}
+.update-prompt-actions{display:flex;gap:9px;margin-top:16px}.update-prompt-actions .btn{flex:1;height:42px}
+</style>
 </body>
 </html>
 """
